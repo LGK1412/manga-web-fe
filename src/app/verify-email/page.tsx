@@ -1,152 +1,80 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { Mail } from "lucide-react"
 import { authAPI } from "@/lib/api"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import axios from "axios"
 
 export default function VerifyEmailPage() {
-  const [code, setCode] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [isResending, setIsResending] = useState(false)
-  const [email, setEmail] = useState("")
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const { toast } = useToast()
   const searchParams = useSearchParams()
+  const router = useRouter()
 
-  // Get email from URL params or localStorage
   useEffect(() => {
-    const emailParam = searchParams.get('email')
-    const storedEmail = localStorage.getItem('userEmail')
-    setEmail(emailParam || storedEmail || '')
-  }, [searchParams])
+    const token = searchParams.get("token")
 
-  // Auto-send verification code when page loads
-  useEffect(() => {
-    if (email) {
-      handleResendCode()
-    }
-  }, [email])
-
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email) {
+    if (!token) {
+      setStatus("error")
       toast({
-        title: "Error",
-        description: "Email not found. Please try registering again.",
+        title: "Liên kết không hợp lệ",
+        description: "Liên kết xác minh bị thiếu hoặc không hợp lệ.",
         variant: "destructive",
       })
       return
     }
 
-    setIsLoading(true)
+    const verifyEmail = async () => {
+      try {
+        const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/verify-email`, {
+          code: token
+        }, { withCredentials: true })
 
-    try {
-      const response = await authAPI.verifyVerificationCode(email, code)
-      
-      if (response.data.success) {
+        if (res.data.success) {
+          setStatus("success")
+          toast({
+            title: "Email đã được xác minh!",
+            description: "Tài khoản của bạn đã được xác minh thành công. Bây giờ bạn có thể đăng nhập.",
+          })
+          router.push("/login")
+        } else {
+          toast({
+            title: "Xác minh không thành công",
+            description: "Có thể liên kết đã hết hạn.",
+            variant: "destructive",
+          })
+        }
+      } catch (err: any) {
+        setStatus("error")
         toast({
-          title: "Email verified!",
-          description: "Your account has been successfully verified.",
+          title: "Xác minh không thành công",
+          description: err.response?.data?.message || err.message || "Có thể liên kết đã hết hạn.",
+          variant: "destructive",
         })
-        // Clear stored email and redirect to login
-        localStorage.removeItem('userEmail')
-        window.location.href = "/login"
-      } else {
-        throw new Error(response.data.message || "Verification failed")
       }
-    } catch (error: any) {
-      console.error("Verification error:", error)
-      toast({
-        title: "Verification failed",
-        description: error.response?.data?.message || error.message || "Invalid verification code. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleResendCode = async () => {
-    if (!email) {
-      toast({
-        title: "Error",
-        description: "Email not found. Please try registering again.",
-        variant: "destructive",
-      })
-      return
     }
 
-    setIsResending(true)
-
-    try {
-      const response = await authAPI.sendVerificationCode(email)
-      
-      if (response.data.success) {
-        toast({
-          title: "Code sent!",
-          description: "A new verification code has been sent to your email.",
-        })
-      } else {
-        throw new Error(response.data.message || "Failed to send code")
-      }
-    } catch (error: any) {
-      console.error("Resend error:", error)
-      toast({
-        title: "Failed to resend",
-        description: error.response?.data?.message || error.message || "Please try again later.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsResending(false)
-    }
-  }
+    verifyEmail()
+  }, [searchParams, toast])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+      <Card className="w-full max-w-md text-center">
+        <CardHeader>
           <div className="flex justify-center mb-4">
             <Mail className="h-8 w-8" />
           </div>
-          <CardTitle className="text-2xl">Verify Your Email</CardTitle>
+          <CardTitle className="text-2xl">Email Verification</CardTitle>
           <CardDescription>
-            We've sent a verification code to <strong>{email}</strong>. Please enter it below to activate your account.
+            {status === "loading" && "Đang xác minh email của bạn, vui lòng đợi..."}
+            {status === "success" && "Email của bạn đã được xác minh! Đang chuyển hướng đến trang đăng nhập..."}
+            {status === "error" && "Xác minh không thành công. Vui lòng thử lại hoặc yêu cầu liên kết mới."}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <form onSubmit={handleVerify} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="code">Verification Code</Label>
-              <Input
-                id="code"
-                type="text"
-                placeholder="Enter 6-digit code"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                maxLength={6}
-                required
-              />
-            </div>
-
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Verifying..." : "Verify Email"}
-            </Button>
-          </form>
-
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground mb-2">{"Didn't receive the code?"}</p>
-            <Button variant="outline" onClick={handleResendCode} disabled={isResending}>
-              {isResending ? "Sending..." : "Resend Code"}
-            </Button>
-          </div>
-        </CardContent>
+        <CardContent />
       </Card>
     </div>
   )

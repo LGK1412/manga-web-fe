@@ -11,8 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, Lock, CheckCircle } from "lucide-react"
-import { authAPI } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import axios from "axios"
 
 export default function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState("")
@@ -22,7 +22,6 @@ export default function ResetPasswordPage() {
   const [isSuccess, setIsSuccess] = useState(false)
   const [email, setEmail] = useState("")
   const [code, setCode] = useState("")
-
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -30,6 +29,7 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const emailParam = searchParams.get("email")
     const codeParam = searchParams.get("code")
+
     if (emailParam) {
       setEmail(emailParam)
     } else {
@@ -69,20 +69,39 @@ export default function ResetPasswordPage() {
     }
 
     try {
-      const response = await authAPI.verifyForgotPasswordCode(email, code, newPassword)
-      
-      if (response.data.success) {
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/verify-forgot-password`, {
+        password: newPassword,
+        code
+      }, { withCredentials: true })
+
+      if (res.data.success) {
         toast({
-          title: "Đặt lại mật khẩu thành công!",
-          description: "Bạn có thể đăng nhập với mật khẩu mới.",
+          title: "Đổi mật khẩu thành công",
+          description: "Có thể đăng nhập lại bằng mật khẩu mới",
         })
         setIsSuccess(true)
+        router.push("/login")
       } else {
-        throw new Error(response.data.message || "Failed to reset password")
+        toast({
+          title: "Đổi mật khẩu không thành công",
+          description: "Vui lòng làm lại.",
+          variant: "destructive",
+        })
       }
     } catch (error: any) {
-      console.error("Reset password error:", error)
-      setError(error.response?.data?.message || error.message || "Không thể đặt lại mật khẩu. Vui lòng thử lại.")
+      if (axios.isAxiosError(error)) {
+        toast({
+          title: "Đổi mật khẩu không thành công",
+          description: error.response?.data.message || error,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Đổi mật khẩu không thành công",
+          description: `Lỗi không mong muốn: ${error}`,
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsLoading(false)
     }

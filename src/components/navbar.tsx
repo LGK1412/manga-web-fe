@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
@@ -18,10 +18,18 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Separator } from "@/components/ui/separator"
 import { Search, Bell, BookOpen, PenTool, User, LogOut, Menu, Sun, Moon, Gamepad2 } from "lucide-react"
+import Cookies from 'js-cookie';
+import { removeCookie } from "@/lib/cookie-func"
+import axios from "axios"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 export function Navbar() {
-  const { user, logout } = useAuth()
+  const { isLogin } = useAuth()
+  const [user, setUser] = useState<any | undefined>()
   const { theme, setTheme } = useTheme()
+  const { toast } = useToast()
+  const router = useRouter()
 
   // Desktop search state
   const [searchQuery, setSearchQuery] = useState("")
@@ -37,9 +45,47 @@ export function Navbar() {
     }
   }
 
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const raw = Cookies.get("user_normal_info")
+    if (raw) {
+      try {
+        const decoded = decodeURIComponent(raw)
+        const parsed = JSON.parse(decoded)
+        setUser(parsed)
+      } catch (e) {
+        console.error("Invalid cookie data")
+      }
+    }
+  }, [isLogin, mounted])
+
+
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     submitSearch(searchQuery)
+  }
+
+  async function logout() {
+    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, { withCredentials: true })
+
+    if (res.data.success) {
+      await removeCookie()
+      router.push("/login")
+    } else {
+      toast({
+        title: "Đăng xuất không thành công",
+        description: `Lỗi không mong muốn`,
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -86,10 +132,10 @@ export function Navbar() {
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               aria-label="Toggle theme"
             >
-              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {mounted ? (theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />) : null}
             </Button>
 
-            {user ? (
+            {isLogin && user ? (
               <>
                 <Button variant="ghost" size="icon" asChild>
                   <Link href="/notifications">
@@ -97,7 +143,7 @@ export function Navbar() {
                   </Link>
                 </Button>
 
-                {user.isAuthor && (
+                {user.role === 'author' && (
                   <Button variant="ghost" size="icon" asChild>
                     <Link href="/write">
                       <PenTool className="h-5 w-5" />
@@ -111,9 +157,9 @@ export function Navbar() {
                       <Avatar className="h-8 w-8">
                         <AvatarImage
                           src={user.avatar || "/placeholder.svg?height=64&width=64&query=user-avatar"}
-                          alt={user.name}
+                          alt={user.username}
                         />
-                        <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>{user.username.charAt(0)}</AvatarFallback>
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
@@ -196,7 +242,7 @@ export function Navbar() {
                     <Link
                       href="/game"
                       onClick={() => setIsMenuOpen(false)}
-                      className="block py-2 text-sm hover:underline flex items-center gap-2"
+                      className="py-2 text-sm hover:underline flex items-center gap-2"
                     >
                       <Gamepad2 className="h-4 w-4" />
                       Game
@@ -227,7 +273,7 @@ export function Navbar() {
                             src={user.avatar || "/placeholder.svg?height=64&width=64&query=user-avatar"}
                             alt={user.name}
                           />
-                          <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                          <AvatarFallback>{user.username.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="text-sm">
                           <p className="font-medium">{user.name}</p>
@@ -237,7 +283,7 @@ export function Navbar() {
                       <Link href="/notifications" onClick={() => setIsMenuOpen(false)} className="block py-2 text-sm">
                         Notifications
                       </Link>
-                      {user.isAuthor && (
+                      {user.role === 'author' && (
                         <Link href="/write" onClick={() => setIsMenuOpen(false)} className="block py-2 text-sm">
                           Write
                         </Link>

@@ -139,8 +139,6 @@ export default function GamePage() {
       }
     }
   }
-  console.log(process.env.NEXT_PUBLIC_API_URL)
-  console.log(process.env.JWT_SECRET)
   return (
     <div className="min-h-screen bg-slate-900 text-white pt-20 pb-8">
       <div className="container mx-auto px-4">

@@ -29,9 +29,15 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        default: "border bg-background text-foreground",
+        default: "border bg-background text-white",
         destructive:
-          "destructive group border-destructive bg-destructive text-destructive-foreground",
+          "destructive group border-destructive bg-destructive text-white",
+        success:
+          "group border-green-600 bg-green-600 text-white",
+        info:
+          "group border-blue-600 bg-blue-600 text-white",
+        warning:
+          "group border-yellow-500 bg-yellow-500 text-black",
       },
     },
     defaultVariants: {
@@ -43,7 +49,7 @@ const toastVariants = cva(
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
-    VariantProps<typeof toastVariants>
+  VariantProps<typeof toastVariants>
 >(({ className, variant, ...props }, ref) => {
   return (
     <ToastPrimitives.Root

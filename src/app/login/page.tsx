@@ -11,47 +11,77 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { BookOpen, Mail, Eye, EyeOff } from "lucide-react"
+import { BookOpen, Eye, EyeOff } from "lucide-react"
+import axios from "axios"
+import { useRouter } from "next/navigation"
+import { setCookie } from "@/lib/cookie-func"
+import GoogleButton from '@/components/GoogleButton'
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const { login, loginWithGoogle } = useAuth()
   const { toast } = useToast()
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
+
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      await login(email, password)
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
+        email,
+        password
+      }, { withCredentials: true })
+
+
+      setCookie(res.data.tokenPayload);
+
       toast({
-        title: "Welcome back!",
-        description: "You have successfully logged in.",
+        title: "Chào mừng trở lại!",
+        description: "Bạn đã đăng nhập thành công",
       })
-      window.location.href = "/"
+
+      router.push("/")
     } catch (error) {
-      toast({
-        title: "Login failed",
-        description: "Please check your credentials and try again.",
-        variant: "destructive",
-      })
+      if (axios.isAxiosError(error)) {
+        if (error.response?.data.message.includes("Tài khoản này chưa được xác minh")) {
+
+          // Gửi verify nếu chưa khi login
+          const resSend = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/send-verify-email`, {
+            email: email,
+          }, { withCredentials: true })
+
+          if (resSend.data.success) {
+            toast({
+              title: "Gửi link xác thực thành công!",
+              description: "Vui lòng kiểm tra email để xác minh tài khoản của bạn để có thể đăng nhập.",
+            })
+          } else {
+            toast({
+              title: "Gửi link xác thực không thành công!",
+              description: "Vui lòng đăng nhập để thử lại.",
+              variant: "destructive",
+            })
+          }
+        } else {
+          toast({
+            title: "Đăng nhập thất bại!",
+            description: error.response?.data.message || "Lỗi server",
+            variant: "destructive",
+          })
+        }
+      } else {
+        toast({
+          title: "Đăng nhập không thành công",
+          description: `Lỗi không mong muốn: ${error}`,
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const handleGoogleLogin = async () => {
-    try {
-      await loginWithGoogle()
-    } catch (error) {
-      toast({
-        title: "Google login failed",
-        description: "Please try again later.",
-        variant: "destructive",
-      })
     }
   }
 
@@ -112,10 +142,9 @@ export default function LoginPage() {
 
           <Separator />
 
-          <Button variant="outline" className="w-full bg-transparent" onClick={handleGoogleLogin}>
-            <Mail className="mr-2 h-4 w-4" />
-            Continue with Google
-          </Button>
+          <div className="w-full bg-transparent" >
+            <GoogleButton />
+          </div>
 
           <div className="text-center text-sm">
             {"Don't have an account? "}

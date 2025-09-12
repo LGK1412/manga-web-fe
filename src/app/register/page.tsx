@@ -3,7 +3,6 @@
 import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
-import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,7 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { BookOpen, Mail, Eye, EyeOff } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast" // Import useToast
+import { useToast } from "@/hooks/use-toast" // Import useToast
+import axios from "axios"
+import { useRouter } from "next/navigation"
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -24,8 +25,8 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const { register, loginWithGoogle } = useAuth()
-  const { toast } = useToast() // Declare useToast
+  const router = useRouter()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,16 +52,58 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      await register(formData.email, formData.password, formData.name)
-      toast({
-        title: "Registration successful!",
-        description: "Please check your email to verify your account.",
-      })
-      window.location.href = `/verify-email?email=${encodeURIComponent(formData.email)}`
+      try {
+        const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`, {
+          email: formData.email,
+          password: formData.password,
+          username: formData.name
+        }, { withCredentials: true })
+
+        if (res.data.success) {
+          
+          // Dk thành công gửi Verify
+          const resSend = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/send-verify-email`, {
+            email: formData.email,
+          }, { withCredentials: true })
+          if (resSend.data.success) {
+            toast({
+              title: "Gửi link xác thực thành công!",
+              description: "Vui lòng kiểm tra email để xác minh tài khoản của bạn.",
+            })
+          } else {
+            toast({
+              title: "Gửi link xác thực không thành công!",
+              description: "Vui lòng đăng nhập để thử lại.",
+              variant: "destructive",
+            })
+          }
+
+        } else {
+          toast({
+            title: "Đăng ký không thành công",
+            description: res.data.message,
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          toast({
+            title: "Đăng ký không thành công",
+            description: error.response?.data.message || error,
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Đăng ký không thành công",
+            description: `Lỗi không mong muốn: ${error}`,
+            variant: "destructive",
+          })
+        }
+      }
     } catch (error) {
       toast({
-        title: "Registration failed",
-        description: "Please try again later.",
+        title: "Lỗi không mong muốn",
+        description: "Vui lòng thử lại sau.",
         variant: "destructive",
       })
     } finally {
@@ -70,7 +113,7 @@ export default function RegisterPage() {
 
   const handleGoogleRegister = async () => {
     try {
-      await loginWithGoogle()
+      // await loginWithGoogle()
     } catch (error) {
       toast({
         title: "Google registration failed",
@@ -93,11 +136,11 @@ export default function RegisterPage() {
         <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">Username</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder="Enter your full name"
+                placeholder="Enter your username"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
@@ -162,6 +205,7 @@ export default function RegisterPage() {
                 id="terms"
                 checked={formData.agreeToTerms}
                 onCheckedChange={(checked) => setFormData({ ...formData, agreeToTerms: checked as boolean })}
+                required
               />
               <Label htmlFor="terms" className="text-sm">
                 I agree to the{" "}

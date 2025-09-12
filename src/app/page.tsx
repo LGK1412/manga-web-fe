@@ -19,62 +19,62 @@ export default function HomePage() {
 
   useEffect(() => {
     const fetchMangaData = async () => {
-      try {
-        setLoading(true)
-        const response = await mangaAPI.getMangaData()
+      // try {
+      //   setLoading(true)
+      //   const response = await mangaAPI.getMangaData()
         
-        if (response.data.success) {
-          // Transform backend data to frontend Story format
-          const transformMangaToStory = (manga: any): Story => ({
-            id: manga._id,
-            title: manga.name,
-            description: manga.description,
-            coverImage: getImageUrl(manga.image, 'thumbnail'),
-            author: {
-              id: manga.author._id,
-              email: manga.author.email,
-              name: manga.author.name,
-              avatar: getImageUrl(manga.author.avatar, 'avatar'),
-              bio: "",
-              isAuthor: manga.author.role === 'author',
-              followersCount: 0,
-              followingCount: 0,
-              createdAt: manga.author.createdAt,
-            },
-            genre: manga.categories?.map((cat: any) => cat.name) || [],
-            tags: [],
-            status: manga.status,
-            visibility: "public",
-            rating: manga.averageRating || 0,
-            ratingsCount: manga.voteCount || 0,
-            viewsCount: manga.view || 0,
-            chaptersCount: 0, // Will be updated when we get chapter data
-            isFavorited: false,
-            isFollowing: false,
-            createdAt: manga.createdAt,
-            updatedAt: manga.updatedAt,
-          })
+      //   if (response.data.success) {
+      //     // Transform backend data to frontend Story format
+      //     const transformMangaToStory = (manga: any): Story => ({
+      //       id: manga._id,
+      //       title: manga.name,
+      //       description: manga.description,
+      //       coverImage: getImageUrl(manga.image, 'thumbnail'),
+      //       author: {
+      //         id: manga.author._id,
+      //         email: manga.author.email,
+      //         name: manga.author.name,
+      //         avatar: getImageUrl(manga.author.avatar, 'avatar'),
+      //         bio: "",
+      //         isAuthor: manga.author.role === 'author',
+      //         followersCount: 0,
+      //         followingCount: 0,
+      //         createdAt: manga.author.createdAt,
+      //       },
+      //       genre: manga.categories?.map((cat: any) => cat.name) || [],
+      //       tags: [],
+      //       status: manga.status,
+      //       visibility: "public",
+      //       rating: manga.averageRating || 0,
+      //       ratingsCount: manga.voteCount || 0,
+      //       viewsCount: manga.view || 0,
+      //       chaptersCount: 0, // Will be updated when we get chapter data
+      //       isFavorited: false,
+      //       isFollowing: false,
+      //       createdAt: manga.createdAt,
+      //       updatedAt: manga.updatedAt,
+      //     })
 
-          const allStories = response.data.mangas?.map(transformMangaToStory) || []
-          const trending = response.data.trending?.map(transformMangaToStory) || []
+      //     const allStories = response.data.mangas?.map(transformMangaToStory) || []
+      //     const trending = response.data.trending?.map(transformMangaToStory) || []
           
-          setStories(allStories)
-          setTrendingStories(trending)
-        } else {
-          setError(response.data.message || "Failed to load stories")
-        }
-      } catch (err: any) {
-        console.error("Error fetching manga data:", err)
+      //     setStories(allStories)
+      //     setTrendingStories(trending)
+      //   } else {
+      //     setError(response.data.message || "Failed to load stories")
+      //   }
+      // } catch (err: any) {
+      //   console.error("Error fetching manga data:", err)
         
-        // Check if it's a connection error (backend not running)
-        if (err.code === 'ERR_NETWORK' || err.message.includes('ERR_CONNECTION_REFUSED')) {
-          setError("Backend server is not running. Please start the backend server first.")
-        } else {
-          setError(err.response?.data?.message || err.message || "Failed to load stories")
-        }
-      } finally {
-        setLoading(false)
-      }
+      //   // Check if it's a connection error (backend not running)
+      //   if (err.code === 'ERR_NETWORK' || err.message.includes('ERR_CONNECTION_REFUSED')) {
+      //     setError("Backend server is not running. Please start the backend server first.")
+      //   } else {
+      //     setError(err.response?.data?.message || err.message || "Failed to load stories")
+      //   }
+      // } finally {
+      //   setLoading(false)
+      // }
     }
 
     // Only fetch on client side to avoid hydration issues
