@@ -36,8 +36,7 @@ export default function LoginPage() {
         password
       }, { withCredentials: true })
 
-
-      setCookie(res.data.tokenPayload);
+      await setCookie(res.data.tokenPayload);
 
       toast({
         title: "Chào mừng trở lại!",
