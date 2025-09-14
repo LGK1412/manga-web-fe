@@ -53,7 +53,7 @@ export default function Home() {
                 title: "Chào mừng trở lại!",
                 description: "Bạn đã đăng nhập thành công",
             })
-            router.replace("/");
+            router.push("/");
         } catch (error: any) {
             if (axios.isAxiosError(error)) {
                 toast({

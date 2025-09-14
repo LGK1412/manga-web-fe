@@ -13,6 +13,7 @@ import { BookOpen, Mail, Eye, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast" // Import useToast
 import axios from "axios"
 import { useRouter } from "next/navigation"
+import GoogleButton from '@/components/GoogleButton'
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
