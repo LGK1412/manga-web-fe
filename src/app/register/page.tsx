@@ -61,7 +61,7 @@ export default function RegisterPage() {
         }, { withCredentials: true })
 
         if (res.data.success) {
-          
+
           // Dk thành công gửi Verify
           const resSend = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/send-verify-email`, {
             email: formData.email,
@@ -227,10 +227,7 @@ export default function RegisterPage() {
 
           <Separator />
 
-          <Button variant="outline" className="w-full bg-transparent" onClick={handleGoogleRegister}>
-            <Mail className="mr-2 h-4 w-4" />
-            Continue with Google
-          </Button>
+          <GoogleButton />
 
           <div className="text-center text-sm">
             Already have an account?{" "}

@@ -24,7 +24,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const { toast } = useToast()
   const router = useRouter();
-
   const handleSubmit = async (e: React.FormEvent) => {
 
     e.preventDefault()
@@ -42,7 +41,7 @@ export default function LoginPage() {
         title: "Chào mừng trở lại!",
         description: "Bạn đã đăng nhập thành công",
       })
-
+      
       router.push("/")
     } catch (error) {
       if (axios.isAxiosError(error)) {

@@ -46,6 +46,8 @@ export default function Home() {
                 { idToken: response.credential },
                 { withCredentials: true },                
             );
+            
+            console.log(res.data.tokenPayload)
 
             setCookie(res.data.tokenPayload);
 
