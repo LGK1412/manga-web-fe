@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Plus, BookOpen, Edit, Upload } from "lucide-react"
+import { Plus, BookOpen,ImageIcon, Edit, Upload, Trash } from "lucide-react"
 import Cookies from "js-cookie"
 import { Navbar } from "@/components/navbar"
 import axios from "axios"
@@ -20,6 +20,7 @@ interface Manga {
     type: "text" | "image"
     isDraft: boolean
     isPublic: boolean
+    isDeleted?: boolean
     createdAt: string
     updatedAt: string
     viewCount: number
@@ -55,10 +56,9 @@ export default function AuthorDashboard() {
                     { withCredentials: true }
                 )
 
-                const allStories: Manga[] = [
-                    ...(data.published || []),
-                    ...(data.drafts || []),
-                ]
+                const allStories: Manga[] = Array.isArray(data)
+                    ? data
+                    : [...(data?.published || []), ...(data?.drafts || [])]
 
                 setTextStories(allStories.filter((s) => s.type === "text"))
                 setImageStories(allStories.filter((s) => s.type === "image"))
@@ -69,6 +69,22 @@ export default function AuthorDashboard() {
 
         fetchData()
     }, [])
+
+    const handleToggleDelete = async (id: string, currentDeleted: boolean) => {
+        const ok = window.confirm(currentDeleted ? "Hoàn tác xoá truyện này?" : "Bạn có chắc muốn xoá (mềm) truyện này?")
+        if (!ok) return
+        try {
+            const { data } = await axios.post(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/manga/${id}/toggle-delete`,
+                {},
+                { withCredentials: true }
+            )
+            setTextStories((prev) => prev.map((s) => (s._id === id ? { ...s, isDeleted: data?.isDeleted } : s)))
+            setImageStories((prev) => prev.map((s) => (s._id === id ? { ...s, isDeleted: data?.isDeleted } : s)))
+        } catch (err) {
+            console.error("Cập nhật xoá mềm thất bại", err)
+        }
+    }
 
     return (
         <div className="min-h-screen bg-background mb-5">
@@ -99,14 +115,21 @@ export default function AuthorDashboard() {
                                     ) : (
                                         <Badge variant="default" className="text-xs">Published</Badge>
                                     )}
+                                    {story.isDeleted ? (
+                                        <Badge variant="secondary" className="text-xs">Đã xoá</Badge>
+                                    ) : null}
                                 </CardTitle>
                                 <CardDescription>{story.description}</CardDescription>
                                 <div className="flex flex-wrap gap-1 mt-2">
-                                    {story.genres.map((g) => (
-                                        <Badge key={g} variant="secondary" className="text-xs">
-                                            {g}
-                                        </Badge>
-                                    ))}
+                                    {story.genres.map((g: any) => {
+                                        const key = typeof g === "string" ? g : g._id || g.name
+                                        const label = typeof g === "string" ? g : g.name
+                                        return (
+                                            <Badge key={key} variant="secondary" className="text-xs">
+                                                {label}
+                                            </Badge>
+                                        )
+                                    })}
                                 </div>
                             </CardHeader>
                             <CardContent>
@@ -116,19 +139,31 @@ export default function AuthorDashboard() {
                                         {new Date(story.createdAt).toLocaleDateString("vi-VN")}
                                     </span>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Link href={`/author/story/${story._id}/edit`}>
-                                        <Button variant="outline" size="sm">
-                                            <Edit className="w-4 h-4 mr-1" />
-                                            Sửa
+                                <div className="flex items-center gap-2">
+                                    <div className="flex gap-2">
+                                        <Link href={`/author/story/edit/${story._id}`}>
+                                            <Button variant="outline" size="sm">
+                                                <Edit className="w-4 h-4 mr-1" />
+                                                Sửa
+                                            </Button>
+                                        </Link>
+                                        <Link href={`/author/chapter`}>
+                                            <Button variant="outline" size="sm">
+                                                <Upload className="w-4 h-4 mr-1" />
+                                                Chapter
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                    <div className="ml-auto">
+                                        <Button
+                                            variant={story.isDeleted ? "outline" : "destructive"}
+                                            size="sm"
+                                            onClick={() => handleToggleDelete(story._id, !!story.isDeleted)}
+                                        >
+                                            <Trash className="w-4 h-4 mr-1" />
+                                            {story.isDeleted ? "Hoàn tác" : "Xoá"}
                                         </Button>
-                                    </Link>
-                                    <Link href={`/author/chapter`}>
-                                        <Button variant="outline" size="sm">
-                                            <Upload className="w-4 h-4 mr-1" />
-                                            Chapter
-                                        </Button>
-                                    </Link>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -147,21 +182,28 @@ export default function AuthorDashboard() {
                         <Card key={story._id} className="hover:shadow-lg transition-shadow">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
-                                    <BookOpen className="w-5 h-5" />
+                                    <ImageIcon className="w-5 h-5" />
                                     {story.title}
                                     {story.isDraft ? (
                                         <Badge variant="destructive" className="text-xs">Draft</Badge>
                                     ) : (
                                         <Badge variant="default" className="text-xs">Published</Badge>
                                     )}
+                                    {story.isDeleted ? (
+                                        <Badge variant="secondary" className="text-xs">Đã xoá</Badge>
+                                    ) : null}
                                 </CardTitle>
                                 <CardDescription>{story.description}</CardDescription>
                                 <div className="flex flex-wrap gap-1 mt-2">
-                                    {story.genres.map((g) => (
-                                        <Badge key={g} variant="secondary" className="text-xs">
-                                            {g}
-                                        </Badge>
-                                    ))}
+                                    {story.genres.map((g: any) => {
+                                        const key = typeof g === "string" ? g : g._id || g.name
+                                        const label = typeof g === "string" ? g : g.name
+                                        return (
+                                            <Badge key={key} variant="secondary" className="text-xs">
+                                                {label}
+                                            </Badge>
+                                        )
+                                    })}
                                 </div>
                             </CardHeader>
                             <CardContent>
@@ -171,19 +213,31 @@ export default function AuthorDashboard() {
                                         {new Date(story.createdAt).toLocaleDateString("vi-VN")}
                                     </span>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Link href={`/author/story/edit/${story._id}`}>
-                                        <Button variant="outline" size="sm">
-                                            <Edit className="w-4 h-4 mr-1" />
-                                            Sửa
+                                <div className="flex items-center gap-2">
+                                    <div className="flex gap-2">
+                                        <Link href={`/author/story/edit/${story._id}`}>
+                                            <Button variant="outline" size="sm">
+                                                <Edit className="w-4 h-4 mr-1" />
+                                                Sửa
+                                            </Button>
+                                        </Link>
+                                        <Link href={`/author/chapter/${story._id}`}>
+                                            <Button variant="outline" size="sm">
+                                                <Upload className="w-4 h-4 mr-1" />
+                                                Chapter
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                    <div className="ml-auto">
+                                        <Button
+                                            variant={story.isDeleted ? "outline" : "destructive"}
+                                            size="sm"
+                                            onClick={() => handleToggleDelete(story._id, !!story.isDeleted)}
+                                        >
+                                            <Trash className="w-4 h-4 mr-1" />
+                                            {story.isDeleted ? "Hoàn tác" : "Xoá"}
                                         </Button>
-                                    </Link>
-                                    <Link href={`/author/chapter/${story._id}`}>
-                                        <Button variant="outline" size="sm">
-                                            <Upload className="w-4 h-4 mr-1" />
-                                            Chapter
-                                        </Button>
-                                    </Link>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>

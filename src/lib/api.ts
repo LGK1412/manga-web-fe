@@ -1,13 +1,14 @@
 import axios from "axios"
 
 // API client setup for backend integration
-// Backend chạy trên port 333
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:333"
-const STATIC_BASE_URL = process.env.NEXT_PUBLIC_STATIC_URL || "http://localhost:333"
+// Backend chạy trên port 3333
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333"
+const STATIC_BASE_URL = process.env.NEXT_PUBLIC_STATIC_URL || "http://localhost:3333"
 
 const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api`, // Backend API base URL
   timeout: 10000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -111,6 +112,13 @@ export const chapterAPI = {
   // Get chapter by ID
   getChapterById: (chapterId: string) =>
     apiClient.get(`/chapter/get-chapter/${chapterId}`),
+}
+
+export const genresAPI = {
+  getAllGenres: () => apiClient.get('/genre'),
+  createGenre: (name: string) => apiClient.post('/genre', { name }),
+  createMultipleGenres: (genres: string[]) => apiClient.post('/genre/bulk', { genres }),
+  deleteGenre: (id: string) => apiClient.delete(`/genre/${id}`),
 }
 
 export const userAPI = {

@@ -145,7 +145,7 @@ export function Navbar() {
                 
                 {user.role.trim() === 'author' && (
                   <Button variant="ghost" size="icon" asChild>
-                    <Link href="/write">
+                    <Link href="/author/dashboard">
                       <PenTool className="h-5 w-5" />
                     </Link>
                   </Button>
@@ -284,7 +284,7 @@ export function Navbar() {
                         Notifications
                       </Link>
                       {user.role === 'author' && (
-                        <Link href="/write" onClick={() => setIsMenuOpen(false)} className="block py-2 text-sm">
+                        <Link href="/author/dashboard" onClick={() => setIsMenuOpen(false)} className="block py-2 text-sm">
                           Write
                         </Link>
                       )}
