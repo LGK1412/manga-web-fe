@@ -6,7 +6,7 @@ export async function removeCookie() {
 
 export async function setCookie(tokenPayload: any) {
     const palyerInfo = {
-        user_id: tokenPayload._id,
+        user_id: tokenPayload.user_id,
         email: tokenPayload.email,
         username: tokenPayload.username,
         role: tokenPayload.role,

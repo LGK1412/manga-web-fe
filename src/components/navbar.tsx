@@ -139,11 +139,11 @@ export function Navbar() {
               <>
                 <Button variant="ghost" size="icon" asChild>
                   <Link href="/notifications">
-                    <Bell className="h-5 w-5" />
+                    <Bell className="h-5 w-5S" />
                   </Link>
                 </Button>
-
-                {user.role === 'author' && (
+                
+                {user.role.trim() === 'author' && (
                   <Button variant="ghost" size="icon" asChild>
                     <Link href="/write">
                       <PenTool className="h-5 w-5" />
