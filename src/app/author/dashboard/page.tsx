@@ -147,7 +147,7 @@ export default function AuthorDashboard() {
                                                 Sửa
                                             </Button>
                                         </Link>
-                                        <Link href={`/author/chapter`}>
+                                        <Link href={`/author/chapter/${story._id}/textChapter/create`}>
                                             <Button variant="outline" size="sm">
                                                 <Upload className="w-4 h-4 mr-1" />
                                                 Chapter
