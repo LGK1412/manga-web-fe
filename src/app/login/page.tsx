@@ -37,12 +37,19 @@ export default function LoginPage() {
 
       await setCookie(res.data.tokenPayload);
 
+      const role = res.data?.tokenPayload?.role?.toLowerCase();
+
       toast({
         title: "Chào mừng trở lại!",
         description: "Bạn đã đăng nhập thành công",
       })
+
+      if (role === "admin") {
+        router.push("/");
+      } else {
+        router.push("/");
+      }
       
-      router.push("/")
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response?.data.message.includes("Tài khoản này chưa được xác minh")) {
