@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Separator } from "@/components/ui/separator"
-import { Search, Bell, BookOpen, PenTool, User, LogOut, Menu, Sun, Moon, Gamepad2 } from "lucide-react"
+import { Search, Bell, BookOpen, PenTool, User, LogOut, Menu, Sun, Moon, Gamepad2, UserStar } from "lucide-react"
 import Cookies from 'js-cookie';
 import { removeCookie } from "@/lib/cookie-func"
 import axios from "axios"
@@ -142,11 +142,19 @@ export function Navbar() {
                     <Bell className="h-5 w-5S" />
                   </Link>
                 </Button>
-                
+
                 {user.role.trim() === 'author' && (
                   <Button variant="ghost" size="icon" asChild>
                     <Link href="/author/dashboard">
                       <PenTool className="h-5 w-5" />
+                    </Link>
+                  </Button>
+                )}
+
+                {user.role.trim() === 'admin' && (
+                  <Button variant="ghost" size="icon" asChild>
+                    <Link href="/admin/dashboard">
+                      <UserStar className="h-5 w-5" />
                     </Link>
                   </Button>
                 )}
