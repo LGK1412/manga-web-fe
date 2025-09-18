@@ -506,7 +506,7 @@ export default function CreateChapterPage({
 
                     <div>
                       <label className="block text-sm font-medium text-slate-700">
-                        Giá (VND)
+                        Point
                       </label>
                       <input
                         type="number"
@@ -540,7 +540,7 @@ export default function CreateChapterPage({
                 </div>
                 <div className="p-5">
                   <NativeRichEditor
-                    value={content}
+                    value={content} // HTML
                     onChange={(html) => {
                       setContent(html);
                       setDirty(true);

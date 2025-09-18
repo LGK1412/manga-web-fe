@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bold,
   Italic,
@@ -8,248 +8,296 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  Type,
+  PaintBucket,
 } from "lucide-react";
 
-export type Props = {
-  value: string; // HTML
+export interface NativeRichEditorProps {
+  /** HTML string */
+  value: string;
+  /** Receives the current HTML string */
   onChange: (html: string) => void;
   placeholder?: string;
   className?: string;
-  minHeight?: number; // px
-};
+  /** px */
+  minHeight?: number;
+}
 
-// ---- sanitizer: chỉ cho phép text-align trên P/DIV (+ chuyển align attr -> style)
-function sanitizeHTML(html: string): string {
-  const container = document.createElement("div");
-  container.innerHTML = html || "";
+// ---- utils
+function selectionInside(el: HTMLElement | null) {
+  if (!el) return false;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  const range = sel.getRangeAt(0);
+  const container = range.commonAncestorContainer as Node;
+  return el.contains(
+    container.nodeType === 1 ? (container as Node) : container
+  );
+}
 
-  const ALLOWED_TAGS = new Set([
-    "P",
-    "DIV",
-    "BR",
-    "B",
-    "I",
-    "U",
-    "STRONG",
-    "EM",
-  ]);
-  const allowedAlign = new Set(["left", "center", "right"]);
+function htmlFromRange(range: Range) {
+  const div = document.createElement("div");
+  div.appendChild(range.cloneContents());
+  return div.innerHTML;
+}
 
-  const keepOnlyTextAlign = (el: HTMLElement) => {
-    // Ưu tiên lấy từ style
-    const style = el.getAttribute("style") || "";
-    let align = "";
-    style
-      .split(";")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .forEach((declaration) => {
-        const [k, v] = declaration
-          .split(":")
-          .map((x) => (x || "").trim().toLowerCase());
-        if (k === "text-align" && allowedAlign.has(v)) align = v;
-      });
-
-    // Nếu không có trong style, check thuộc tính align="center|left|right"
-    if (!align) {
-      const legacy = (el.getAttribute("align") || "").toLowerCase();
-      if (allowedAlign.has(legacy)) {
-        align = legacy;
-      }
-    }
-
-    // Chuẩn hoá: chỉ để lại style text-align; xoá align và attr khác
-    if (align) el.setAttribute("style", `text-align: ${align};`);
-    else el.removeAttribute("style");
-    el.removeAttribute("align");
-
-    // Xoá mọi attr khác ngoài style
-    [...el.attributes].forEach((a) => {
-      const n = a.name.toLowerCase();
-      if (n !== "style") el.removeAttribute(a.name);
-    });
-  };
-
-  const walk = (node: Node) => {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as HTMLElement;
-
-      // Loại tag không cho phép (nâng children lên)
-      if (!ALLOWED_TAGS.has(el.tagName)) {
-        const parent = el.parentNode;
-        while (el.firstChild) parent?.insertBefore(el.firstChild, el);
-        parent?.removeChild(el);
-        return;
-      }
-
-      // Xoá on* handlers
-      [...el.attributes].forEach((attr) => {
-        const name = attr.name.toLowerCase();
-        if (name.startsWith("on")) el.removeAttribute(attr.name);
-      });
-
-      if (el.tagName === "P" || el.tagName === "DIV") {
-        keepOnlyTextAlign(el);
-      } else {
-        // b/i/u/strong/em/br => xoá hết attr (không cần style)
-        [...el.attributes].forEach((a) => el.removeAttribute(a.name));
-      }
-    }
-
-    let child = node.firstChild;
-    while (child) {
-      const next = child.nextSibling;
-      walk(child);
-      child = next;
-    }
-  };
-
-  container.querySelectorAll("script, style").forEach((n) => n.remove());
-  walk(container);
-  return container.innerHTML;
+function wrapSelectionWithSpan(style: Partial<CSSStyleDeclaration>) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  const range = sel.getRangeAt(0);
+  if (range.collapsed) return false;
+  const html = htmlFromRange(range);
+  const span = document.createElement("span");
+  Object.assign(span.style, style);
+  span.innerHTML = html;
+  range.deleteContents();
+  range.insertNode(span);
+  // place caret after inserted span
+  range.setStartAfter(span);
+  range.setEndAfter(span);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  return true;
 }
 
 export default function NativeRichEditor({
   value,
   onChange,
-  placeholder = "Bắt đầu viết…",
-  className = "",
+  placeholder = "Type...",
+  className,
   minHeight = 200,
-}: Props) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const lastEmittedRef = useRef<string>("");
+}: NativeRichEditorProps) {
+  const editableRef = useRef<HTMLDivElement>(null);
   const [isFocused, setIsFocused] = useState(false);
-  const [isEmpty, setIsEmpty] = useState(true);
+  const isEmpty = useMemo(
+    () => !value || value.replace(/<[^>]+>/g, "").trim().length === 0,
+    [value]
+  );
 
-  // đồng bộ value từ props
+  // keep DOM in sync with controlled value
   useEffect(() => {
-    const el = editorRef.current;
+    const el = editableRef.current;
     if (!el) return;
-    const sanitized =
-      typeof window === "undefined" ? value : sanitizeHTML(value || "");
-    if (sanitized !== el.innerHTML) {
-      el.innerHTML = sanitized || "";
-      lastEmittedRef.current = sanitized;
-      setIsEmpty(el.textContent?.trim().length === 0);
+    if (el.innerHTML !== value) {
+      el.innerHTML = value || "";
     }
   }, [value]);
 
-  const emitChange = () => {
-    const el = editorRef.current;
+  const emit = () => {
+    const el = editableRef.current;
     if (!el) return;
-    const clean = sanitizeHTML(el.innerHTML);
-    if (clean !== lastEmittedRef.current) {
-      lastEmittedRef.current = clean;
-      onChange(clean);
+    onChange(el.innerHTML);
+  };
+
+  // ----- toolbar actions
+  const applyCmd = (cmd: string, value?: string) => {
+    const el = editableRef.current;
+    if (!el) return;
+    el.focus();
+    document.execCommand("styleWithCSS", false, "true");
+    document.execCommand(cmd, false, value);
+    emit();
+  };
+
+  const onBold = () => applyCmd("bold");
+  const onItalic = () => applyCmd("italic");
+  const onUnderline = () => applyCmd("underline");
+
+  const onAlign = (dir: "left" | "center" | "right") => {
+    if (dir === "left") applyCmd("justifyLeft");
+    if (dir === "center") applyCmd("justifyCenter");
+    if (dir === "right") applyCmd("justifyRight");
+  };
+
+  const onColor = (color: string) => {
+    const el = editableRef.current;
+    if (!el) return;
+    el.focus();
+    if (selectionInside(el)) {
+      document.execCommand("styleWithCSS", false, "true");
+      document.execCommand("foreColor", false, color);
+    } else {
+      // no selection -> set as default color by wrapping all
+      wrapSelectionWithSpan({ color }) || (el.style.color = color);
     }
-    setIsEmpty(el.textContent?.trim().length === 0);
+    emit();
   };
 
-  const onPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const html = e.clipboardData.getData("text/html");
-    const text = e.clipboardData.getData("text/plain");
-    // Cho phép xuống dòng basic
-    const insert = html || (text ? text.replace(/\n/g, "<br>") : "");
-    const clean = sanitizeHTML(insert);
-    // Dán thẳng tại selection (không tạo thêm style ngoài)
-    document.execCommand("insertHTML", false, clean);
-    emitChange();
+  const onFontFamily = (fam: string) => {
+    const el = editableRef.current;
+    if (!el) return;
+    el.focus();
+    if (selectionInside(el)) {
+      document.execCommand("styleWithCSS", false, "true");
+      document.execCommand("fontName", false, fam);
+    } else {
+      el.style.fontFamily = fam;
+    }
+    emit();
   };
 
-  // Luôn giữ focus trong editor khi bấm toolbar (tránh mất selection)
-  const runCmd = (fn: () => void) => {
-    // cố gắng focus lại editor trước khi exec
-    editorRef.current?.focus();
-    fn();
-    // sau khi đổi format, sync ra ngoài
-    emitChange();
+  const onFontSize = (sizePx: string) => {
+    const el = editableRef.current;
+    if (!el) return;
+    el.focus();
+    // Try inline selection styling; fallback to whole editor style
+    if (!wrapSelectionWithSpan({ fontSize: sizePx })) {
+      el.style.fontSize = sizePx;
+    }
+    emit();
   };
 
-  // commands: bold/italic/underline + left/center/right
-  const cmd = {
-    bold: () => runCmd(() => document.execCommand("bold")),
-    italic: () => runCmd(() => document.execCommand("italic")),
-    underline: () => runCmd(() => document.execCommand("underline")),
-    left: () => runCmd(() => document.execCommand("justifyLeft")),
-    center: () => runCmd(() => document.execCommand("justifyCenter")),
-    right: () => runCmd(() => document.execCommand("justifyRight")),
-  } as const;
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      if (e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        onBold();
+      }
+      if (e.key.toLowerCase() === "i") {
+        e.preventDefault();
+        onItalic();
+      }
+      if (e.key.toLowerCase() === "u") {
+        e.preventDefault();
+        onUnderline();
+      }
+    }
+  };
 
   return (
-    <div className={`rounded-2xl border bg-white shadow-sm ${className}`}>
+    <div className={"w-full"}>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 border-b p-2">
-        <ToolbarButton title="Đậm" onAction={cmd.bold} Icon={Bold} />
-        <ToolbarButton title="Nghiêng" onAction={cmd.italic} Icon={Italic} />
-        <ToolbarButton
-          title="Gạch chân"
-          onAction={cmd.underline}
-          Icon={Underline}
-        />
-        <span className="mx-1 h-6 w-px bg-gray-200" />
-        <ToolbarButton title="Canh trái" onAction={cmd.left} Icon={AlignLeft} />
-        <ToolbarButton
-          title="Canh giữa"
-          onAction={cmd.center}
-          Icon={AlignCenter}
-        />
-        <ToolbarButton
-          title="Canh phải"
-          onAction={cmd.right}
-          Icon={AlignRight}
-        />
+      <div className="mb-2 flex flex-wrap items-center gap-2 rounded-2xl border bg-white p-2 shadow-sm">
+        <div className="flex items-center gap-1 rounded-xl bg-gray-50 p-1">
+          <button
+            className="p-2 rounded-lg hover:bg-white active:scale-95"
+            onClick={onBold}
+            title="Đậm (Ctrl+B)"
+          >
+            <Bold className="w-4 h-4" />
+          </button>
+          <button
+            className="p-2 rounded-lg hover:bg-white active:scale-95"
+            onClick={onItalic}
+            title="Nghiêng (Ctrl+I)"
+          >
+            <Italic className="w-4 h-4" />
+          </button>
+          <button
+            className="p-2 rounded-lg hover:bg-white active:scale-95"
+            onClick={onUnderline}
+            title="Gạch dưới (Ctrl+U)"
+          >
+            <Underline className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1 rounded-xl bg-gray-50 p-1">
+          <button
+            className="p-2 rounded-lg hover:bg-white active:scale-95"
+            onClick={() => onAlign("left")}
+            title="Canh trái"
+          >
+            <AlignLeft className="w-4 h-4" />
+          </button>
+          <button
+            className="p-2 rounded-lg hover:bg-white active:scale-95"
+            onClick={() => onAlign("center")}
+            title="Canh giữa"
+          >
+            <AlignCenter className="w-4 h-4" />
+          </button>
+          <button
+            className="p-2 rounded-lg hover:bg-white active:scale-95"
+            onClick={() => onAlign("right")}
+            title="Canh phải"
+          >
+            <AlignRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        <label className="ml-1 flex items-center gap-2 rounded-xl bg-gray-50 p-2 text-sm">
+          <PaintBucket className="w-4 h-4" />
+          <input
+            type="color"
+            onChange={(e) => onColor(e.target.value)}
+            className="h-8 w-10 rounded border bg-white p-0"
+            title="Màu chữ"
+          />
+        </label>
+
+        <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-2 text-sm">
+          <Type className="w-4 h-4" />
+          <select
+            onChange={(e) => onFontFamily(e.target.value)}
+            className="rounded-lg border bg-white px-2 py-1"
+            title="Kiểu chữ"
+          >
+            <option value="Inter, system-ui, sans-serif">Inter / System</option>
+            <option value="Arial, Helvetica, sans-serif">Arial</option>
+            <option value="Times New Roman, Times, serif">
+              Times New Roman
+            </option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="Courier New, Courier, monospace">Courier New</option>
+            <option value="Tahoma, sans-serif">Tahoma</option>
+            <option value="Roboto, system-ui, sans-serif">Roboto</option>
+          </select>
+        </label>
+
+        <label className="flex items-center gap-2 rounded-xl bg-gray-50 p-2 text-sm">
+          <span>Cỡ</span>
+          <select
+            onChange={(e) => onFontSize(e.target.value)}
+            className="rounded-lg border bg-white px-2 py-1"
+            title="Cỡ chữ"
+          >
+            {[
+              "12px",
+              "14px",
+              "16px",
+              "18px",
+              "20px",
+              "24px",
+              "28px",
+              "32px",
+              "40px",
+              "48px",
+            ].map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
-      {/* Editor */}
-      <div className="relative">
-        {!isFocused && isEmpty && (
-          <div className="pointer-events-none absolute inset-0 select-none whitespace-pre-wrap break-words text-gray-400 p-4">
+      {/* Editable */}
+      <div
+        className={
+          "relative rounded-2xl border bg-white p-3 shadow-sm " +
+          (className || "")
+        }
+        style={{ minHeight }}
+      >
+        {isEmpty && !isFocused && (
+          <div className="pointer-events-none absolute left-3 top-3 select-none text-gray-400">
             {placeholder}
           </div>
         )}
 
         <div
-          ref={editorRef}
-          className="prose prose-neutral max-w-none p-4 focus:outline-none"
-          style={{ minHeight }}
+          ref={editableRef}
           contentEditable
           suppressContentEditableWarning
-          spellCheck
-          onInput={emitChange}
-          onBlur={() => {
-            setIsFocused(false);
-            emitChange();
-          }}
+          className="prose max-w-none outline-none [&_*]:caret-current"
+          style={{ minHeight: minHeight - 24 }}
+          onInput={emit}
+          onKeyDown={onKeyDown}
           onFocus={() => setIsFocused(true)}
-          onPaste={onPaste}
+          onBlur={() => setIsFocused(false)}
         />
       </div>
     </div>
-  );
-}
-
-function ToolbarButton({
-  title,
-  onAction,
-  Icon,
-}: {
-  title: string;
-  onAction: () => void;
-  Icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      // Dùng onMouseDown để KHÔNG mất focus/selection khỏi editor
-      onMouseDown={(e) => {
-        e.preventDefault();
-        onAction();
-      }}
-      className="inline-flex items-center justify-center rounded-md border px-2 py-1 text-sm text-gray-700 hover:bg-gray-50"
-    >
-      <Icon className="h-4 w-4" />
-    </button>
   );
 }
