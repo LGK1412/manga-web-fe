@@ -68,7 +68,7 @@ export function StoryCarousel({ stories, title }: StoryCarouselProps) {
 
                           <h3 className="text-2xl font-bold mb-2 line-clamp-1">{story.title}</h3>
                           <p className="text-sm text-gray-200 mb-2">by {story.author.name}</p>
-                          <p className="text-sm text-gray-300 mb-4 line-clamp-2">{story.description}</p>
+                          <p className="text-sm text-gray-300 mb-4 line-clamp-2">{story.summary}</p>
 
                           <div className="flex items-center gap-4 text-sm">
                             <div className="flex items-center gap-1">

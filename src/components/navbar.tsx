@@ -142,8 +142,8 @@ export function Navbar() {
                     <Bell className="h-5 w-5S" />
                   </Link>
                 </Button>
-                
-                {user.role.trim() === 'author' && (
+
+                {user?.role?.trim() === "author" && (
                   <Button variant="ghost" size="icon" asChild>
                     <Link href="/author/dashboard">
                       <PenTool className="h-5 w-5" />
@@ -156,16 +156,26 @@ export function Navbar() {
                     <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                       <Avatar className="h-8 w-8">
                         <AvatarImage
-                          src={user.avatar || "/placeholder.svg?height=64&width=64&query=user-avatar"}
+                          src={
+                            user.avatar
+                              ? (user.avatar.startsWith("http")
+                                ? user.avatar
+                                : `${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${user.avatar}`)
+                              : "/placeholder.svg?height=64&width=64&query=user-avatar"
+                          }
                           alt={user.username}
                         />
-                        <AvatarFallback>{user.username.charAt(0)}</AvatarFallback>
+
+                        <AvatarFallback>
+                          {user?.username?.charAt(0)?.toUpperCase() ?? "U"}
+                        </AvatarFallback>
+
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56" align="end" forceMount>
                     <DropdownMenuItem asChild>
-                      <Link href="/profile" className="flex items-center">
+                      <Link href={user?.user_id ? `/profile/${user.user_id}` : "/login"} className="flex items-center">
                         <User className="mr-2 h-4 w-4" />
                         Profile
                       </Link>
@@ -270,10 +280,22 @@ export function Navbar() {
                       <div className="flex items-center gap-3 py-2">
                         <Avatar className="h-8 w-8">
                           <AvatarImage
-                            src={user.avatar || "/placeholder.svg?height=64&width=64&query=user-avatar"}
-                            alt={user.name}
+                            src={
+                              user.avatar
+                                ? (user.avatar.startsWith("http")
+                                  ? user.avatar
+                                  : `${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${user.avatar}`)
+                                : "/placeholder.svg?height=64&width=64&query=user-avatar"
+                            }
+                            alt={user.username}
                           />
-                          <AvatarFallback>{user.username.charAt(0)}</AvatarFallback>
+
+                          <AvatarFallback>
+                            {user?.username && user.username.length > 0
+                              ? user.username.charAt(0).toUpperCase()
+                              : "U"}
+                          </AvatarFallback>
+
                         </Avatar>
                         <div className="text-sm">
                           <p className="font-medium">{user.name}</p>
@@ -288,7 +310,7 @@ export function Navbar() {
                           Write
                         </Link>
                       )}
-                      <Link href="/profile" onClick={() => setIsMenuOpen(false)} className="block py-2 text-sm">
+                      <Link href={user?.user_id ? `/profile/${user.user_id}` : "/login"} onClick={() => setIsMenuOpen(false)} className="block py-2 text-sm">
                         Profile
                       </Link>
                       <button

@@ -36,9 +36,8 @@ export default function GamePage() {
   const autoSpinRef = useRef<boolean>(false)
   const wheelRef = useRef<HTMLDivElement | null>(null)
 
-  const SECTION_ANGLE = 360 / wheelSections.length // 60 degrees per section
-  const DURATION_MS = 3000
-
+  const SECTION_ANGLE = 360 / wheelSections.length 
+ 
   const getRandomResult = () => {
     const random = Math.random() * 100
     let cumulative = 0
@@ -112,16 +111,7 @@ export default function GamePage() {
       }
     }
 
-    // Lắng nghe transitionend một lần
     wheelRef.current?.addEventListener("transitionend", onEnd, { once: true })
-  }
-
-  const resetPoints = () => {
-    setPoints(1000)
-    setHistory([])
-    setResultMessage("Điểm đã được reset về 1000.")
-    setAutoSpin(false)
-    autoSpinRef.current = false
   }
 
   const toggleAutoSpin = () => {

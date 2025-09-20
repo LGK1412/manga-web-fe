@@ -153,7 +153,7 @@ export default function HomePage() {
                   </div>
                   <CardHeader className="flex-shrink-0">
                     <CardTitle className="line-clamp-1">{story.title}</CardTitle>
-                    <CardDescription className="line-clamp-2">{story.description}</CardDescription>
+                    <CardDescription className="line-clamp-2">{story.summary}</CardDescription>
                   </CardHeader>
                   <CardContent className="flex-grow flex flex-col">
                     <div className="flex items-center space-x-2 mb-3">

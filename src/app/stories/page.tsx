@@ -47,7 +47,7 @@ export default function StoriesPage() {
           const transformMangaToStory = (manga: any): Story => ({
             id: manga._id,
             title: manga.name,
-            description: manga.description,
+            summary: manga.summary,
             coverImage: getImageUrl(manga.image, 'thumbnail'),
             author: {
               id: manga.author._id,
@@ -102,7 +102,7 @@ export default function StoriesPage() {
       filtered = filtered.filter(
         (story) =>
           story.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          story.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          story.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
           story.author.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           story.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())),
       )
@@ -244,7 +244,7 @@ export default function StoriesPage() {
 
               <CardHeader className="pb-2">
                 <CardTitle className="line-clamp-1 text-lg">{story.title}</CardTitle>
-                <CardDescription className="line-clamp-2 text-sm">{story.description}</CardDescription>
+                <CardDescription className="line-clamp-2 text-sm">{story.summary}</CardDescription>
               </CardHeader>
 
               <CardContent className="pt-0">

@@ -1,5 +1,7 @@
+
+
 "use client"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
@@ -11,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import { BookOpen, ImageIcon, CopySlash as Publish } from "lucide-react"
+import { BookOpen, ImageIcon, CopySlash as Publish, Plus } from "lucide-react"
 import axios from "axios"
 import Cookies from "js-cookie"
 import { availableStatuses } from "@/lib/data"
@@ -23,19 +25,25 @@ export default function EditStoryPage() {
 
     const [storyType, setStoryType] = useState<"text" | "image">("text")
     const [availableGenres, setAvailableGenres] = useState<Array<{ _id: string; name: string }>>([])
+    const [currentStory, setCurrentStory] = useState<any>(null)
 
     // form states
     const [textStoryTitle, setTextStoryTitle] = useState("")
-    const [textStoryDescription, setTextStoryDescription] = useState("")
+    const [textStorySummary, setTextStorySummary] = useState("")
     const [textSelectedGenres, setTextSelectedGenres] = useState<string[]>([])
     const [textStoryStatus, setTextStoryStatus] = useState("ongoing")
-    const [textIsPublic, setTextIsPublic] = useState(true)
+    const [textIsPublish, setTextIsPublish] = useState(true)
 
     const [imageStoryTitle, setImageStoryTitle] = useState("")
-    const [imageStoryDescription, setImageStoryDescription] = useState("")
+    const [imageStorySummary, setImageStorySummary] = useState("")
     const [imageSelectedGenres, setImageSelectedGenres] = useState<string[]>([])
     const [imageStoryStatus, setImageStoryStatus] = useState("ongoing")
-    const [imageIsPublic, setImageIsPublic] = useState(true)
+    const [imageIsPublish, setImageIsPublish] = useState(true)
+
+    // Cover image states
+    const [coverFile, setCoverFile] = useState<File | null>(null)
+    const [coverPreview, setCoverPreview] = useState<string | null>(null)
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     const decodeToken = () => {
         const raw = Cookies.get("user_normal_info")
@@ -71,6 +79,7 @@ export default function EditStoryPage() {
                     const allStories = Array.isArray(data) ? data : [...(data?.published || []), ...(data?.drafts || [])]
                     const current = allStories.find((s: Record<string, unknown>) => s?._id === params.id)
                     if (!current) return
+                    setCurrentStory(current)
                     
                     type Genre = string | { _id: string }
                     const genresIds: string[] = (current.genres || []).map((g: Genre) =>
@@ -79,17 +88,22 @@ export default function EditStoryPage() {
                     if (current.type === "text") {
                         setStoryType("text")
                         setTextStoryTitle(current.title || "")
-                        setTextStoryDescription(current.description || "")
+                        setTextStorySummary(current.summary || "")
                         setTextSelectedGenres(genresIds)
                         setTextStoryStatus((current.status || "ongoing").toLowerCase())
-                        setTextIsPublic(!!current.isPublic)
+                        setTextIsPublish(!!current.isPublish)
                     } else {
                         setStoryType("image")
                         setImageStoryTitle(current.title || "")
-                        setImageStoryDescription(current.description || "")
+                        setImageStorySummary(current.summary || "")
                         setImageSelectedGenres(genresIds)
                         setImageStoryStatus((current.status || "ongoing").toLowerCase())
-                        setImageIsPublic(!!current.isPublic)
+                        setImageIsPublish(!!current.isPublish)
+                    }
+                    
+                    // Set cover image preview if exists
+                    if (current.coverImage) {
+                        setCoverPreview(`${process.env.NEXT_PUBLIC_API_URL}/assets/coverImages/${current.coverImage}`)
                     }
                 } catch { }
             })()
@@ -98,20 +112,45 @@ export default function EditStoryPage() {
 
     const getCurrentFormValues = useMemo(() => () => {
         return storyType === "text"
-            ? { title: textStoryTitle, description: textStoryDescription, genres: textSelectedGenres, status: textStoryStatus, isPublic: textIsPublic }
-            : { title: imageStoryTitle, description: imageStoryDescription, genres: imageSelectedGenres, status: imageStoryStatus, isPublic: imageIsPublic }
-    }, [storyType, textStoryTitle, textStoryDescription, textSelectedGenres, textStoryStatus, textIsPublic, imageStoryTitle, imageStoryDescription, imageSelectedGenres, imageStoryStatus, imageIsPublic])
+            ? { title: textStoryTitle, summary: textStorySummary, genres: textSelectedGenres, status: textStoryStatus, isPublish: textIsPublish }
+            : { title: imageStoryTitle, summary: imageStorySummary, genres: imageSelectedGenres, status: imageStoryStatus, isPublish: imageIsPublish }
+    }, [storyType, textStoryTitle, textStorySummary, textSelectedGenres, textStoryStatus, textIsPublish, imageStoryTitle, imageStorySummary, imageSelectedGenres, imageStoryStatus, imageIsPublish])
 
     const handleUpdate = async () => {
         const v = getCurrentFormValues()
         if (!v.title?.trim()) return toast({ title: "Lỗi", description: "Vui lòng nhập tên truyện.", variant: "destructive" })
-        if (!v.description?.trim()) return toast({ title: "Lỗi", description: "Vui lòng nhập mô tả.", variant: "destructive" })
+        if (!v.summary?.trim()) return toast({ title: "Lỗi", description: "Vui lòng nhập mô tả.", variant: "destructive" })
         if (!v.genres?.length) return toast({ title: "Lỗi", description: "Chọn ít nhất 1 thể loại.", variant: "destructive" })
+        if (!coverFile && !currentStory?.coverImage) return toast({ title: "Lỗi", description: "Vui lòng chọn ảnh bìa cho truyện.", variant: "destructive" })
 
-        const payload = { ...v, status: (v.status || "").toLowerCase(), type: storyType }
+        const formData = new FormData()
+        formData.append('title', v.title)
+        formData.append('summary', v.summary)
+        formData.append('status', (v.status || "").toLowerCase())
+        formData.append('isPublish', String(Boolean(v.isPublish)))
+        formData.append('type', storyType)
+        
+        // Add genres
+        v.genres.forEach((genreId: string) => {
+            formData.append('genres', genreId)
+        })
+        
+        // Add cover image (new file or keep existing)
+        if (coverFile) {
+            formData.append('coverImage', coverFile)
+        } else if (currentStory?.coverImage) {
+            // Keep existing cover image
+            formData.append('keepExistingCover', 'true')
+        }
+        
         try {
-            await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/manga/${params.id}`, payload, { withCredentials: true })
-            toast({ title: "Cập nhật thành công!" })
+            await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/manga/${params.id}`, formData, { 
+                withCredentials: true,
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            })
+            toast({ title: "Cập nhật thành công!", description:"Truyện đã cập nhật thành công", variant: "success" })
             router.push("/author/dashboard")
         } catch {
             toast({ title: "Không cập nhật được", description: "Vui lòng kiểm tra lại dữ liệu/đăng nhập.", variant: "destructive" })
@@ -126,7 +165,7 @@ export default function EditStoryPage() {
                     <h1 className="text-3xl font-bold">Chỉnh sửa truyện</h1>
                 </div>
 
-                <div className="space-y-6 max-w-3xl mx-auto">
+                <div className="space-y-6 max-w-4xl mx-auto">
                     <div className="flex justify-center">
                         <Tabs value={storyType} onValueChange={(value) => setStoryType(value as "text" | "image")}>
                             <TabsList className="grid w-full grid-cols-2 max-w-md">
@@ -142,7 +181,7 @@ export default function EditStoryPage() {
                         </Tabs>
                     </div>
 
-                    <div className="max-w-3xl mx-auto">
+                    <div className="max-w-4xl mx-auto">
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
@@ -151,25 +190,66 @@ export default function EditStoryPage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-6">
-                                <div className="space-y-2">
-                                    <Label htmlFor="story-title">Tên truyện *</Label>
-                                    <Input
-                                        id="story-title"
-                                        placeholder="Nhập tên truyện"
-                                        value={storyType === "text" ? textStoryTitle : imageStoryTitle}
-                                        onChange={(e) => storyType === "text" ? setTextStoryTitle(e.target.value) : setImageStoryTitle(e.target.value)}
-                                    />
-                                </div>
+                                {/* Title + Description + Cover */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Left side */}
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="story-title">Tên truyện *</Label>
+                                            <Input
+                                                id="story-title"
+                                                placeholder="Nhập tên truyện"
+                                                value={storyType === "text" ? textStoryTitle : imageStoryTitle}
+                                                onChange={(e) => storyType === "text" ? setTextStoryTitle(e.target.value) : setImageStoryTitle(e.target.value)}
+                                            />
+                                        </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="story-description">Mô tả truyện *</Label>
-                                    <Textarea
-                                        id="story-description"
-                                        placeholder="Viết mô tả ngắn về truyện của bạn"
-                                        rows={5}
-                                        value={storyType === "text" ? textStoryDescription : imageStoryDescription}
-                                        onChange={(e) => storyType === "text" ? setTextStoryDescription(e.target.value) : setImageStoryDescription(e.target.value)}
-                                    />
+                                        <div className="space-y-2">
+                                            <Label htmlFor="story-description">Mô tả truyện *</Label>
+                                            <Textarea
+                                                className="h-43"
+                                                id="story-description"
+                                                placeholder="Viết mô tả ngắn về truyện của bạn"
+                                                rows={6}
+                                                value={storyType === "text" ? textStorySummary : imageStorySummary}
+                                                onChange={(e) => storyType === "text" ? setTextStorySummary(e.target.value) : setImageStorySummary(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Right side - Cover Image */}
+                                    <div className="flex flex-col items-center -mt-6">
+                                        <Label>Ảnh bìa *</Label>
+                                        <div
+                                            className="w-50 h-70 border rounded-md flex items-center justify-center cursor-pointer relative group mt-2"
+                                            onClick={() => fileInputRef.current?.click()}
+                                        >
+                                            {coverPreview ? (
+                                                <img src={coverPreview} alt="cover preview" className="w-full h-full object-cover rounded-md" />
+                                            ) : (
+                                                <div className="text-gray-400 flex flex-col items-center">
+                                                    <ImageIcon className="w-8 h-8 mb-2" />
+                                                    <span>Chọn ảnh</span>
+                                                </div>
+                                            )}
+                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                                                <Plus className="w-6 h-6 text-white" />
+                                            </div>
+                                        </div>
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0]
+                                                if (file) {
+                                                    setCoverFile(file)
+                                                    setCoverPreview(URL.createObjectURL(file))
+                                                }
+                                            }}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="space-y-2">
@@ -220,8 +300,8 @@ export default function EditStoryPage() {
                                 <div className="flex items-center space-x-2">
                                     <Checkbox
                                         id="is-public"
-                                        checked={storyType === "text" ? textIsPublic : imageIsPublic}
-                                        onCheckedChange={(v) => (storyType === "text" ? setTextIsPublic(!!v) : setImageIsPublic(!!v))}
+                                        checked={storyType === "text" ? textIsPublish : imageIsPublish}
+                                        onCheckedChange={(v) => (storyType === "text" ? setTextIsPublish(!!v) : setImageIsPublish(!!v))}
                                     />
                                     <Label htmlFor="is-public">Công khai</Label>
                                 </div>
@@ -243,5 +323,6 @@ export default function EditStoryPage() {
         </div>
     )
 }
+
 
 

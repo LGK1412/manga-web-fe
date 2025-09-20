@@ -11,5 +11,5 @@ export const availableGenres = [
 
 // Available statuses for filtering
 export const availableStatuses = [
-  "Ongoing", "Completed", "Hiatus", "Cancelled"
+  "Ongoing", "Completed", "Hiatus"
 ]
