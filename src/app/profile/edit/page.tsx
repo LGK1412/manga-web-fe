@@ -2,21 +2,20 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef } from "react" // Import useRef
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
-import { UserIcon, Mail, Plus } from "lucide-react" // Import Plus icon
+import { UserIcon, Mail, Plus, FileText } from "lucide-react"
+import Cookies from "js-cookie"
+import axios from "axios"
 
 export default function EditProfilePage() {
-  const { user, isLoading, updateProfile } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
 
@@ -30,15 +29,27 @@ export default function EditProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null) // Ref for the hidden file input
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login") // Redirect to login if not authenticated
-    } else if (user) {
-      setName(user.name)
-      setEmail(user.email)
-      setBio(user.bio || "")
-      setAvatarPreview(user.avatar || null) // Set initial avatar preview from user data
+    const raw = Cookies.get("user_normal_info")
+    if (!raw) {
+      router.push("/login")
+      return
     }
-  }, [user, isLoading, router])
+    try {
+      const decoded = decodeURIComponent(raw)
+      const parsed = JSON.parse(decoded)
+      setName(parsed.username || "User")
+      setEmail(parsed.email || "")
+      setBio(parsed.bio || "")
+      // Hiển thị avatar với full URL nếu có
+      if (parsed.avatar && parsed.avatar !== 'avatar-default.webp') {
+        setAvatarPreview(`${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${parsed.avatar}`)
+      } else {
+        setAvatarPreview(null)
+      }
+    } catch {
+      router.push("/login")
+    }
+  }, [router])
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click() // Trigger click on hidden file input
@@ -54,40 +65,77 @@ export default function EditProfilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user) return
-
     setIsSaving(true)
     try {
-      // In a real app, you would upload `selectedFile` to a storage service
-      // and get a public URL back. For this demo, we'll just use the local preview URL
-      // or the existing avatar URL if no new file was selected.
-      const newAvatarUrl = selectedFile ? avatarPreview : user.avatar // Use local preview or existing URL
+      const formData = new FormData()
+      formData.append("username", name)
+      formData.append("bio", bio)
+      if (selectedFile) {
+        formData.append("avatar", selectedFile) // gửi file thật
+      }
 
-      await updateProfile({ name, email, bio, avatar: newAvatarUrl || undefined }) // Pass the new avatar URL
-
-      toast({
-        title: "Profile updated!",
-        description: "Your profile has been successfully updated.",
+      const res = await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/profile`, formData, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
       })
-      router.push("/profile")
+
+      // cập nhật lại cookie
+      const raw = Cookies.get("user_normal_info")
+      const parsed = raw ? JSON.parse(decodeURIComponent(raw)) : null
+
+      if (parsed) {
+        const serverUser = (res as any)?.data?.user
+        const serverAvatar: string | undefined = serverUser?.avatar
+        const updated = {
+          user_id: parsed.user_id,
+          email: parsed.email,
+          username: name || parsed.username,
+          role: parsed.role,
+          // lưu đúng filename/path BE trả về, không tự đoán theo selectedFile.name
+          avatar: serverAvatar !== undefined ? serverAvatar : parsed.avatar,
+          bio: bio || parsed.bio,
+        }
+        Cookies.set("user_normal_info", JSON.stringify(updated), { expires: 360, path: "/" })
+      }
+
+      toast({ title: "Cập nhật hồ sơ thành công", description: "Đã cập nhật hồ sơ thành công", variant: "success" })
+
+      const userId = parsed?.user_id
+      if (userId) {
+        router.push(`/profile/${userId}`)
+      } else {
+        router.push("/login")
+      }
     } catch (error) {
-      toast({
-        title: "Failed to update profile",
-        description: "There was an error updating your profile. Please try again.",
-        variant: "destructive",
-      })
+      console.error("Profile update error:", error)
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          toast({ title: "Phiên đăng nhập hết hạn", description: "Vui lòng đăng nhập lại", variant: "destructive" })
+          router.push("/login")
+        } else if (error.response?.status === 400) {
+          console.log("400 error details:", error.response?.data)
+          toast({ 
+            title: "Lỗi cập nhật hồ sơ", 
+            description: error.response?.data?.message || "Dữ liệu không hợp lệ", 
+            variant: "destructive" 
+          })
+        } else {
+          toast({ 
+            title: "Lỗi cập nhật hồ sơ", 
+            description: error.response?.data?.message || "Lỗi server", 
+            variant: "destructive" 
+          })
+        }
+      } else {
+        toast({ title: "Lỗi cập nhật hồ sơ", description: "Lỗi không xác định", variant: "destructive" })
+      }
     } finally {
       setIsSaving(false)
     }
   }
 
-  if (isLoading || !user) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p>Loading profile editor...</p>
-      </div>
-    )
-  }
+
+  // Render form directly; access control handled via cookie in useEffect
 
   return (
     <div className="min-h-screen bg-background">
@@ -150,20 +198,25 @@ export default function EditProfilePage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="pl-10"
+                    className="pl-10 bg-gray-200"
+                    readOnly
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="bio">Bio</Label>
-                <Textarea
-                  id="bio"
-                  placeholder="Tell us about yourself..."
-                  rows={5}
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                />
+                <div className="relative">
+                  <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="bio"
+                    type="text"
+                    placeholder="Enter your bio"
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
 
               <Button type="submit" className="w-full" disabled={isSaving}>

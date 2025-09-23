@@ -567,7 +567,7 @@ export default function EditChapterPage({
 
                         <div>
                           <label className="block text-sm font-medium text-slate-700">
-                            Giá (VND)
+                            Point
                           </label>
                           <input
                             type="number"
@@ -632,7 +632,7 @@ export default function EditChapterPage({
                           setContent(html);
                           setDirty(true);
                         }}
-                        placeholder="Chỉnh sửa nội dung…"
+                        placeholder="Bắt đầu viết câu chuyện của bạn…"
                         className="w-full"
                         minHeight={320}
                       />
