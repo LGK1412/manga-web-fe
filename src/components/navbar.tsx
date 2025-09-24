@@ -119,7 +119,7 @@ export function Navbar() {
                 href="/genres"
                 className="text-sm font-medium hover:text-primary ml-4"
               >
-                Genres
+                Thể loại
               </Link>
               <Link
                 href="/game"
@@ -140,7 +140,7 @@ export function Navbar() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search stories..."
+                placeholder="Tìm kiếm..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -214,7 +214,7 @@ export function Navbar() {
                         className="flex items-center"
                       >
                         <User className="mr-2 h-4 w-4" />
-                        Profile
+                        Hồ sơ cá nhân
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -223,7 +223,7 @@ export function Navbar() {
                       className="flex items-center"
                     >
                       <LogOut className="mr-2 h-4 w-4" />
-                      Log out
+                      Đăng xuất
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -291,7 +291,7 @@ export function Navbar() {
                       onClick={() => setIsMenuOpen(false)}
                       className="block py-2 text-sm hover:underline"
                     >
-                      Genres
+                      Thể loại
                     </Link>
                     <Link
                       href="/game"
@@ -378,7 +378,7 @@ export function Navbar() {
                         onClick={() => setIsMenuOpen(false)}
                         className="block py-2 text-sm"
                       >
-                        Profile
+                        Hồ sơ cá nhân
                       </Link>
                       <button
                         onClick={() => {
@@ -388,7 +388,7 @@ export function Navbar() {
                         className="block py-2 text-left text-sm w-full"
                         type="button"
                       >
-                        Log out
+                        Đăng xuất
                       </button>
                     </div>
                   )}

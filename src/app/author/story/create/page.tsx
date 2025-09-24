@@ -33,9 +33,7 @@ export default function CreateStoryPage() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [availableGenres, setAvailableGenres] = useState<
-    Array<{ _id: string; name: string }>
-  >([]);
+  const [availableGenres, setAvailableGenres] = useState<Array<{ _id: string; name: string }>>([]);
   const [availableStyles, setAvailableStyles] = useState<StyleDoc[]>([]);
   const [storyStyle, setStoryStyle] = useState<string>("");
 
@@ -46,6 +44,7 @@ export default function CreateStoryPage() {
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [storyStatus, setStoryStatus] = useState("ongoing");
   const [isPublish, setIsPublish] = useState(true);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
@@ -102,24 +101,63 @@ export default function CreateStoryPage() {
   }, [storyStyle, availableStyles]);
 
   const handlePublish = async () => {
+    setIsPublishing(true);
     if (!storyTitle.trim())
       return toast({
         title: "Lỗi",
         description: "Vui lòng nhập tên truyện.",
         variant: "destructive",
       });
+
+    if (storyTitle.trim().length < 3)
+      return toast({
+        title: "Lỗi",
+        description: "Tên truyện phải có ít nhất 3 ký tự.",
+        variant: "destructive",
+      });
+
+    if (storyTitle.trim().length > 100)
+      return toast({
+        title: "Lỗi",
+        description: "Tên truyện không được vượt quá 100 ký tự.",
+        variant: "destructive",
+      });
+
     if (!storySummary.trim())
       return toast({
         title: "Lỗi",
         description: "Vui lòng nhập mô tả.",
         variant: "destructive",
       });
+
+    if (storySummary.trim().length < 10)
+      return toast({
+        title: "Lỗi",
+        description: "Mô tả phải có ít nhất 10 ký tự.",
+        variant: "destructive",
+      });
+
+    if (storySummary.trim().length > 1000)
+      return toast({
+        title: "Lỗi",
+        description: "Mô tả không được vượt quá 1000 ký tự.",
+        variant: "destructive",
+      });
+
     if (!selectedGenres.length)
       return toast({
         title: "Lỗi",
         description: "Chọn ít nhất 1 thể loại.",
         variant: "destructive",
       });
+
+    if (selectedGenres.length > 3)
+      return toast({
+        title: "Lỗi",
+        description: "Chỉ được chọn tối đa 3 thể loại.",
+        variant: "destructive",
+      });
+
     if (!coverFile)
       return toast({
         title: "Lỗi",
@@ -167,8 +205,12 @@ export default function CreateStoryPage() {
         description: "Vui lòng kiểm tra lại dữ liệu/đăng nhập.",
         variant: "destructive",
       });
+    } finally {
+      // Delay thêm 2 giây trước khi bật lại nút
+      setTimeout(() => setIsPublishing(false), 2000);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -198,8 +240,8 @@ export default function CreateStoryPage() {
                       {s.name === "text"
                         ? "Truyện Chữ"
                         : s.name === "image"
-                        ? "Truyện Tranh"
-                        : s.name}
+                          ? "Truyện Tranh"
+                          : s.name}
                     </TabsTrigger>
                   ))}
                 </TabsList>
@@ -218,8 +260,8 @@ export default function CreateStoryPage() {
                   {storyStyle === "text"
                     ? "Truyện Chữ"
                     : storyStyle === "image"
-                    ? "Truyện Tranh"
-                    : storyStyle}
+                      ? "Truyện Tranh"
+                      : storyStyle}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -236,6 +278,7 @@ export default function CreateStoryPage() {
                     <Label htmlFor="story-description">Mô tả *</Label>
                     <Textarea
                       id="story-description"
+                      className="h-43"
                       rows={6}
                       value={storySummary}
                       onChange={(e) => setStorySummary(e.target.value)}
@@ -285,7 +328,7 @@ export default function CreateStoryPage() {
                 {/* Genres */}
                 <div className="space-y-2">
                   <Label>Thể loại *</Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 mt-3">
                     {availableGenres.map((g) => (
                       <div key={g._id} className="flex items-center space-x-2">
                         <Checkbox
@@ -343,10 +386,12 @@ export default function CreateStoryPage() {
                     onClick={handlePublish}
                     className="flex-1"
                     variant="secondary"
+                    disabled={isPublishing} 
                   >
                     <Publish className="w-4 h-4 mr-2" />
-                    Xuất bản
+                    {isPublishing ? "Đang xử lý..." : "Xuất bản"}
                   </Button>
+
                   <Button
                     variant="outline"
                     className="flex-1"
