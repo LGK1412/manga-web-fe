@@ -1,307 +1,749 @@
-"use client"
+// app/stories/page.tsx
+"use client";
 
-import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation" // Import useSearchParams
-import { Navbar } from "@/components/navbar"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
-import type { Story } from "@/lib/types"
-import Link from "next/link"
-import { Star, Eye, BookOpen, Heart } from "lucide-react"
-import { availableGenres, availableStatuses } from "@/lib/data"
-import { mangaAPI, getImageUrl } from "@/lib/api"
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import axios from "axios";
+import { Navbar } from "@/components/navbar";
+import { Star, Eye, BookOpen, Pencil } from "lucide-react";
 
-const genres = availableGenres
-const statuses = availableStatuses
+// ===== Types
+type Genre = { _id: string; name: string; description?: string };
+type StyleItem = { _id: string; name: string; description?: string };
 
-export default function StoriesPage() {
-  const searchParams = useSearchParams()
-  const initialGenreParam = searchParams.get("genre") // Lấy tham số 'genre' từ URL
+type MangaRaw = {
+  _id: string | number;
+  id?: string | number;
+  slug?: string;
+  title?: string;
+  name?: string;
 
-  const [stories, setStories] = useState<Story[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  // Khởi tạo selectedGenres dựa trên tham số URL
-  const [selectedGenres, setSelectedGenres] = useState<string[]>(initialGenreParam ? [initialGenreParam] : [])
-  const [selectedStatus, setSelectedStatus] = useState<string>("all")
-  const [sortBy, setSortBy] = useState("popular")
-  const [showFilters, setShowFilters] = useState(false)
+  // cover variants
+  coverUrl?: string;
+  cover?: string;
+  coverImage?: string; // "1758388183093-xxx.webp"
+  thumbnail?: string;
+  thumb?: string;
+  image_url?: string;
 
-  // filteredStories sẽ được tính toán trong useEffect
-  const [filteredStories, setFilteredStories] = useState<Story[]>([])
+  latest_chapter?: { title?: string; order?: number; createdAt?: string };
+  latestChapter?: { number?: number; name?: string; createdAt?: string } | null;
+  lastChapter?: number | string;
 
-  // Fetch stories from API
-  useEffect(() => {
-    const fetchStories = async () => {
-      try {
-        setLoading(true)
-        const response = await mangaAPI.getMangaData()
-        
-        if (response.data.success) {
-          // Transform backend data to frontend Story format
-          const transformMangaToStory = (manga: any): Story => ({
-            id: manga._id,
-            title: manga.name,
-            summary: manga.summary,
-            coverImage: getImageUrl(manga.image, 'thumbnail'),
-            author: {
-              id: manga.author._id,
-              email: manga.author.email,
-              name: manga.author.name,
-              avatar: getImageUrl(manga.author.avatar, 'avatar'),
-              bio: "",
-              isAuthor: manga.author.role === 'author',
-              followersCount: 0,
-              followingCount: 0,
-              createdAt: manga.author.createdAt,
-            },
-            genre: manga.categories?.map((cat: any) => cat.name) || [],
-            tags: [],
-            status: manga.status,
-            visibility: "public",
-            rating: manga.averageRating || 0,
-            ratingsCount: manga.voteCount || 0,
-            viewsCount: manga.view || 0,
-            chaptersCount: 0,
-            isFavorited: false,
-            isFollowing: false,
-            createdAt: manga.createdAt,
-            updatedAt: manga.updatedAt,
-          })
+  updatedAt?: string | number | Date;
+  createdAt?: string | number | Date;
+  views?: number;
+  viewCount?: number;
+  follows?: number;
+  status?: "ongoing" | "completed" | string;
 
-          const allStories = response.data.mangas?.map(transformMangaToStory) || []
-          setStories(allStories)
-        } else {
-          setError(response.data.message || "Failed to load stories")
-        }
-      } catch (err: any) {
-        console.error("Error fetching stories:", err)
-        setError(err.response?.data?.message || err.message || "Failed to load stories")
-      } finally {
-        setLoading(false)
-      }
-    }
+  genres?: { _id: string; name: string }[] | string[];
+  styles?: { _id: string; name: string }[] | string[];
 
-    if (typeof window !== 'undefined') {
-      fetchStories()
-    } else {
-      setLoading(false)
-    }
-  }, [])
+  chapters_count?: number;
+  rating_avg?: number;
+};
 
-  // Cập nhật filteredStories mỗi khi stories, searchQuery, selectedGenres, selectedStatus, sortBy thay đổi
-  useEffect(() => {
-    let filtered = [...stories]
+type CardItem = {
+  key: string;
+  href: string;
+  title: string;
+  coverUrl?: string;
+  published: boolean;
+  status?: string;
+  genres: string[];
+  styles: string[];
+  views: number;
+  chapters: number;
+  rating: number;
+  updatedAtMs?: number;
 
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (story) =>
-          story.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          story.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          story.author.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          story.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())),
-      )
-    }
+  // private fields for local filter/sort
+  _genreIds?: string[];
+  _styleIds?: string[];
+  _views?: number;
+  _follows?: number;
+  _updatedAt?: number;
+};
 
-    if (selectedGenres.length > 0) {
-      filtered = filtered.filter((story) => story.genre.some((g) => selectedGenres.includes(g)))
-    }
+// ===== Helpers (đồng bộ với trang Home)
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+const IMAGE_BASE = `${API_BASE}/uploads`;
 
-    if (selectedStatus !== "all") {
-      filtered = filtered.filter((story) => story.status === selectedStatus)
-    }
+function normalizeToArray<T = unknown>(input: any): T[] {
+  if (Array.isArray(input)) return input;
+  if (Array.isArray(input?.data)) return input.data;
+  if (Array.isArray(input?.items)) return input.items;
+  if (Array.isArray(input?.results)) return input.results;
+  return [];
+}
+function toNumber(n: any): number | undefined {
+  const x = typeof n === "string" ? Number(n) : n;
+  return Number.isFinite(x) ? (x as number) : undefined;
+}
+function fmtViews(n?: number) {
+  const v = n ?? 0;
+  if (v >= 1_000_000)
+    return `${(v / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  return `${v}`;
+}
+function timeAgo(inputMs?: number) {
+  if (!inputMs) return undefined;
+  const diff = Math.max(0, Date.now() - inputMs);
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s trước`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} phút trước`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} giờ trước`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d} ngày trước`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo} tháng trước`;
+  return `${Math.floor(mo / 12)} năm trước`;
+}
+function buildCoverUrl(filename?: string) {
+  if (!filename) return undefined;
+  if (/^https?:\/\//i.test(filename)) return filename;
+  const api = process.env.NEXT_PUBLIC_API_URL || "";
+  return `${api}/assets/coverImages/${filename}`.replace(/([^:]\/)\/+/g, "$1");
+}
+function getTitle(x: MangaRaw) {
+  return (x.title || x.name || "Không rõ tiêu đề").toString();
+}
+function getKey(x: MangaRaw) {
+  return String(x._id ?? x.id ?? x.slug ?? getTitle(x));
+}
+function getHref(x: MangaRaw) {
+  if (x.slug) return `/manga/${encodeURIComponent(x.slug)}`;
+  const id = x._id ?? x.id;
+  if (id !== undefined && id !== null)
+    return `/manga/${encodeURIComponent(String(id))}`;
+  return `/stories`;
+}
+function extractIds(arr: any): string[] | undefined {
+  if (!Array.isArray(arr)) return undefined;
+  const ids = arr
+    .map((g) => (typeof g === "string" ? g : g?._id))
+    .filter(Boolean) as string[];
+  return ids.length ? ids : undefined;
+}
+function mapToCard(x: MangaRaw): CardItem {
+  const updatedAtMs = x.updatedAt
+    ? new Date(x.updatedAt as any).getTime()
+    : x.createdAt
+    ? new Date(x.createdAt as any).getTime()
+    : undefined;
+  const views = toNumber(x.views ?? x.viewCount) ?? 0;
+  const follows = toNumber(x.follows) ?? 0;
+  const genresText: string[] = Array.isArray(x.genres)
+    ? (x.genres as any[])
+        .map((g) => (typeof g === "string" ? g : g?.name))
+        .filter(Boolean)
+    : [];
+  const stylesText: string[] = Array.isArray(x.styles)
+    ? (x.styles as any[])
+        .map((s) => (typeof s === "string" ? s : s?.name))
+        .filter(Boolean)
+    : [];
+  const statusNorm = x.status
+    ? /complete|hoàn/i.test(x.status)
+      ? "complete"
+      : /ongoing|đang/i.test(x.status)
+      ? "ongoing"
+      : x.status
+    : undefined;
 
-    switch (sortBy) {
-      case "popular":
-        filtered.sort((a, b) => b.viewsCount - a.viewsCount)
-        break
-      case "rating":
-        filtered.sort((a, b) => b.rating - a.rating)
-        break
-      case "newest":
-        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        break
-      case "updated":
-        filtered.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-        break
-    }
+  const item: CardItem = {
+    key: getKey(x),
+    href: getHref(x),
+    title: getTitle(x),
+    coverUrl: buildCoverUrl(
+      x.coverImage ||
+        x.coverUrl ||
+        x.cover ||
+        x.thumbnail ||
+        x.thumb ||
+        x.image_url
+    ),
+    published: (x as any).isPublish ?? true, // backend của bạn có trường này
+    status: statusNorm,
+    genres: genresText.slice(0, 3),
+    styles: stylesText.slice(0, 2),
+    views,
+    chapters: x.chapters_count ?? 0,
+    rating: x.rating_avg ?? 0,
+    updatedAtMs,
 
-    setFilteredStories(filtered)
-  }, [stories, searchQuery, selectedGenres, selectedStatus, sortBy])
+    _genreIds: extractIds(x.genres),
+    _styleIds: extractIds(x.styles),
+    _views: views,
+    _follows: follows,
+    _updatedAt: updatedAtMs,
+  };
+  return item;
+}
 
-  const handleGenreChange = (genre: string, checked: boolean) => {
-    setSelectedGenres((prevGenres) => (checked ? [...prevGenres, genre] : prevGenres.filter((g) => g !== genre)))
+function highlight(text: string, query: string) {
+  if (!query) return text;
+  try {
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`(${escaped})`, "ig");
+    return text.replace(re, "<mark>$1</mark>");
+  } catch {
+    return text;
   }
+}
 
-  const toggleFavorite = (storyId: string) => {
-    setStories(stories.map((story) => (story.id === storyId ? { ...story, isFavorited: !story.isFavorited } : story)))
-  }
+// ===== API utils
+const PAGE_SIZE = 24;
 
+function buildGetAllUrl(page: number, limit: number) {
+  const api = process.env.NEXT_PUBLIC_API_URL!;
+  const base = `${api}/api/manga/get/all`;
+  const p = new URLSearchParams();
+  p.set("page", String(page));
+  p.set("limit", String(limit));
+  return `${base}?${p.toString()}`;
+}
+
+async function fetchFilters(signal?: AbortSignal) {
+  const [genresRes, stylesRes] = await Promise.all([
+    axios.get(`${API_BASE}/api/genre/active`, {
+      withCredentials: true,
+      signal,
+    }),
+    axios.get(`${API_BASE}/api/styles/active`, {
+      withCredentials: true,
+      signal,
+    }),
+  ]);
+  const genres: Genre[] = Array.isArray(genresRes.data) ? genresRes.data : [];
+  const styles: StyleItem[] = Array.isArray(stylesRes.data)
+    ? stylesRes.data
+    : [];
+  return { genres, styles };
+}
+
+// ===== UI constants
+const SORTS: { key: "updated" | "views" | "follows"; label: string }[] = [
+  { key: "updated", label: "Mới cập nhật" },
+  { key: "views", label: "Xem nhiều" },
+  { key: "follows", label: "Theo dõi nhiều" },
+];
+
+// ===== Reusable Card UI (giống trang Home)
+function CardView({
+  item,
+  highlightQuery,
+}: {
+  item: CardItem;
+  highlightQuery?: string;
+}) {
+  const updated = timeAgo(item.updatedAtMs);
+  /* eslint-disable @next/next/no-img-element */
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
-      <div className="container mx-auto px-4 py-8 pt-20">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-4">Genres Stories</h1>
-        </div>
-
-        {/* Loading State */}
-        {loading && (
-          <div className="text-center py-16">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-4 text-muted-foreground">Loading stories...</p>
+    <Link
+      href={item.href}
+      className="group block rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-100"
+    >
+      <div
+        className="relative overflow-hidden rounded-t-lg"
+        style={{ paddingBottom: "140%" }}
+      >
+        {item.coverUrl ? (
+          <img
+            src={item.coverUrl}
+            alt={item.title}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-500 text-sm">
+            No cover
           </div>
         )}
 
-        {/* Error State */}
-        {error && (
-          <div className="text-center py-16">
-            <p className="text-red-500 mb-4">Error: {error}</p>
-            <Button onClick={() => window.location.reload()}>Retry</Button>
-          </div>
-        )}
+        {/* Gradient */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
 
-        {/* Content */}
-        {!loading && !error && (
-          <>
-            {/* Search and Filters */}
-            <div className="mb-8 space-y-4">
-          {/* Filters Panel (remains if showFilters is true, but the button to toggle it is removed) */}
-          {showFilters && (
-            <Card>
-              <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label className="text-base font-semibold mb-3 block">Genres</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {genres.map((genre) => (
-                        <div key={genre} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={genre}
-                            checked={selectedGenres.includes(genre)}
-                            onCheckedChange={(checked) => handleGenreChange(genre, checked as boolean)}
-                          />
-                          <Label htmlFor={genre} className="text-sm">
-                            {genre}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="text-base font-semibold mb-3 block">Status</Label>
-                    <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All statuses" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All statuses</SelectItem>
-                        {statuses.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        {/* Status */}
+        <div className="absolute left-2 top-2 flex gap-2">
+          {item.status && (
+            <span
+              className={`rounded px-2 py-0.5 text-[11px] font-medium text-white shadow ${
+                /complete|hoàn/i.test(item.status)
+                  ? "bg-emerald-600"
+                  : "bg-indigo-600"
+              }`}
+            >
+              {item.status}
+            </span>
+          )}
+          {!item.published && (
+            <span className="rounded bg-amber-600 px-2 py-0.5 text-[11px] font-medium text-white shadow inline-flex items-center gap-1">
+              <Pencil className="h-3 w-3" /> Draft
+            </span>
           )}
         </div>
-        {/* Results */}
-        {/* Stories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredStories.map((story) => (
-            <Card key={story.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-              <div className="aspect-[3/4] relative">
-                <img
-                  src={story.coverImage || "/placeholder.svg"}
-                  alt={story.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-2 right-2 flex gap-1">
-                  <Badge variant={story.status === "completed" ? "default" : "secondary"}>{story.status}</Badge>
-                </div>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  className="absolute top-2 left-2"
-                  onClick={() => toggleFavorite(story.id)}
-                  type="button"
-                >
-                  <Heart className={`h-4 w-4 ${story.isFavorited ? "fill-red-500 text-red-500" : ""}`} />
-                </Button>
-              </div>
 
-              <CardHeader className="pb-2">
-                <CardTitle className="line-clamp-1 text-lg">{story.title}</CardTitle>
-                <CardDescription className="line-clamp-2 text-sm">{story.summary}</CardDescription>
-              </CardHeader>
-
-              <CardContent className="pt-0">
-                <div className="flex items-center space-x-2 mb-3">
-                  <img
-                    src={story.author.avatar || "/placeholder.svg"}
-                    alt={story.author.name}
-                    className="w-5 h-5 rounded-full"
-                  />
-                  <span className="text-sm text-muted-foreground">{story.author.name}</span>
-                </div>
-
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {story.genre.slice(0, 2).map((g) => (
-                    <Badge key={g} variant="outline" className="text-xs">
-                      {g}
-                    </Badge>
-                  ))}
-                  {story.genre.length > 2 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{story.genre.length - 2}
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-                  <div className="flex items-center space-x-1">
-                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                    <span>{story.rating}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Eye className="h-3 w-3" />
-                    <span>{story.viewsCount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <BookOpen className="h-3 w-3" />
-                    <span>{story.chaptersCount}</span>
-                  </div>
-                </div>
-
-                <Button size="sm" className="w-full" asChild>
-                  <Link href={`/story/${story.id}`}>Read Now</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+        {/* Title + meta overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
+          {highlightQuery ? (
+            <div
+              className="line-clamp-2 text-sm font-semibold"
+              dangerouslySetInnerHTML={{
+                __html: highlight(item.title, highlightQuery),
+              }}
+            />
+          ) : (
+            <div className="line-clamp-2 text-sm font-semibold">
+              {item.title}
+            </div>
+          )}
+          <div className="mt-1 flex items-center justify-between text-[11px] opacity-90">
+            <span className="flex items-center gap-1">
+              <BookOpen className="h-3.5 w-3.5" />
+              {item.chapters} chương
+            </span>
+            <span>{updated}</span>
+          </div>
         </div>
-        {filteredStories.length === 0 && (
-          <div className="text-center py-12">
-            <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No stories found</h3>
-            <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
+      </div>
+
+      {/* Bottom meta */}
+      <div className="rounded-b-lg bg-white p-2">
+        <div className="mb-1 flex flex-wrap gap-1">
+          {item.genres.slice(0, 3).map((g) => (
+            <span
+              key={g}
+              className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px]"
+            >
+              {g}
+            </span>
+          ))}
+          {/* {item.styles.slice(0, 1).map((s) => (
+            <span
+              key={s}
+              className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] text-blue-700"
+            >
+              {s}
+            </span>
+          ))} */}
+        </div>
+        <div className="flex items-center justify-between text-xs text-gray-600">
+          <span className="flex items-center gap-1">
+            <Star className="h-3.5 w-3.5 fill-yellow-400 stroke-yellow-400" />
+            {(item.rating || 0).toFixed(1)}
+          </span>
+          <span className="flex items-center gap-1">
+            <Eye className="h-3.5 w-3.5" />
+            {fmtViews(item.views)} lượt xem
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+export default function StoriesPage() {
+  // search lưu trong sessionStorage
+  const [q, setQ] = useState("");
+
+  // Helper: cập nhật cả state và sessionStorage
+  const setSearch = (value: string) => {
+    setQ(value);
+    try {
+      const v = value.trim();
+      if (v) sessionStorage.setItem("stories:q", v);
+      else sessionStorage.removeItem("stories:q");
+    } catch {}
+  };
+
+  // Client filters (state local)
+  const [sortKey, setSortKey] = useState<"updated" | "views" | "follows">(
+    "updated"
+  );
+  const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>([]);
+  const [selectedStyleIds, setSelectedStyleIds] = useState<string[]>([]);
+
+  // Options
+  const [availableGenres, setAvailableGenres] = useState<Genre[]>([]);
+  const [availableStyles, setAvailableStyles] = useState<StyleItem[]>([]);
+  const [loadingFilters, setLoadingFilters] = useState(false);
+
+  // Data
+  const [page, setPage] = useState(1);
+  const [allItems, setAllItems] = useState<CardItem[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [firstLoaded, setFirstLoaded] = useState(false);
+
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  // đọc search khi vào trang + khi focus window
+  useEffect(() => {
+    const syncQ = () => {
+      try {
+        const v = sessionStorage.getItem("stories:q") || "";
+        setQ(v);
+      } catch {}
+    };
+    syncQ();
+    window.addEventListener("focus", syncQ);
+
+    // ✅ clear search khi rời trang (unmount / đóng tab / reload)
+    const clearQ = () => {
+      try {
+        sessionStorage.removeItem("stories:q");
+      } catch {}
+    };
+    window.addEventListener("beforeunload", clearQ);
+
+    return () => {
+      window.removeEventListener("focus", syncQ);
+      window.removeEventListener("beforeunload", clearQ);
+      clearQ(); // cũng clear khi unmount do chuyển route nội bộ
+    };
+  }, []);
+
+  // load genres/styles
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoadingFilters(true);
+    fetchFilters(controller.signal)
+      .then(({ genres, styles }) => {
+        setAvailableGenres(genres);
+        setAvailableStyles(styles);
+      })
+      .catch((e) => console.error("Load filters failed:", e?.message || e))
+      .finally(() => setLoadingFilters(false));
+    return () => controller.abort();
+  }, []);
+
+  // reset list once
+  useEffect(() => {
+    setPage(1);
+    setAllItems([]);
+    setHasMore(true);
+    setErr(null);
+    setTotal(null);
+    setFirstLoaded(false);
+  }, []);
+
+  // fetch getAll pages (local filter/sort)
+  useEffect(() => {
+    if (!hasMore) return;
+
+    const controller = new AbortController();
+    let cancelled = false;
+
+    const fetchPage = async () => {
+      setLoading(true);
+      try {
+        const url = buildGetAllUrl(page, PAGE_SIZE);
+        const res = await axios.get(url, {
+          withCredentials: true,
+          signal: controller.signal,
+        });
+
+        const payload = res.data; // { data, total, page, limit } hoặc array
+        const raw = normalizeToArray<MangaRaw>(payload?.data ?? payload);
+        const mapped = raw.map(mapToCard);
+
+        setAllItems((prev) => (page === 1 ? mapped : prev.concat(mapped)));
+
+        if (typeof payload?.total === "number") {
+          setTotal(payload.total);
+          setHasMore(page * PAGE_SIZE < payload.total);
+        } else {
+          setHasMore(mapped.length >= PAGE_SIZE);
+        }
+
+        if (page === 1) setFirstLoaded(true);
+      } catch (e: any) {
+        if (axios.isCancel(e)) return;
+        if (!cancelled)
+          setErr(
+            e?.response?.data?.message || e?.message || "Tải dữ liệu thất bại"
+          );
+        setHasMore(false);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    const t = setTimeout(fetchPage, 120);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(t);
+    };
+  }, [page, hasMore]);
+
+  // Infinite scroll
+  useEffect(() => {
+    if (!loadMoreRef.current || !firstLoaded) return;
+    const node = loadMoreRef.current;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const [ent] = entries;
+        if (ent.isIntersecting && !loading && hasMore) setPage((p) => p + 1);
+      },
+      { rootMargin: "400px 0px" }
+    );
+
+    io.observe(node);
+    return () => io.disconnect();
+  }, [firstLoaded, loading, hasMore]);
+
+  // Toggle filters
+  const toggleGenre = (id: string) => {
+    setSelectedGenreIds((prev) => {
+      const set = new Set(prev);
+      set.has(id) ? set.delete(id) : set.add(id);
+      return Array.from(set);
+    });
+  };
+  const toggleStyle = (id: string) => {
+    setSelectedStyleIds((prev) => {
+      const set = new Set(prev);
+      set.has(id) ? set.delete(id) : set.add(id);
+      return Array.from(set);
+    });
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSelectedGenreIds([]);
+    setSelectedStyleIds([]);
+    setSortKey("updated");
+    setSearch(""); // xoá luôn search + sessionStorage
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Client filter + sort (local-only)
+  const filteredSorted = useMemo(() => {
+    let list = allItems;
+
+    if (q) {
+      const qLower = q.toLowerCase();
+      list = list.filter((it) => it.title.toLowerCase().includes(qLower));
+    }
+    if (selectedGenreIds.length) {
+      list = list.filter((it) =>
+        (it._genreIds || []).some((id) => selectedGenreIds.includes(id))
+      );
+    }
+    if (selectedStyleIds.length) {
+      list = list.filter((it) =>
+        (it._styleIds || []).some((id) => selectedStyleIds.includes(id))
+      );
+    }
+
+    const arr = [...list];
+    if (sortKey === "updated") {
+      arr.sort((a, b) => (b._updatedAt ?? 0) - (a._updatedAt ?? 0));
+    } else if (sortKey === "views") {
+      arr.sort((a, b) => (b._views ?? 0) - (a._views ?? 0));
+    } else if (sortKey === "follows") {
+      arr.sort((a, b) => (b._follows ?? 0) - (a._follows ?? 0));
+    }
+    return arr;
+  }, [
+    allItems,
+    q,
+    selectedGenreIds.join(","),
+    selectedStyleIds.join(","),
+    sortKey,
+  ]);
+
+  // ===== UI
+  return (
+    <div className="min-h-screen bg-white">
+      <Navbar />
+      <br />
+      <br />
+      <br />
+      <div className="mx-auto max-w-6xl p-4">
+        {/* Header + sort */}
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-xl font-semibold">
+            {q ? (
+              <>
+                Kết quả cho <span className="italic">“{q}”</span>
+              </>
+            ) : (
+              "Tất cả truyện"
+            )}
+            {typeof total === "number" && (
+              <span className="ml-2 text-sm text-gray-500">
+                ({total.toLocaleString("vi-VN")} mục)
+              </span>
+            )}
+          </h1>
+
+          {/* Sort (local) */}
+          <div className="flex flex-wrap items-center gap-2">
+            {SORTS.map((s) => {
+              const active = s.key === sortKey;
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => setSortKey(s.key)}
+                  className={`rounded-full px-3 py-1 text-sm border transition ${
+                    active
+                      ? "bg-black text-white border-black"
+                      : "bg-white hover:bg-gray-100 border-gray-300"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-sm font-medium text-gray-800">Lọc theo</div>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={loadingFilters}
+                onClick={clearFilters}
+                className="rounded border border-gray-300 px-3 py-1 text-xs hover:bg-white disabled:opacity-50"
+              >
+                Xoá bộ lọc
+              </button>
+            </div>
+          </div>
+
+          {/* Genre chips */}
+          <div className="mb-2">
+            <div className="mb-1 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+              Category
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {loadingFilters && (
+                <div className="text-xs text-gray-500">Đang tải category…</div>
+              )}
+              {!loadingFilters &&
+                (availableGenres.length ? (
+                  availableGenres.map((g) => {
+                    const active = selectedGenreIds.includes(g._id);
+                    return (
+                      <button
+                        key={g._id}
+                        onClick={() => toggleGenre(g._id)}
+                        className={`rounded-full border px-3 py-1 text-xs transition ${
+                          active
+                            ? "border-black bg-black text-white"
+                            : "border-gray-300 bg-white text-gray-800 hover:bg-gray-100"
+                        }`}
+                        title={g.description || g.name}
+                      >
+                        {g.name}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="text-xs text-gray-500">
+                    Không có category khả dụng
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          {/* Style chips */}
+          <div>
+            <div className="mb-1 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+              Style
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {loadingFilters && (
+                <div className="text-xs text-gray-500">Đang tải style…</div>
+              )}
+              {!loadingFilters &&
+                (availableStyles.length ? (
+                  availableStyles.map((s) => {
+                    const active = selectedStyleIds.includes(s._id);
+                    return (
+                      <button
+                        key={s._id}
+                        onClick={() => toggleStyle(s._id)}
+                        className={`rounded-full border px-3 py-1 text-xs transition ${
+                          active
+                            ? "border-black bg-black text-white"
+                            : "border-gray-300 bg-white text-gray-800 hover:bg-gray-100"
+                        }`}
+                        title={s.description || s.name}
+                      >
+                        {s.name}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="text-xs text-gray-500">
+                    Không có style khả dụng
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+
+        {/* States */}
+        {err && <p className="mb-3 text-red-600">Lỗi: {err}</p>}
+        {!err && !loading && filteredSorted.length === 0 && (
+          <p className="mb-3 text-gray-600">
+            Không có kết quả phù hợp (thử thay đổi bộ lọc).
+          </p>
+        )}
+
+        {/* Grid */}
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          {loading &&
+            allItems.length === 0 &&
+            Array.from({ length: 12 }).map((_, i) => (
+              <li key={`sk-${i}`} className="animate-pulse">
+                <div
+                  className="relative w-full overflow-hidden rounded-lg bg-gray-200"
+                  style={{ paddingBottom: "133%" }}
+                />
+                <div className="mt-2 h-4 w-3/4 rounded bg-gray-200" />
+                <div className="mt-1 h-3 w-1/2 rounded bg-gray-200" />
+              </li>
+            ))}
+
+          {(Array.isArray(filteredSorted) ? filteredSorted : []).map((m) => (
+            <li key={m.key}>
+              <CardView item={m} highlightQuery={q} />
+            </li>
+          ))}
+        </ul>
+
+        {/* Load-more / sentinel */}
+        <div ref={loadMoreRef} className="h-12" />
+        {!loading && hasMore && allItems.length > 0 && (
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+            >
+              Tải thêm
+            </button>
           </div>
         )}
-          </>
+        {loading && allItems.length > 0 && (
+          <div className="mt-4 flex justify-center text-sm text-gray-600">
+            Đang tải thêm…
+          </div>
         )}
       </div>
     </div>
-  )
+  );
 }
