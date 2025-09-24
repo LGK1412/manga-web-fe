@@ -1,90 +1,105 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState, useEffect } from "react"
-import { useTheme } from "next-themes"
-import Link from "next/link"
-import { useAuth } from "@/lib/auth-context"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import type React from "react";
+import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
+import Link from "next/link";
+import { useAuth } from "@/lib/auth-context";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Separator } from "@/components/ui/separator"
-import { Search, Bell, BookOpen, PenTool, User, LogOut, Menu, Sun, Moon, Gamepad2 } from "lucide-react"
-import Cookies from 'js-cookie';
-import { removeCookie } from "@/lib/cookie-func"
-import axios from "axios"
-import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
+} from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
+import {
+  Search,
+  Bell,
+  BookOpen,
+  PenTool,
+  User,
+  LogOut,
+  Menu,
+  Sun,
+  Moon,
+  Gamepad2,
+} from "lucide-react";
+import Cookies from "js-cookie";
+import { removeCookie } from "@/lib/cookie-func";
+import axios from "axios";
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 export function Navbar() {
-  const { isLogin } = useAuth()
-  const [user, setUser] = useState<any | undefined>()
-  const { theme, setTheme } = useTheme()
-  const { toast } = useToast()
-  const router = useRouter()
+  const { isLogin } = useAuth();
+  const [user, setUser] = useState<any | undefined>();
+  const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
+  const router = useRouter();
 
   // Desktop search state
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Mobile menu state
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [mobileSearch, setMobileSearch] = useState("")
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [mobileSearch, setMobileSearch] = useState("");
 
   const submitSearch = (q: string) => {
-    const query = q.trim()
+    const query = q.trim();
     if (query) {
-      window.location.href = `/search?q=${encodeURIComponent(query)}`
+      try {
+        sessionStorage.setItem("stories:q", query); // đổi key cho thống nhất /stories
+      } catch {}
+      router.push("/stories"); // <- dùng /stories (không param)
     }
-  }
+  };
 
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!mounted) return
+    setMounted(true);
+  }, []);
 
-    const raw = Cookies.get("user_normal_info")
+  useEffect(() => {
+    if (!mounted) return;
+
+    const raw = Cookies.get("user_normal_info");
     if (raw) {
       try {
-        const decoded = decodeURIComponent(raw)
-        const parsed = JSON.parse(decoded)
-        setUser(parsed)
+        const decoded = decodeURIComponent(raw);
+        const parsed = JSON.parse(decoded);
+        setUser(parsed);
       } catch (e) {
-        console.error("Invalid cookie data")
+        console.error("Invalid cookie data");
       }
     }
-  }, [isLogin, mounted])
-
-
+  }, [isLogin, mounted]);
 
   const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    submitSearch(searchQuery)
-  }
+    e.preventDefault();
+    submitSearch(searchQuery);
+  };
 
   async function logout() {
-    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, { withCredentials: true })
+    const res = await axios.get(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`,
+      { withCredentials: true }
+    );
 
     if (res.data.success) {
-      await removeCookie()
-      router.push("/login")
+      await removeCookie();
+      router.push("/login");
     } else {
       toast({
         title: "Đăng xuất không thành công",
         description: `Lỗi không mong muốn`,
         variant: "destructive",
-      })
+      });
     }
   }
 
@@ -100,10 +115,16 @@ export function Navbar() {
             </Link>
 
             <div className="hidden md:flex items-center">
-              <Link href="/genres" className="text-sm font-medium hover:text-primary ml-4">
+              <Link
+                href="/genres"
+                className="text-sm font-medium hover:text-primary ml-4"
+              >
                 Genres
               </Link>
-              <Link href="/game" className="text-sm font-medium hover:text-primary ml-4 flex items-center gap-1">
+              <Link
+                href="/game"
+                className="text-sm font-medium hover:text-primary ml-4 flex items-center gap-1"
+              >
                 <Gamepad2 className="h-4 w-4" />
                 Game
               </Link>
@@ -111,7 +132,10 @@ export function Navbar() {
           </div>
 
           {/* Desktop: centered search */}
-          <form onSubmit={handleSearch} className="hidden md:block flex-1 max-w-md mx-4">
+          <form
+            onSubmit={handleSearch}
+            className="hidden md:block flex-1 max-w-md mx-4"
+          >
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -132,7 +156,13 @@ export function Navbar() {
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               aria-label="Toggle theme"
             >
-              {mounted ? (theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />) : null}
+              {mounted ? (
+                theme === "dark" ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <Moon className="h-5 w-5" />
+                )
+              ) : null}
             </Button>
 
             {isLogin && user ? (
@@ -153,14 +183,17 @@ export function Navbar() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Button
+                      variant="ghost"
+                      className="relative h-8 w-8 rounded-full"
+                    >
                       <Avatar className="h-8 w-8">
                         <AvatarImage
                           src={
                             user.avatar
-                              ? (user.avatar.startsWith("http")
+                              ? user.avatar.startsWith("http")
                                 ? user.avatar
-                                : `${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${user.avatar}`)
+                                : `${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${user.avatar}`
                               : "/placeholder.svg?height=64&width=64&query=user-avatar"
                           }
                           alt={user.username}
@@ -169,19 +202,26 @@ export function Navbar() {
                         <AvatarFallback>
                           {user?.username?.charAt(0)?.toUpperCase() ?? "U"}
                         </AvatarFallback>
-
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56" align="end" forceMount>
                     <DropdownMenuItem asChild>
-                      <Link href={user?.user_id ? `/profile/${user.user_id}` : "/login"} className="flex items-center">
+                      <Link
+                        href={
+                          user?.user_id ? `/profile/${user.user_id}` : "/login"
+                        }
+                        className="flex items-center"
+                      >
                         <User className="mr-2 h-4 w-4" />
                         Profile
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={logout} className="flex items-center">
+                    <DropdownMenuItem
+                      onClick={logout}
+                      className="flex items-center"
+                    >
                       <LogOut className="mr-2 h-4 w-4" />
                       Log out
                     </DropdownMenuItem>
@@ -214,9 +254,9 @@ export function Navbar() {
                   {/* Mobile search */}
                   <form
                     onSubmit={(e) => {
-                      e.preventDefault()
-                      submitSearch(mobileSearch)
-                      setIsMenuOpen(false)
+                      e.preventDefault();
+                      submitSearch(mobileSearch);
+                      setIsMenuOpen(false);
                     }}
                     className="w-full"
                   >
@@ -239,7 +279,11 @@ export function Navbar() {
                   {/* Vertical menu list */}
                   <div className="space-y-2">
                     <div className="text-sm font-semibold">Menu</div>
-                    <Link href="/" onClick={() => setIsMenuOpen(false)} className="block py-2 text-sm hover:underline">
+                    <Link
+                      href="/"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block py-2 text-sm hover:underline"
+                    >
                       Home
                     </Link>
                     <Link
@@ -265,12 +309,22 @@ export function Navbar() {
                   {!user ? (
                     <div className="flex gap-2">
                       <Button asChild className="flex-1">
-                        <Link href="/register" onClick={() => setIsMenuOpen(false)}>
+                        <Link
+                          href="/register"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
                           Sign Up
                         </Link>
                       </Button>
-                      <Button variant="outline" asChild className="flex-1 bg-transparent">
-                        <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                      <Button
+                        variant="outline"
+                        asChild
+                        className="flex-1 bg-transparent"
+                      >
+                        <Link
+                          href="/login"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
                           Login
                         </Link>
                       </Button>
@@ -282,9 +336,9 @@ export function Navbar() {
                           <AvatarImage
                             src={
                               user.avatar
-                                ? (user.avatar.startsWith("http")
+                                ? user.avatar.startsWith("http")
                                   ? user.avatar
-                                  : `${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${user.avatar}`)
+                                  : `${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${user.avatar}`
                                 : "/placeholder.svg?height=64&width=64&query=user-avatar"
                             }
                             alt={user.username}
@@ -295,28 +349,41 @@ export function Navbar() {
                               ? user.username.charAt(0).toUpperCase()
                               : "U"}
                           </AvatarFallback>
-
                         </Avatar>
                         <div className="text-sm">
                           <p className="font-medium">{user.name}</p>
                           <p className="text-muted-foreground">{user.email}</p>
                         </div>
                       </div>
-                      <Link href="/notifications" onClick={() => setIsMenuOpen(false)} className="block py-2 text-sm">
+                      <Link
+                        href="/notifications"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="block py-2 text-sm"
+                      >
                         Notifications
                       </Link>
-                      {user.role === 'author' && (
-                        <Link href="/author/dashboard" onClick={() => setIsMenuOpen(false)} className="block py-2 text-sm">
+                      {user.role === "author" && (
+                        <Link
+                          href="/author/dashboard"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="block py-2 text-sm"
+                        >
                           Write
                         </Link>
                       )}
-                      <Link href={user?.user_id ? `/profile/${user.user_id}` : "/login"} onClick={() => setIsMenuOpen(false)} className="block py-2 text-sm">
+                      <Link
+                        href={
+                          user?.user_id ? `/profile/${user.user_id}` : "/login"
+                        }
+                        onClick={() => setIsMenuOpen(false)}
+                        className="block py-2 text-sm"
+                      >
                         Profile
                       </Link>
                       <button
                         onClick={() => {
-                          logout()
-                          setIsMenuOpen(false)
+                          logout();
+                          setIsMenuOpen(false);
                         }}
                         className="block py-2 text-left text-sm w-full"
                         type="button"
@@ -334,7 +401,9 @@ export function Navbar() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                      onClick={() =>
+                        setTheme(theme === "dark" ? "light" : "dark")
+                      }
                       className="bg-transparent"
                     >
                       {theme === "dark" ? (
@@ -355,5 +424,5 @@ export function Navbar() {
         </div>
       </div>
     </nav>
-  )
+  );
 }
