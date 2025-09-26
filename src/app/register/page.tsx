@@ -34,8 +34,8 @@ export default function RegisterPage() {
 
     if (formData.password !== formData.confirmPassword) {
       toast({
-        title: "Password mismatch",
-        description: "Passwords do not match.",
+        title: "Mật khẩu không khớp",
+        description: "Mật khẩu không khớp.",
         variant: "destructive",
       })
       return
@@ -43,8 +43,8 @@ export default function RegisterPage() {
 
     if (!formData.agreeToTerms) {
       toast({
-        title: "Terms required",
-        description: "Please agree to the terms and conditions.",
+        title: "Cần chấp nhận điều khoản",
+        description: "Vui lòng chấp nhận điều khoản và điều kiện.",
         variant: "destructive",
       })
       return
@@ -117,8 +117,8 @@ export default function RegisterPage() {
       // await loginWithGoogle()
     } catch (error) {
       toast({
-        title: "Google registration failed",
-        description: "Please try again later.",
+        title: "Lỗi không mong muốn",
+        description: "Vui lòng thử lại sau.",
         variant: "destructive",
       })
     }
@@ -131,17 +131,17 @@ export default function RegisterPage() {
           <div className="flex justify-center mb-4">
             <BookOpen className="h-8 w-8" />
           </div>
-          <CardTitle className="text-2xl">Create Account</CardTitle>
-          <CardDescription>Join Manga World and start your reading journey</CardDescription>
+          <CardTitle className="text-2xl">Tạo tài khoản</CardTitle>
+          <CardDescription>Tham gia Manga World và bắt đầu hành trình đọc của bạn</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Username</Label>
+              <Label htmlFor="name">Tên người dùng</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder="Enter your username"
+                placeholder="Nhập tên người dùng của bạn"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
@@ -152,19 +152,19 @@ export default function RegisterPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="Enter your email"
+                placeholder="Nhập email của bạn"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Mật khẩu</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Create a password"
+                  placeholder="Tạo mật khẩu"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
@@ -180,12 +180,12 @@ export default function RegisterPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
               <div className="relative">
                 <Input
                   id="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Confirm your password"
+                  placeholder="Xác nhận mật khẩu của bạn"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   required
@@ -209,19 +209,19 @@ export default function RegisterPage() {
                 required
               />
               <Label htmlFor="terms" className="text-sm">
-                I agree to the{" "}
+                Tôi đồng ý với{" "}
                 <Link href="/terms" className="text-primary hover:underline">
-                  Terms of Service
+                  Điều khoản dịch vụ
                 </Link>{" "}
-                and{" "}
+                và{" "}
                 <Link href="/privacy" className="text-primary hover:underline">
-                  Privacy Policy
+                  Chính sách bảo mật
                 </Link>
               </Label>
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create Account"}
+              {isLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
             </Button>
           </form>
 
@@ -230,9 +230,9 @@ export default function RegisterPage() {
           <GoogleButton />
 
           <div className="text-center text-sm">
-            Already have an account?{" "}
+            Đã có tài khoản?{" "}
             <Link href="/login" className="text-primary hover:underline">
-              Sign in
+              Đăng nhập
             </Link>
           </div>
         </CardContent>

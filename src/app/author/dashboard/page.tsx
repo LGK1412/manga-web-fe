@@ -148,7 +148,7 @@ export default function AuthorDashboard() {
         {list.map((story) => (
           <Card
             key={story._id}
-            className="max-w-sm mx-auto hover:shadow-lg transition-shadow"
+            className="max-w-sm mx-auto hover:shadow-lg transition-shadow bg-gray-100"
           >
             {story.coverImage && (
               <div className="aspect-[2/1.5] w-full overflow-hidden rounded-t-lg">

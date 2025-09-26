@@ -106,8 +106,8 @@ export default function LoginPage() {
           <div className="flex justify-center mb-4">
             <BookOpen className="h-8 w-8" />
           </div>
-          <CardTitle className="text-2xl">Welcome Back</CardTitle>
-          <CardDescription>Sign in to your Manga World account</CardDescription>
+          <CardTitle className="text-2xl">Chào mừng trở lại</CardTitle>
+          <CardDescription>Đăng nhập vào tài khoản Manga World của bạn</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -116,19 +116,19 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="Enter your email"
+                placeholder="Nhập email của bạn"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Mật khẩu</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
+                  placeholder="Nhập mật khẩu của bạn"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -148,16 +148,13 @@ export default function LoginPage() {
               </div>
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
             </Button>
           </form>
 
           <div className="text-center">
-            <Link
-              href="/forgot-password"
-              className="text-sm text-primary hover:underline"
-            >
-              Forgot your password?
+            <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+              Quên mật khẩu?
             </Link>
           </div>
 
@@ -168,9 +165,9 @@ export default function LoginPage() {
           </div>
 
           <div className="text-center text-sm">
-            {"Don't have an account? "}
+            {"Bạn chưa có tài khoản? "}
             <Link href="/register" className="text-primary hover:underline">
-              Sign up
+              Đăng ký
             </Link>
           </div>
         </CardContent>
