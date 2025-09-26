@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { useState, useTransition, useEffect, useRef } from "react";
 import axios from "axios";
 import {
@@ -14,26 +15,24 @@ import {
   ArrowLeft,
   Loader2,
   Upload,
-  Image as ImageIcon,
+  ImageIcon,
   ChevronUp,
   ChevronDown,
   ChevronsUp,
   ChevronsDown,
   RefreshCw,
 } from "lucide-react";
-import Link from "next/link";
+import { useParams } from "next/navigation";
 
-// ---- Axios instance (trỏ tới NestJS)
 const api = axios.create({
   baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api`,
 });
 
-// ---- Types
 interface Chapter {
   id: string;
   title: string;
   isActive: boolean;
-  number: number;
+  order: number;
   price: number;
   is_published: boolean;
 }
@@ -43,54 +42,52 @@ interface ImageFile {
   file?: File;
   preview: string;
   order: number;
-  isExisting?: boolean; // For existing images from server
-  originalUrl?: string; // Original server URL
+  isExisting?: boolean;
+  originalUrl?: string;
+  filename?: string;
 }
 
-// ---- Page
-export default function CreateChapterPage({
-  params,
-}: {
-  params: { idStory: string };
-}) {
-  const { idStory } = params;
-  const mangaId = idStory;
+function getImageUrl(chapterId: string, filename: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
+  return `${baseUrl}/uploads/image-chapters/${chapterId}/${filename}`;
+}
+
+export default function CreateChapterPage() {
+  // Truy cập params bên trong hàm
+  const params = useParams();
+  const mangaId = params.idStory;
+
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Loading & Mode
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingChapter, setIsLoadingChapter] = useState(false);
   const [isCreatingMode, setIsCreatingMode] = useState(true);
   const [currentEditingId, setCurrentEditingId] = useState<string | null>(null);
 
-  // State
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [title, setTitle] = useState("");
-  const [number, setNumber] = useState<number>(1);
+  const [order, setOrder] = useState<number>(1);
   const [content, setContent] = useState("");
   const [imageFiles, setImageFiles] = useState<ImageFile[]>([]);
 
   const [errors, setErrors] = useState<{
     title?: string;
-    number?: string;
+    order?: string;
     manga?: string;
     images?: string;
   }>({});
   const [dirty, setDirty] = useState(false);
   const [price, setPrice] = useState<number>(0);
 
-  // Refs for scroll functionality
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Position input state
   const [showPositionInput, setShowPositionInput] = useState<string | null>(
     null
   );
   const [targetPosition, setTargetPosition] = useState<string>("");
 
-  // --- GET: load chapters by mangaId
   useEffect(() => {
     let mounted = true;
     async function fetchChapters() {
@@ -102,15 +99,15 @@ export default function CreateChapterPage({
 
         const rawData = res.data?.data ?? [];
         if (!Array.isArray(rawData)) {
-          console.warn("API không trả về mảng:", rawData);
           setChapters([]);
           return;
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mapped: Chapter[] = rawData.map((c: any) => ({
           id: c._id,
           title: c.title,
-          number: c.order,
+          order: c.order,
           price: c.price ?? 0,
           is_published: !!c.is_published,
           isActive: false,
@@ -118,7 +115,7 @@ export default function CreateChapterPage({
 
         setChapters(mapped);
         if (isCreatingMode) {
-          setNumber(mapped.length + 1);
+          setOrder(mapped.length + 1);
         }
       } catch (err) {
         console.error("Lỗi tải danh sách chương", err);
@@ -133,7 +130,6 @@ export default function CreateChapterPage({
     };
   }, [mangaId, isCreatingMode]);
 
-  // Cleanup scroll interval on unmount
   useEffect(() => {
     return () => {
       if (scrollIntervalRef.current) {
@@ -142,7 +138,6 @@ export default function CreateChapterPage({
     };
   }, []);
 
-  // Load chapter data when editing
   async function fetchChapterData(chapterId: string) {
     if (!chapterId) return;
 
@@ -154,29 +149,23 @@ export default function CreateChapterPage({
 
       if (!chapterData) throw new Error("Không tìm thấy dữ liệu chương");
 
-      // Fill form data
       setTitle(chapterData.title || "");
-      setNumber(chapterData.order || 1);
+      setOrder(chapterData.order || 1);
       setPrice(chapterData.price || 0);
       setContent(chapterData.content || "");
 
-      // ✅ Map images từ chapterData.images
       const imageDocs = chapterData.images?.[0]?.images || [];
       const existingImages: ImageFile[] = imageDocs.map(
-        (imgPath: string, index: number) => {
-          // Nếu BE trả về path tương đối => tự ghép host
-          const fullUrl = imgPath.startsWith("http")
-            ? imgPath
-            : `${
-                process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333"
-              }${imgPath}`;
+        (filename: string, index: number) => {
+          const fullUrl = getImageUrl(chapterId, filename);
 
           return {
             id: `existing-${index}`,
-            preview: fullUrl, // FE dùng preview để hiển thị ảnh
+            preview: fullUrl,
             order: index,
             isExisting: true,
             originalUrl: fullUrl,
+            filename: filename,
           };
         }
       );
@@ -192,19 +181,17 @@ export default function CreateChapterPage({
     }
   }
 
-  // Validate form
   function validate() {
     const next: typeof errors = {};
     if (!mangaId) next.manga = "Thiếu mangaId trên URL";
     if (!title.trim()) next.title = "Tiêu đề là bắt buộc";
-    if (!Number.isFinite(number) || number <= 0)
-      next.number = "Số chương phải > 0";
+    if (!Number.isFinite(order) || order <= 0)
+      next.order = "Số chương phải > 0";
     if (imageFiles.length === 0) next.images = "Chọn ít nhất 1 ảnh";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
 
-  // Handle file selection
   function handleFileSelect(files: FileList | null) {
     if (!files) return;
 
@@ -220,11 +207,9 @@ export default function CreateChapterPage({
     setDirty(true);
   }
 
-  // Remove image
   function removeImage(id: string) {
     setImageFiles((prev) => {
       const filtered = prev.filter((img) => img.id !== id);
-      // Reorder remaining images
       return filtered.map((img, index) => ({
         ...img,
         order: index,
@@ -233,7 +218,6 @@ export default function CreateChapterPage({
     setDirty(true);
   }
 
-  // Move image up/down
   function moveImage(index: number, direction: "up" | "down") {
     const newIndex = direction === "up" ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= imageFiles.length) return;
@@ -244,7 +228,6 @@ export default function CreateChapterPage({
       newImageFiles[index],
     ];
 
-    // Update order
     const reorderedFiles = newImageFiles.map((img, i) => ({
       ...img,
       order: i,
@@ -254,7 +237,6 @@ export default function CreateChapterPage({
     setDirty(true);
   }
 
-  // Move to first/last position
   function moveToPosition(index: number, position: "first" | "last") {
     const newImageFiles = [...imageFiles];
     const item = newImageFiles.splice(index, 1)[0];
@@ -265,7 +247,6 @@ export default function CreateChapterPage({
       newImageFiles.push(item);
     }
 
-    // Update order
     const reorderedFiles = newImageFiles.map((img, i) => ({
       ...img,
       order: i,
@@ -275,9 +256,8 @@ export default function CreateChapterPage({
     setDirty(true);
   }
 
-  // Auto scroll functions
   function startAutoScroll(direction: "up" | "down") {
-    if (scrollIntervalRef.current) return; // Already scrolling
+    if (scrollIntervalRef.current) return;
 
     const container = imageContainerRef.current;
     if (!container) return;
@@ -299,7 +279,6 @@ export default function CreateChapterPage({
     }
   }
 
-  // Enhanced move functions with auto-scroll
   function handleMouseDownMove(index: number, direction: "up" | "down") {
     moveImage(index, direction);
     startAutoScroll(direction);
@@ -313,9 +292,8 @@ export default function CreateChapterPage({
     startAutoScroll(position === "first" ? "up" : "down");
   }
 
-  // Move to specific position
   function moveToSpecificPosition(currentIndex: number, targetPos: number) {
-    const targetIndex = targetPos - 1; // Convert to 0-based index
+    const targetIndex = targetPos - 1;
     if (
       targetIndex < 0 ||
       targetIndex >= imageFiles.length ||
@@ -328,7 +306,6 @@ export default function CreateChapterPage({
     const item = newImageFiles.splice(currentIndex, 1)[0];
     newImageFiles.splice(targetIndex, 0, item);
 
-    // Update order
     const reorderedFiles = newImageFiles.map((img, i) => ({
       ...img,
       order: i,
@@ -338,9 +315,8 @@ export default function CreateChapterPage({
     setDirty(true);
   }
 
-  // Handle position input
   function handlePositionSubmit(imageId: string, currentIndex: number) {
-    const pos = parseInt(targetPosition);
+    const pos = Number.parseInt(targetPosition);
     if (pos >= 1 && pos <= imageFiles.length) {
       moveToSpecificPosition(currentIndex, pos);
     }
@@ -348,7 +324,6 @@ export default function CreateChapterPage({
     setTargetPosition("");
   }
 
-  // Handle position input key press
   function handlePositionKeyPress(
     e: React.KeyboardEvent,
     imageId: string,
@@ -362,7 +337,6 @@ export default function CreateChapterPage({
     }
   }
 
-  // Save draft
   async function handleSaveDraft() {
     if (!validate()) return;
 
@@ -371,26 +345,24 @@ export default function CreateChapterPage({
         const formData = new FormData();
         formData.append("title", title);
         formData.append("price", String(price));
+        formData.append("order", String(order));
         formData.append("is_published", "false");
         formData.append("content", content);
-        formData.append("manga_id", mangaId);
+        formData.append("manga_id", mangaId as string);
 
-        // 🟢 Sắp xếp ảnh theo order trước khi xử lý
         const sortedImages = [...imageFiles].sort((a, b) => a.order - b.order);
 
-        // 🟢 Thêm ảnh mới vào FormData
         sortedImages.forEach((imgFile) => {
           if (imgFile.file) {
             formData.append("images", imgFile.file);
           }
         });
 
-        // 🟢 Gửi danh sách ảnh existing với thông tin order
         if (!isCreatingMode && currentEditingId) {
           const existingImagesWithOrder = sortedImages
-            .filter((img) => img.isExisting && img.originalUrl)
-            .map((img, index) => ({
-              url: img.originalUrl!,
+            .filter((img) => img.isExisting && img.filename)
+            .map((img) => ({
+              url: img.filename!,
               order: img.order,
             }));
 
@@ -398,7 +370,6 @@ export default function CreateChapterPage({
             "existing_images",
             JSON.stringify(existingImagesWithOrder)
           );
-          console.log("Sending existing images:", existingImagesWithOrder);
         }
 
         let res;
@@ -416,21 +387,20 @@ export default function CreateChapterPage({
           );
         }
 
-        const chapterData = res.data?.chapter || res.data?.data;
+        const chapterData = res.data?.data?.chapter || res.data?.chapter;
         if (!chapterData?._id) throw new Error("Phản hồi không hợp lệ");
 
         if (isCreatingMode) {
           updateChaptersState(chapterData);
           resetForm();
         } else {
-          // Update existing chapter in list
           setChapters((prev) =>
             prev.map((c) =>
               c.id === currentEditingId
                 ? {
                     ...c,
                     title: chapterData.title,
-                    number: chapterData.order,
+                    order: chapterData.order,
                     price: chapterData.price ?? 0,
                     is_published: false,
                   }
@@ -452,7 +422,6 @@ export default function CreateChapterPage({
     });
   }
 
-  // Create/Update chapter
   async function handleCreateOrUpdate() {
     if (!validate()) return;
 
@@ -461,26 +430,24 @@ export default function CreateChapterPage({
         const formData = new FormData();
         formData.append("title", title);
         formData.append("price", String(price));
+        formData.append("order", String(order));
         formData.append("is_published", "true");
         formData.append("content", content);
-        formData.append("manga_id", mangaId);
+        formData.append("manga_id", mangaId as string);
 
-        // 🟢 Sắp xếp ảnh theo order trước khi xử lý
         const sortedImages = [...imageFiles].sort((a, b) => a.order - b.order);
 
-        // 🟢 Thêm ảnh mới vào FormData
         sortedImages.forEach((imgFile) => {
           if (imgFile.file) {
             formData.append("images", imgFile.file);
           }
         });
 
-        // 🟢 Gửi danh sách ảnh existing với thông tin order
         if (!isCreatingMode && currentEditingId) {
           const existingImagesWithOrder = sortedImages
-            .filter((img) => img.isExisting && img.originalUrl)
-            .map((img, index) => ({
-              url: img.originalUrl!,
+            .filter((img) => img.isExisting && img.filename)
+            .map((img) => ({
+              url: img.filename!,
               order: img.order,
             }));
 
@@ -488,10 +455,8 @@ export default function CreateChapterPage({
             "existing_images",
             JSON.stringify(existingImagesWithOrder)
           );
-          console.log("Sending existing images:", existingImagesWithOrder);
         }
 
-        // 🟢 Gọi API
         let res;
         if (isCreatingMode) {
           res = await api.post(`/image-chapter`, formData, {
@@ -511,7 +476,6 @@ export default function CreateChapterPage({
           res.data?.chapter || res.data?.data?.chapter || res.data?.data;
         if (!chapterData?._id) throw new Error("Phản hồi không hợp lệ");
 
-        // 🟢 Cập nhật UI
         if (isCreatingMode) {
           updateChaptersState(chapterData);
           resetForm();
@@ -522,7 +486,7 @@ export default function CreateChapterPage({
                 ? {
                     ...c,
                     title: chapterData.title,
-                    number: chapterData.order,
+                    order: chapterData.order,
                     price: chapterData.price ?? 0,
                     is_published: true,
                   }
@@ -546,25 +510,23 @@ export default function CreateChapterPage({
     });
   }
 
-  // Trong component CreateChapterPage
-
   function handleEditChapter(chapterId: string) {
-    setIsCreatingMode(false); // Chuyển sang chế độ edit
-    setCurrentEditingId(chapterId); // Lưu id đang edit
-    setChapters(
-      (prev) => prev.map((c) => ({ ...c, isActive: c.id === chapterId })) // Đánh dấu chương đang edit
+    setIsCreatingMode(false);
+    setCurrentEditingId(chapterId);
+    setChapters((prev) =>
+      prev.map((c) => ({ ...c, isActive: c.id === chapterId }))
     );
-
-    fetchChapterData(chapterId); // Gọi API lấy dữ liệu chapter để fill form
+    fetchChapterData(chapterId);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function updateChaptersState(newChapter: any) {
     setChapters((prev) => [
       ...prev,
       {
         id: newChapter._id,
         title: newChapter.title,
-        number: newChapter.order,
+        order: newChapter.order,
         price: newChapter.price ?? 0,
         is_published: !!newChapter.is_published,
         isActive: false,
@@ -574,7 +536,7 @@ export default function CreateChapterPage({
 
   function resetForm() {
     setTitle("");
-    setNumber(chapters.length + 2);
+    setOrder(chapters.length + 2);
     setContent("");
     setPrice(0);
     setImageFiles([]);
@@ -587,12 +549,11 @@ export default function CreateChapterPage({
   function handleDiscard() {
     if (isCreatingMode) {
       setTitle("");
-      setNumber(chapters.length + 1);
+      setOrder(chapters.length + 1);
       setContent("");
       setPrice(0);
       setImageFiles([]);
     } else {
-      // If editing, reload the original data
       if (currentEditingId) {
         fetchChapterData(currentEditingId);
       }
@@ -606,14 +567,12 @@ export default function CreateChapterPage({
     resetForm();
   }
 
-  // Delete chapter
   async function handleDelete(id: string) {
     if (!confirm("Xoá chương này (và toàn bộ nội dung)?")) return;
     try {
       await api.delete(`/image-chapter/${id}`);
       setChapters((prev) => prev.filter((c) => c.id !== id));
 
-      // If currently editing this chapter, switch to create mode
       if (currentEditingId === id) {
         handleStartNewChapter();
       }
@@ -626,7 +585,6 @@ export default function CreateChapterPage({
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white">
       <div className="flex h-screen">
-        {/* Sidebar */}
         <aside className="hidden md:flex w-80 bg-white/80 backdrop-blur border-r border-slate-200 flex-col">
           <div className="p-6 border-b border-slate-200">
             <div className="flex items-center gap-3">
@@ -653,7 +611,7 @@ export default function CreateChapterPage({
                 <p className="text-xs text-slate-500">
                   {isCreatingMode
                     ? "Bạn đang tạo một chương mới"
-                    : `Đang chỉnh sửa chương ${number}`}
+                    : `Đang chỉnh sửa chương ${order}`}
                 </p>
               </div>
               <span
@@ -692,7 +650,6 @@ export default function CreateChapterPage({
             </div>
 
             <div className="space-y-2 overflow-y-auto flex-1 pr-1">
-              {/* Tip */}
               <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/60 p-4">
                 <div className="flex items-center gap-2 text-xs text-blue-800">
                   <span className="font-medium">Mẹo nhanh</span>
@@ -705,7 +662,6 @@ export default function CreateChapterPage({
                 </div>
               </div>
 
-              {/* Loading indicator for chapter data */}
               {isLoadingChapter && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-4">
                   <div className="flex items-center gap-2 text-xs text-blue-800">
@@ -715,7 +671,6 @@ export default function CreateChapterPage({
                 </div>
               )}
 
-              {/* Skeleton */}
               {isLoadingList &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <div
@@ -726,7 +681,7 @@ export default function CreateChapterPage({
 
               {!isLoadingList &&
                 chapters
-                  .sort((a, b) => a.number - b.number)
+                  .sort((a, b) => a.order - b.order)
                   .map((chapter) => (
                     <div
                       key={chapter.id}
@@ -740,7 +695,7 @@ export default function CreateChapterPage({
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
                             <span className="text-[11px] font-medium text-slate-500">
-                              Ch. {chapter.number}
+                              Ch. {chapter.order}
                             </span>
                             {chapter.is_published ? (
                               <span className="px-2 py-0.5 text-[10px] rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -791,12 +746,9 @@ export default function CreateChapterPage({
           </section>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 flex flex-col">
-          {/* Glass header */}
           <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60">
             <div className="px-4 sm:px-6 py-3 flex items-center justify-between">
-              {/* Breadcrumb + Back */}
               <div className="flex items-center gap-2 text-sm text-slate-500">
                 <button
                   onClick={() => (window.location.href = "/author/dashboard")}
@@ -807,10 +759,9 @@ export default function CreateChapterPage({
                 </button>
               </div>
 
-              {/* Chapter meta + dirty + mode indicator */}
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-slate-600">
-                  {isCreatingMode ? `Ch. ${number} (mới)` : `Ch. ${number}`}
+                  {isCreatingMode ? `Ch. ${order} (mới)` : `Ch. ${order}`}
                 </span>
                 {dirty && (
                   <span className="text-[11px] text-amber-600">• chưa lưu</span>
@@ -820,7 +771,6 @@ export default function CreateChapterPage({
                 )}
               </div>
 
-              {/* Actions */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleDiscard}
@@ -848,8 +798,8 @@ export default function CreateChapterPage({
                   {isPending
                     ? "Đang lưu..."
                     : isCreatingMode
-                    ? "Lưu bản nháp"
-                    : "Lưu thay đổi"}
+                    ? "Lưu nháp"
+                    : "Lưu thành nháp"}
                 </button>
 
                 <button
@@ -874,19 +824,16 @@ export default function CreateChapterPage({
                       ? "Đang tạo..."
                       : "Đang cập nhật..."
                     : isCreatingMode
-                    ? "Tạo chương"
-                    : "Cập nhật chương"}
+                    ? "Xuất bản chương"
+                    : "Cập nhật & Xuất bản"}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Content */}
           <div className="flex-1 overflow-y-auto">
-            {/* Chapter Info Section - Constrained Width */}
             <div className="p-4 sm:p-6">
               <div className="mx-auto w-full max-w-4xl">
-                {/* Details card */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
                   <div className="p-5 border-b border-slate-200">
                     <h3 className="text-sm font-semibold text-slate-800">
@@ -900,7 +847,6 @@ export default function CreateChapterPage({
                   </div>
 
                   <div className="p-5 space-y-5">
-                    {/* Title */}
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
                         Tiêu đề <span className="text-red-500">*</span>
@@ -930,7 +876,6 @@ export default function CreateChapterPage({
                       )}
                     </div>
 
-                    {/* Number & Price */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -939,30 +884,30 @@ export default function CreateChapterPage({
                         <input
                           type="number"
                           min={1}
-                          value={number}
+                          value={order}
                           onChange={(e) => {
-                            setNumber(
+                            setOrder(
                               Number.parseInt(e.target.value || "0", 10)
                             );
                             setDirty(true);
                           }}
                           className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         />
-                        {errors.number && (
+                        {errors.order && (
                           <p className="mt-2 text-xs text-red-600">
-                            {errors.number}
+                            {errors.order}
                           </p>
                         )}
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Giá (VND)
+                          Điểm
                         </label>
                         <input
                           type="number"
                           min={0}
-                          step="1000"
+                          step="1"
                           value={price}
                           onChange={(e) => {
                             setPrice(
@@ -1064,7 +1009,6 @@ export default function CreateChapterPage({
                                 : "border-blue-200 ring-1 ring-blue-100"
                             }`}
                           >
-                            {/* Position field */}
                             <div className="text-sm font-mono w-12 text-center mt-2">
                               {showPositionInput === imageFile.id ? (
                                 <input
@@ -1136,7 +1080,6 @@ export default function CreateChapterPage({
                             </div>
 
                             <div className="flex flex-col items-center gap-2 flex-shrink-0">
-                              {/* Quick move buttons */}
                               <div className="flex flex-col items-center gap-1 border-b border-slate-200 pb-3">
                                 <button
                                   onMouseDown={() =>

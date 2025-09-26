@@ -1,4 +1,8 @@
+
 export interface User {
+  point: number
+  author_point: number
+  role: string
   id: string
   email: string
   name: string

@@ -4,6 +4,7 @@ export async function removeCookie() {
     await Cookies.remove("user_normal_info", { path: "/" })
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function setCookie(tokenPayload: any) {
     const palyerInfo = {
         user_id: tokenPayload.user_id,
@@ -11,7 +12,10 @@ export async function setCookie(tokenPayload: any) {
         username: tokenPayload.username,
         role: tokenPayload.role,
         avatar: tokenPayload.avatar,
-        bio: tokenPayload.bio
+        bio: tokenPayload.bio,
+        point: tokenPayload.point,
+        author_point: tokenPayload.author_point,
+        lastBonus: tokenPayload.lastBonus
     }
 
     Cookies.set("user_normal_info", JSON.stringify(palyerInfo), {
