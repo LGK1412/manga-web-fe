@@ -66,95 +66,117 @@ export default function EditProfilePage() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    try {
-      const formData = new FormData();
-      formData.append("username", name);
-      formData.append("bio", bio);
-      if (selectedFile) {
-        formData.append("avatar", selectedFile); // gửi file thật
+  e.preventDefault();
+
+  // --- Validation ---
+  if (name.length < 3 || name.length > 30) {
+    toast({
+      title: "Tên không hợp lệ",
+      description: "Tên phải có từ 3 đến 30 ký tự",
+      variant: "destructive",
+    });
+    return; // dừng, không gọi API
+  }
+
+  const bioWordCount = bio.trim().split(/\s+/).filter(Boolean).length;
+  if (bioWordCount > 50) {
+    toast({
+      title: "Mô tả quá dài",
+      description: "Mô tả chỉ được tối đa 50 từ",
+      variant: "destructive",
+    });
+    return; // dừng, không gọi API
+  }
+  // -------------------
+
+  setIsSaving(true);
+  try {
+    const formData = new FormData();
+    formData.append("username", name);
+    formData.append("bio", bio);
+    if (selectedFile) {
+      formData.append("avatar", selectedFile);
+    }
+
+    const res = await axios.patch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/user/profile`,
+      formData,
+      {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
       }
+    );
 
-      const res = await axios.patch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/user/profile`,
-        formData,
-        {
-          withCredentials: true,
-          headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
+    // cập nhật lại cookie
+    const raw = Cookies.get("user_normal_info");
+    const parsed = raw ? JSON.parse(decodeURIComponent(raw)) : null;
 
-      // cập nhật lại cookie
-      const raw = Cookies.get("user_normal_info");
-      const parsed = raw ? JSON.parse(decodeURIComponent(raw)) : null;
-
-      if (parsed) {
-        const serverUser = (res as any)?.data?.user;
-        const serverAvatar: string | undefined = serverUser?.avatar;
-        const updated = {
-          user_id: parsed.user_id,
-          email: parsed.email,
-          username: name || parsed.username,
-          role: parsed.role,
-          // lưu đúng filename/path BE trả về, không tự đoán theo selectedFile.name
-          avatar: serverAvatar !== undefined ? serverAvatar : parsed.avatar,
-          bio: bio || parsed.bio,
-        };
-        Cookies.set("user_normal_info", JSON.stringify(updated), {
-          expires: 360,
-          path: "/",
-        });
-      }
-
-      toast({
-        title: "Cập nhật hồ sơ thành công",
-        description: "Đã cập nhật hồ sơ thành công",
-        variant: "success",
+    if (parsed) {
+      const serverUser = (res as any)?.data?.user;
+      const serverAvatar: string | undefined = serverUser?.avatar;
+      const updated = {
+        user_id: parsed.user_id,
+        email: parsed.email,
+        username: name || parsed.username,
+        role: parsed.role,
+        avatar: serverAvatar !== undefined ? serverAvatar : parsed.avatar,
+        bio: bio || parsed.bio,
+      };
+      Cookies.set("user_normal_info", JSON.stringify(updated), {
+        expires: 360,
+        path: "/",
       });
+    }
 
-      const userId = parsed?.user_id;
-      if (userId) {
-        router.push(`/profile/${userId}`);
-      } else {
+    toast({
+      title: "Cập nhật hồ sơ thành công",
+      description: "Đã cập nhật hồ sơ thành công",
+      variant: "success",
+    });
+
+    const userId = parsed?.user_id;
+    if (userId) {
+      router.push(`/profile/${userId}`);
+    } else {
+      router.push("/login");
+    }
+  } catch (error) {
+    console.error("Profile update error:", error);
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401) {
+        toast({
+          title: "Phiên đăng nhập hết hạn",
+          description: "Vui lòng đăng nhập lại",
+          variant: "destructive",
+        });
         router.push("/login");
-      }
-    } catch (error) {
-      console.error("Profile update error:", error);
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 401) {
-          toast({
-            title: "Phiên đăng nhập hết hạn",
-            description: "Vui lòng đăng nhập lại",
-            variant: "destructive",
-          });
-          router.push("/login");
-        } else if (error.response?.status === 400) {
-          console.log("400 error details:", error.response?.data);
-          toast({
-            title: "Lỗi cập nhật hồ sơ",
-            description:
-              error.response?.data?.message || "Dữ liệu không hợp lệ",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Lỗi cập nhật hồ sơ",
-            description: error.response?.data?.message || "Lỗi server",
-            variant: "destructive",
-          });
-        }
+      } else if (error.response?.status === 400) {
+        console.log("400 error details:", error.response?.data);
+        toast({
+          title: "Lỗi cập nhật hồ sơ",
+          description:
+            error.response?.data?.message || "Dữ liệu không hợp lệ",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Lỗi cập nhật hồ sơ",
-          description: "Lỗi không xác định",
+          description: error.response?.data?.message || "Lỗi server",
           variant: "destructive",
         });
       }
-    } finally {
-      setIsSaving(false);
+    } else {
+      toast({
+        title: "Lỗi cập nhật hồ sơ",
+        description: "Lỗi không xác định",
+        variant: "destructive",
+      });
     }
-  };
+  } finally {
+    setIsSaving(false);
+  }
+};
+
 
   // Render form directly; access control handled via cookie in useEffect
 

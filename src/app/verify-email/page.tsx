@@ -67,7 +67,7 @@ export default function VerifyEmailPage() {
           <div className="flex justify-center mb-4">
             <Mail className="h-8 w-8" />
           </div>
-          <CardTitle className="text-2xl">Email Verification</CardTitle>
+          <CardTitle className="text-2xl">Xác minh email</CardTitle>
           <CardDescription>
             {status === "loading" && "Đang xác minh email của bạn, vui lòng đợi..."}
             {status === "success" && "Email của bạn đã được xác minh! Đang chuyển hướng đến trang đăng nhập..."}

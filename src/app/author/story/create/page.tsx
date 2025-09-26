@@ -386,7 +386,7 @@ export default function CreateStoryPage() {
                     onClick={handlePublish}
                     className="flex-1"
                     variant="secondary"
-                    disabled={isPublishing} 
+                    disabled={isPublishing}         
                   >
                     <Publish className="w-4 h-4 mr-2" />
                     {isPublishing ? "Đang xử lý..." : "Xuất bản"}

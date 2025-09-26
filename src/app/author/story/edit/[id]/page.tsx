@@ -80,7 +80,7 @@ export default function EditStoryPage() {
                     const current = allStories.find((s: Record<string, unknown>) => s?._id === params.id)
                     if (!current) return
                     setCurrentStory(current)
-                    
+
                     type Genre = string | { _id: string }
                     const genresIds: string[] = (current.genres || []).map((g: Genre) =>
                         typeof g === "string" ? g : g._id
@@ -100,7 +100,7 @@ export default function EditStoryPage() {
                         setImageStoryStatus((current.status || "ongoing").toLowerCase())
                         setImageIsPublish(!!current.isPublish)
                     }
-                    
+
                     // Set cover image preview if exists
                     if (current.coverImage) {
                         setCoverPreview(`${process.env.NEXT_PUBLIC_API_URL}/assets/coverImages/${current.coverImage}`)
@@ -118,44 +118,68 @@ export default function EditStoryPage() {
 
     const handleUpdate = async () => {
         const v = getCurrentFormValues()
-        if (!v.title?.trim()) return toast({ title: "Lỗi", description: "Vui lòng nhập tên truyện.", variant: "destructive" })
-        if (!v.summary?.trim()) return toast({ title: "Lỗi", description: "Vui lòng nhập mô tả.", variant: "destructive" })
-        if (!v.genres?.length) return toast({ title: "Lỗi", description: "Chọn ít nhất 1 thể loại.", variant: "destructive" })
-        if (!coverFile && !currentStory?.coverImage) return toast({ title: "Lỗi", description: "Vui lòng chọn ảnh bìa cho truyện.", variant: "destructive" })
 
+        // Title
+        if (!v.title?.trim())
+            return toast({ title: "Lỗi", description: "Vui lòng nhập tên truyện.", variant: "destructive" })
+
+        if (v.title.trim().length < 3)
+            return toast({ title: "Lỗi", description: "Tên truyện phải có ít nhất 3 ký tự.", variant: "destructive" })
+
+        if (v.title.trim().length > 100)
+            return toast({ title: "Lỗi", description: "Tên truyện không được vượt quá 100 ký tự.", variant: "destructive" })
+
+        // Summary
+        if (!v.summary?.trim())
+            return toast({ title: "Lỗi", description: "Vui lòng nhập mô tả.", variant: "destructive" })
+
+        if (v.summary.trim().length < 10)
+            return toast({ title: "Lỗi", description: "Mô tả phải có ít nhất 10 ký tự.", variant: "destructive" })
+
+        if (v.summary.trim().length > 1000)
+            return toast({ title: "Lỗi", description: "Mô tả không được vượt quá 1000 ký tự.", variant: "destructive" })
+
+        // Genres
+        if (!v.genres?.length)
+            return toast({ title: "Lỗi", description: "Chọn ít nhất 1 thể loại.", variant: "destructive" })
+
+        if (v.genres.length > 3)
+            return toast({ title: "Lỗi", description: "Chỉ được chọn tối đa 3 thể loại.", variant: "destructive" })
+
+        // Cover
+        if (!coverFile && !currentStory?.coverImage)
+            return toast({ title: "Lỗi", description: "Vui lòng chọn ảnh bìa cho truyện.", variant: "destructive" })
+
+        // Build form data
         const formData = new FormData()
-        formData.append('title', v.title)
-        formData.append('summary', v.summary)
-        formData.append('status', (v.status || "").toLowerCase())
-        formData.append('isPublish', String(Boolean(v.isPublish)))
-        formData.append('type', storyType)
-        
-        // Add genres
+        formData.append("title", v.title)
+        formData.append("summary", v.summary)
+        formData.append("status", (v.status || "").toLowerCase())
+        formData.append("isPublish", String(Boolean(v.isPublish)))
+        formData.append("type", storyType)
+
         v.genres.forEach((genreId: string) => {
-            formData.append('genres', genreId)
+            formData.append("genres", genreId)
         })
-        
-        // Add cover image (new file or keep existing)
+
         if (coverFile) {
-            formData.append('coverImage', coverFile)
+            formData.append("coverImage", coverFile)
         } else if (currentStory?.coverImage) {
-            // Keep existing cover image
-            formData.append('keepExistingCover', 'true')
+            formData.append("keepExistingCover", "true")
         }
-        
+
         try {
-            await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/manga/${params.id}`, formData, { 
+            await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/manga/${params.id}`, formData, {
                 withCredentials: true,
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
+                headers: { "Content-Type": "multipart/form-data" }
             })
-            toast({ title: "Cập nhật thành công!", description:"Truyện đã cập nhật thành công", variant: "success" })
+            toast({ title: "Cập nhật thành công!", description: "Truyện đã cập nhật thành công", variant: "success" })
             router.push("/author/dashboard")
         } catch {
             toast({ title: "Không cập nhật được", description: "Vui lòng kiểm tra lại dữ liệu/đăng nhập.", variant: "destructive" })
         }
     }
+
 
     return (
         <div className="min-h-screen bg-background">
