@@ -67,7 +67,7 @@ function getKey(x: MangaRaw) {
 }
 
 function getHref(x: MangaRaw) {
-  return `/manga/${encodeURIComponent(x._id)}`;
+  return `/story/${x._id}`;
 }
 function timeAgo(inputMs?: number) {
   if (!inputMs) return undefined;

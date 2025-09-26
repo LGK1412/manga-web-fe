@@ -34,9 +34,11 @@ import { removeCookie } from "@/lib/cookie-func";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { PointBadge } from "./PointBadge";
 
 export function Navbar() {
   const { isLogin } = useAuth();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [user, setUser] = useState<any | undefined>();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
@@ -150,6 +152,7 @@ export function Navbar() {
 
           {/* Desktop: right actions */}
           <div className="hidden md:flex items-center gap-2">
+            {isLogin && user && <PointBadge />}
             <Button
               variant="ghost"
               size="icon"
@@ -273,8 +276,7 @@ export function Navbar() {
                       />
                     </div>
                   </form>
-
-                  <Separator />
+                  {isLogin && user && <PointBadge />}
 
                   {/* Vertical menu list */}
                   <div className="space-y-2">
