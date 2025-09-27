@@ -33,7 +33,9 @@ export default function CreateStoryPage() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [availableGenres, setAvailableGenres] = useState<Array<{ _id: string; name: string }>>([]);
+  const [availableGenres, setAvailableGenres] = useState<
+    Array<{ _id: string; name: string }>
+  >([]);
   const [availableStyles, setAvailableStyles] = useState<StyleDoc[]>([]);
   const [storyStyle, setStoryStyle] = useState<string>("");
 
@@ -64,7 +66,7 @@ export default function CreateStoryPage() {
     (async () => {
       try {
         const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/genre/active`,
+          `${process.env.NEXT_PUBLIC_API_URL}/api/genre/`,
           { withCredentials: true }
         );
         if (mounted)
@@ -151,12 +153,12 @@ export default function CreateStoryPage() {
         variant: "destructive",
       });
 
-    if (selectedGenres.length > 3)
-      return toast({
-        title: "Lỗi",
-        description: "Chỉ được chọn tối đa 3 thể loại.",
-        variant: "destructive",
-      });
+    // if (selectedGenres.length > 3)
+    //   return toast({
+    //     title: "Lỗi",
+    //     description: "Chỉ được chọn tối đa 3 thể loại.",
+    //     variant: "destructive",
+    //   });
 
     if (!coverFile)
       return toast({
@@ -211,7 +213,6 @@ export default function CreateStoryPage() {
     }
   };
 
-
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -237,11 +238,11 @@ export default function CreateStoryPage() {
                       ) : (
                         <ImageIcon className="w-4 h-4" />
                       )}
-                      {s.name === "text"
+                      {s.name === "Manga"
+                        ? "Truyện chữ"
+                        : s.name === "Light Novel"
                         ? "Truyện Chữ"
-                        : s.name === "image"
-                          ? "Truyện Tranh"
-                          : s.name}
+                        : s.name}
                     </TabsTrigger>
                   ))}
                 </TabsList>
@@ -257,11 +258,11 @@ export default function CreateStoryPage() {
                   ) : (
                     <ImageIcon className="w-5 h-5" />
                   )}
-                  {storyStyle === "text"
+                  {storyStyle === "Manga"
+                    ? "Truyện chữ"
+                    : storyStyle === "Light Novel"
                     ? "Truyện Chữ"
-                    : storyStyle === "image"
-                      ? "Truyện Tranh"
-                      : storyStyle}
+                    : storyStyle}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -386,7 +387,7 @@ export default function CreateStoryPage() {
                     onClick={handlePublish}
                     className="flex-1"
                     variant="secondary"
-                    disabled={isPublishing}         
+                    disabled={isPublishing}
                   >
                     <Publish className="w-4 h-4 mr-2" />
                     {isPublishing ? "Đang xử lý..." : "Xuất bản"}

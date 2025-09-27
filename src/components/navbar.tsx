@@ -28,6 +28,7 @@ import {
   Sun,
   Moon,
   Gamepad2,
+  UserStar,
 } from "lucide-react";
 import Cookies from "js-cookie";
 import { removeCookie } from "@/lib/cookie-func";
@@ -183,7 +184,13 @@ export function Navbar() {
                     </Link>
                   </Button>
                 )}
-
+                {user.role.trim() === "admin" && (
+                  <Button variant="ghost" size="icon" asChild>
+                    <Link href="/admin/dashboard">
+                      <UserStar className="h-5 w-5" />
+                    </Link>
+                  </Button>
+                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button

@@ -6,6 +6,7 @@ import Link from "next/link";
 import axios from "axios";
 import { Navbar } from "@/components/navbar";
 import { Star, Eye, BookOpen, Pencil } from "lucide-react";
+import { MangaCard } from "@/components/MangaCard";
 
 // ===== Types
 type Genre = { _id: string; name: string; description?: string };
@@ -210,7 +211,7 @@ function buildGetAllUrl(page: number, limit: number) {
 
 async function fetchFilters(signal?: AbortSignal) {
   const [genresRes, stylesRes] = await Promise.all([
-    axios.get(`${API_BASE}/api/genre/active`, {
+    axios.get(`${API_BASE}/api/genre/`, {
       withCredentials: true,
       signal,
     }),
@@ -232,120 +233,6 @@ const SORTS: { key: "updated" | "views" | "follows"; label: string }[] = [
   { key: "views", label: "Xem nhiều" },
   { key: "follows", label: "Theo dõi nhiều" },
 ];
-
-// ===== Reusable Card UI (giống trang Home)
-function CardView({
-  item,
-  highlightQuery,
-}: {
-  item: CardItem;
-  highlightQuery?: string;
-}) {
-  const updated = timeAgo(item.updatedAtMs);
-  /* eslint-disable @next/next/no-img-element */
-  return (
-    <Link
-      href={item.href}
-      className="group block rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-100"
-    >
-      <div
-        className="relative overflow-hidden rounded-t-lg"
-        style={{ paddingBottom: "140%" }}
-      >
-        {item.coverUrl ? (
-          <img
-            src={item.coverUrl}
-            alt={item.title}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-500 text-sm">
-            No cover
-          </div>
-        )}
-
-        {/* Gradient */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
-
-        {/* Status */}
-        <div className="absolute left-2 top-2 flex gap-2">
-          {item.status && (
-            <span
-              className={`rounded px-2 py-0.5 text-[11px] font-medium text-white shadow ${
-                /complete|hoàn/i.test(item.status)
-                  ? "bg-emerald-600"
-                  : "bg-indigo-600"
-              }`}
-            >
-              {item.status}
-            </span>
-          )}
-          {!item.published && (
-            <span className="rounded bg-amber-600 px-2 py-0.5 text-[11px] font-medium text-white shadow inline-flex items-center gap-1">
-              <Pencil className="h-3 w-3" /> Draft
-            </span>
-          )}
-        </div>
-
-        {/* Title + meta overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
-          {highlightQuery ? (
-            <div
-              className="line-clamp-2 text-sm font-semibold"
-              dangerouslySetInnerHTML={{
-                __html: highlight(item.title, highlightQuery),
-              }}
-            />
-          ) : (
-            <div className="line-clamp-2 text-sm font-semibold">
-              {item.title}
-            </div>
-          )}
-          <div className="mt-1 flex items-center justify-between text-[11px] opacity-90">
-            <span className="flex items-center gap-1">
-              <BookOpen className="h-3.5 w-3.5" />
-              {item.chapters} chương
-            </span>
-            <span>{updated}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom meta */}
-      <div className="rounded-b-lg bg-white p-2">
-        <div className="mb-1 flex flex-wrap gap-1">
-          {item.genres.slice(0, 3).map((g) => (
-            <span
-              key={g}
-              className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px]"
-            >
-              {g}
-            </span>
-          ))}
-          {/* {item.styles.slice(0, 1).map((s) => (
-            <span
-              key={s}
-              className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] text-blue-700"
-            >
-              {s}
-            </span>
-          ))} */}
-        </div>
-        <div className="flex items-center justify-between text-xs text-gray-600">
-          <span className="flex items-center gap-1">
-            <Star className="h-3.5 w-3.5 fill-yellow-400 stroke-yellow-400" />
-            {(item.rating || 0).toFixed(1)}
-          </span>
-          <span className="flex items-center gap-1">
-            <Eye className="h-3.5 w-3.5" />
-            {fmtViews(item.views)} lượt xem
-          </span>
-        </div>
-      </div>
-    </Link>
-  );
-}
 
 export default function StoriesPage() {
   // search lưu trong sessionStorage
@@ -705,23 +592,25 @@ export default function StoriesPage() {
         )}
 
         {/* Grid */}
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 sm:gap-4">
+          {/* Skeleton khi chưa có dữ liệu */}
           {loading &&
             allItems.length === 0 &&
             Array.from({ length: 12 }).map((_, i) => (
               <li key={`sk-${i}`} className="animate-pulse">
                 <div
-                  className="relative w-full overflow-hidden rounded-lg bg-gray-200"
-                  style={{ paddingBottom: "133%" }}
+                  className="relative w-full overflow-hidden rounded-xl bg-slate-200 ring-1 ring-inset ring-black/5"
+                  style={{ paddingBottom: "150%" }} // 2:3 để khớp MangaCard
                 />
-                <div className="mt-2 h-4 w-3/4 rounded bg-gray-200" />
-                <div className="mt-1 h-3 w-1/2 rounded bg-gray-200" />
+                <div className="mt-2 h-4 w-5/6 rounded bg-slate-200" />
+                <div className="mt-1 h-3 w-1/3 rounded bg-slate-200" />
               </li>
             ))}
 
           {(Array.isArray(filteredSorted) ? filteredSorted : []).map((m) => (
-            <li key={m.key}>
-              <CardView item={m} highlightQuery={q} />
+            <li key={m.key} className="min-w-0">
+              {/* KHÔNG cần div w-[192px]/snap trong layout grid */}
+              <MangaCard item={m} compact />
             </li>
           ))}
         </ul>

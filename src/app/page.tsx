@@ -6,6 +6,8 @@ import Link from "next/link";
 import axios from "axios";
 import { Navbar } from "@/components/navbar";
 import { Star, Eye, BookOpen, Pencil } from "lucide-react";
+import { MangaCard } from "@/components/MangaCard";
+import { Footer } from "@/components/footer";
 
 // ================= Types (khớp dữ liệu bạn gửi)
 type Genre = { _id: string; name: string };
@@ -131,7 +133,7 @@ async function fetchAll(signal?: AbortSignal) {
 
 async function fetchFilters(signal?: AbortSignal) {
   const [genresRes, stylesRes] = await Promise.all([
-    axios.get(`${API_BASE}/api/genre/active`, {
+    axios.get(`${API_BASE}/api/genre/`, {
       withCredentials: true,
       signal,
     }),
@@ -148,111 +150,6 @@ async function fetchFilters(signal?: AbortSignal) {
 }
 
 type RankTab = "day" | "week" | "month";
-
-// ================= Reusable Card UI
-function MangaCard({
-  item,
-  compact = false,
-}: {
-  item: Card;
-  compact?: boolean;
-}) {
-  const updated = timeAgo(item.updatedAtMs);
-  /* eslint-disable @next/next/no-img-element */
-  return (
-    <Link
-      href={item.href}
-      className={`group block rounded-lg shadow-sm hover:shadow-md transition-shadow ${
-        compact ? "" : "border border-gray-100"
-      }`}
-    >
-      <div
-        className="relative overflow-hidden rounded-t-lg"
-        style={{ paddingBottom: compact ? "150%" : "140%" }}
-      >
-        {item.coverUrl ? (
-          <img
-            src={item.coverUrl}
-            alt={item.title}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-500 text-sm">
-            No cover
-          </div>
-        )}
-
-        {/* Gradient overlay */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
-
-        {/* Status badges */}
-        <div className="absolute left-2 top-2 flex gap-2">
-          {item.status && (
-            <span
-              className={`rounded px-2 py-0.5 text-[11px] font-medium text-white shadow ${
-                /complete|hoàn/i.test(item.status)
-                  ? "bg-emerald-600"
-                  : "bg-indigo-600"
-              }`}
-            >
-              {item.status}
-            </span>
-          )}
-          {!item.published && (
-            <span className="rounded bg-amber-600 px-2 py-0.5 text-[11px] font-medium text-white shadow inline-flex items-center gap-1">
-              <Pencil className="h-3 w-3" /> Draft
-            </span>
-          )}
-        </div>
-
-        {/* Title + meta overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
-          <div className="line-clamp-2 text-sm font-semibold">{item.title}</div>
-          <div className="mt-1 flex items-center justify-between text-[11px] opacity-90">
-            <span className="flex items-center gap-1">
-              <BookOpen className="h-3.5 w-3.5" />
-              {item.chapters || 0} chương
-            </span>
-            <span>{updated}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom meta */}
-      <div className="rounded-b-lg bg-white p-2">
-        <div className="mb-1 flex flex-wrap gap-1">
-          {item.genres.slice(0, 2).map((g) => (
-            <span
-              key={g}
-              className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px]"
-            >
-              {g}
-            </span>
-          ))}
-          {item.styles.slice(0, 1).map((s) => (
-            <span
-              key={s}
-              className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] text-blue-700"
-            >
-              {s}
-            </span>
-          ))}
-        </div>
-        <div className="flex items-center justify-between text-xs text-gray-600">
-          <span className="flex items-center gap-1">
-            <Star className="h-3.5 w-3.5 fill-yellow-400 stroke-yellow-400" />
-            {(item.rating || 0).toFixed(1)}
-          </span>
-          <span className="flex items-center gap-1">
-            <Eye className="h-3.5 w-3.5" />
-            {fmtViews(item.views)} lượt xem
-          </span>
-        </div>
-      </div>
-    </Link>
-  );
-}
 
 // ================= Page
 export default function HomePage() {
@@ -328,7 +225,10 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
-
+      <br />
+      <br />
+      <br />
+      <br />
       <main className="mx-auto max-w-6xl p-4 space-y-8">
         {/* Error / Loading */}
         {err && (
@@ -372,59 +272,6 @@ export default function HomePage() {
             </div>
           </section>
         )}
-
-        {/* ===== Genres & Styles chips */}
-        {(genres.length > 0 || styles.length > 0) && (
-          <section className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-600">
-                  Category
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {genres.length ? (
-                    genres.slice(0, 24).map((g) => (
-                      <button
-                        key={g._id}
-                        onClick={() => goStoriesWithGenre(g)}
-                        className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs hover:bg-gray-100"
-                        title={g.name}
-                      >
-                        {g.name}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="text-xs text-gray-500">
-                      Không có category
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-600">
-                  Style
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {styles.length ? (
-                    styles.map((s) => (
-                      <button
-                        key={s._id}
-                        onClick={() => goStoriesWithStyle(s)}
-                        className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs hover:bg-gray-100"
-                        title={s.name}
-                      >
-                        {s.name}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="text-xs text-gray-500">Không có style</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
         {/* ===== Main content */}
         <section className="grid gap-6 lg:grid-cols-12">
           {/* Latest */}
@@ -438,11 +285,14 @@ export default function HomePage() {
                 Xem thêm
               </Link>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+
+            <ul className="grid [grid-template-columns:repeat(auto-fill,minmax(192px,1fr))] gap-3 sm:gap-4">
               {latest.map((m) => (
-                <MangaCard key={m.key} item={m} />
+                <li key={m.key} className="min-w-0">
+                  <MangaCard item={m} compact />
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
 
           {/* Rankings */}
@@ -541,6 +391,7 @@ export default function HomePage() {
           </aside>
         </section>
       </main>
+      <Footer />
     </div>
   );
 }

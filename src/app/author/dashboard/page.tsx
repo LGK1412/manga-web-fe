@@ -58,6 +58,7 @@ export default function AuthorDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       const payload = decodeToken();
+      // console.log(payload.user_id);
       if (!payload) return;
       try {
         const { data } = await axios.get(
@@ -71,12 +72,12 @@ export default function AuthorDashboard() {
 
         setTextStories(
           allStories.filter((s) =>
-            s.styles?.some((style) => style.name === "text")
+            s.styles?.some((style) => style.name === "Manga")
           )
         );
         setImageStories(
           allStories.filter((s) =>
-            s.styles?.some((style) => style.name === "image")
+            s.styles?.some((style) => style.name === "Light Novel")
           )
         );
       } catch (err) {
