@@ -28,13 +28,13 @@ interface Genre {
   name: string
   description: string
   storiesCount: number
-  status: "active" | "inactive"
+  status: "normal" | "hide"
 }
 
 export default function GenreManagement() {
   const [genres, setGenres] = useState<Genre[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
+  const [statusFilter, setStatusFilter] = useState<"all" | "normal" | "hide">("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [newGenre, setNewGenre] = useState({ name: "", description: "" })
@@ -117,7 +117,7 @@ export default function GenreManagement() {
 
   // Toggle status thay vì delete
   const handleToggleStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === "active" ? "inactive" : "active"
+    const newStatus = currentStatus === "normal" ? "hide" : "normal"
 
     try {
       await axios.patch(
@@ -230,8 +230,8 @@ export default function GenreManagement() {
                 onChange={(e) => setStatusFilter(e.target.value as any)}
               >
                 <option value="all">Tất cả</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                <option value="normal">Normal</option>
+                <option value="hide">Hide</option>
               </select>
             </div>
           </CardContent>
@@ -260,7 +260,7 @@ export default function GenreManagement() {
                     <TableCell className="font-medium">{genre.name}</TableCell>
                     <TableCell className="text-gray-600">{genre.description}</TableCell>
                     <TableCell>
-                      <Badge variant={genre.status === "active" ? "default" : "secondary"}>
+                      <Badge variant={genre.status === "normal" ? "default" : "secondary"}>
                         {genre.status}
                       </Badge>
                     </TableCell>
@@ -327,7 +327,7 @@ export default function GenreManagement() {
                   <Label>Trạng thái</Label>
                   <Select
                     value={editGenre.status}
-                    onValueChange={(value: "active" | "inactive") =>
+                    onValueChange={(value: "normal" | "hide") =>
                       setEditGenre({ ...editGenre, status: value })
                     }
                   >
@@ -335,8 +335,8 @@ export default function GenreManagement() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="hide">Hide</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

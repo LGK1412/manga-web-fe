@@ -35,7 +35,7 @@ interface Style {
   description: string
   icon: string
   storiesCount: number
-  status: "active" | "inactive"
+  status: "normal" | "hide"
   category: string
 }
 
@@ -46,14 +46,14 @@ export default function StyleManagement() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [newStyle, setNewStyle] = useState({ name: "", description: "", category: "", icon: "BookOpen" })
+  const [newStyle, setNewStyle] = useState({ name: "", description: "", icon: "BookOpen" })
   const [editStyle, setEditStyle] = useState<Style | null>(null)
   const { toast } = useToast()
 
   // 🔹 Fetch styles từ API
   const fetchStyles = async () => {
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/style`, { withCredentials: true })
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/styles`, { withCredentials: true })
       setStyles(res.data)
     } catch (error) {
       console.error("Error fetching styles:", error)
@@ -68,13 +68,13 @@ export default function StyleManagement() {
   const handleAddStyle = async () => {
     try {
       await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/style`,
-        { ...newStyle, status: "active" },
+        `${process.env.NEXT_PUBLIC_API_URL}/api/styles`,
+        { ...newStyle, status: "normal" },
         { withCredentials: true }
       )
       toast({ title: "Thêm style thành công" })
       setIsAddDialogOpen(false)
-      setNewStyle({ name: "", description: "", category: "", icon: "BookOpen" })
+      setNewStyle({ name: "", description: "", icon: "BookOpen" })
       fetchStyles()
     } catch (error) {
       toast({ title: "Lỗi khi thêm style", variant: "destructive" })
@@ -86,7 +86,7 @@ export default function StyleManagement() {
     if (!editStyle) return
     try {
       await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/style/${editStyle._id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/styles/${editStyle._id}`,
         editStyle,
         { withCredentials: true }
       )
@@ -120,7 +120,7 @@ export default function StyleManagement() {
   }
 
   const getStatusColor = (status: string) => {
-    return status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+    return status === "normal" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
   }
 
   return (
@@ -163,25 +163,7 @@ export default function StyleManagement() {
                     placeholder="Nhập mô tả loại hình..."
                   />
                 </div>
-                <div>
-                  <Label htmlFor="category">Danh mục</Label>
-                  <Select
-                    value={newStyle.category}
-                    onValueChange={(value) => setNewStyle({ ...newStyle, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn danh mục" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Visual">Visual</SelectItem>
-                      <SelectItem value="Text">Text</SelectItem>
-                      <SelectItem value="Audio">Audio</SelectItem>
-                      <SelectItem value="Interactive">Interactive</SelectItem>
-                      <SelectItem value="Hybrid">Hybrid</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+        </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Hủy
@@ -208,27 +190,15 @@ export default function StyleManagement() {
                   className="pl-10"
                 />
               </div>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Lọc theo danh mục" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả danh mục</SelectItem>
-                  <SelectItem value="Visual">Visual</SelectItem>
-                  <SelectItem value="Text">Text</SelectItem>
-                  <SelectItem value="Audio">Audio</SelectItem>
-                  <SelectItem value="Interactive">Interactive</SelectItem>
-                  <SelectItem value="Hybrid">Hybrid</SelectItem>
-                </SelectContent>
-              </Select>
+              
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Lọc theo trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="hide">Hide</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -309,28 +279,10 @@ export default function StyleManagement() {
                   />
                 </div>
                 <div>
-                  <Label>Danh mục</Label>
-                  <Select
-                    value={editStyle.category}
-                    onValueChange={(value) => setEditStyle({ ...editStyle, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Visual">Visual</SelectItem>
-                      <SelectItem value="Text">Text</SelectItem>
-                      <SelectItem value="Audio">Audio</SelectItem>
-                      <SelectItem value="Interactive">Interactive</SelectItem>
-                      <SelectItem value="Hybrid">Hybrid</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
                   <Label>Trạng thái</Label>
                   <Select
                     value={editStyle.status}
-                    onValueChange={(value: "active" | "inactive") =>
+                    onValueChange={(value: "normal" | "hide") =>
                       setEditStyle({ ...editStyle, status: value })
                     }
                   >
@@ -338,8 +290,8 @@ export default function StyleManagement() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="hide">Hide</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

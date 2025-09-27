@@ -55,9 +55,11 @@ export function Navbar() {
     if (!mounted) return
 
     const raw = Cookies.get("user_normal_info")
+    
     if (raw) {
       try {
         const decoded = decodeURIComponent(raw)
+        
         const parsed = JSON.parse(decoded)
         setUser(parsed)
       } catch (e) {
@@ -75,7 +77,7 @@ export function Navbar() {
 
   async function logout() {
     const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, { withCredentials: true })
-
+    console.log(isLogin)
     if (res.data.success) {
       await removeCookie()
       router.push("/login")

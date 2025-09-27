@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server"
 
 export async function middleware(req: NextRequest) {
     const token = req.cookies.get("access_token")?.value
-    console.log(token)
+
     let isLogin = false
     if (token) {
         console.log("login")
