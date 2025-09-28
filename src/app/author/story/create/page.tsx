@@ -103,7 +103,9 @@ export default function CreateStoryPage() {
   }, [storyStyle, availableStyles]);
 
   const handlePublish = async () => {
-    setIsPublishing(true);
+    console.log("Publish clicked");
+
+    // validate trước
     if (!storyTitle.trim())
       return toast({
         title: "Lỗi",
@@ -153,13 +155,6 @@ export default function CreateStoryPage() {
         variant: "destructive",
       });
 
-    // if (selectedGenres.length > 3)
-    //   return toast({
-    //     title: "Lỗi",
-    //     description: "Chỉ được chọn tối đa 3 thể loại.",
-    //     variant: "destructive",
-    //   });
-
     if (!coverFile)
       return toast({
         title: "Lỗi",
@@ -175,6 +170,9 @@ export default function CreateStoryPage() {
         description: "Vui lòng đăng nhập lại.",
         variant: "destructive",
       });
+
+    // ----> CHỈ BẬT LOADING SAU KHI VALIDATE XONG <----
+    setIsPublishing(true);
 
     const fd = new FormData();
     fd.append("title", storyTitle);
@@ -208,10 +206,10 @@ export default function CreateStoryPage() {
         variant: "destructive",
       });
     } finally {
-      // Delay thêm 2 giây trước khi bật lại nút
       setTimeout(() => setIsPublishing(false), 2000);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -233,18 +231,19 @@ export default function CreateStoryPage() {
                       value={s.name}
                       className="flex items-center gap-2"
                     >
-                      {s.name === "text" ? (
-                        <BookOpen className="w-4 h-4" />
-                      ) : (
+                      {s.name === "Manga" ? (
                         <ImageIcon className="w-4 h-4" />
+                      ) : (
+                        <BookOpen className="w-4 h-4" />
                       )}
-                      {s.name === "Manga"
-                        ? "Truyện chữ"
-                        : s.name === "Light Novel"
+                      {s.name === "Light Novel"
                         ? "Truyện Chữ"
-                        : s.name}
+                        : s.name === "Manga"
+                          ? "Truyện Tranh"
+                          : s.name}
                     </TabsTrigger>
                   ))}
+
                 </TabsList>
               </Tabs>
             </div>
@@ -253,17 +252,18 @@ export default function CreateStoryPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  {storyStyle === "text" ? (
-                    <BookOpen className="w-5 h-5" />
-                  ) : (
+                  {storyStyle === "Manga" ? (
                     <ImageIcon className="w-5 h-5" />
+                  ) : (
+                    <BookOpen className="w-5 h-5" />
                   )}
-                  {storyStyle === "Manga"
-                    ? "Truyện chữ"
-                    : storyStyle === "Light Novel"
+                  {storyStyle === "Light Novel"
                     ? "Truyện Chữ"
-                    : storyStyle}
+                    : storyStyle === "Manga"
+                      ? "Truyện Tranh"
+                      : storyStyle}
                 </CardTitle>
+
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Title & Summary */}

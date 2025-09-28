@@ -5,11 +5,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import axios from "axios";
 import { Navbar } from "@/components/navbar";
-import { Star, Eye, BookOpen, Pencil } from "lucide-react";
+import { Star, Eye, BookOpen } from "lucide-react";
 import { MangaCard } from "@/components/MangaCard";
 import { Footer } from "@/components/footer";
 
-// ================= Types (khớp dữ liệu bạn gửi)
+// ================= Types
 type Genre = { _id: string; name: string };
 type StyleItem = { _id: string; name: string };
 
@@ -18,7 +18,7 @@ type MangaRaw = {
   title: string;
   authorId?: string;
   summary?: string;
-  coverImage?: string; // "1758388183093-xxx.webp"
+  coverImage?: string;
   isPublish?: boolean;
   styles?: StyleItem[];
   genres?: Genre[];
@@ -47,7 +47,6 @@ type Card = {
 
 // ================= Helpers
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
-// Nếu server ảnh ở chỗ khác (VD: CDN), đổi IMAGE_BASE bên dưới
 const IMAGE_BASE = `${API_BASE}/uploads`;
 
 function normalizeToArray<T = unknown>(input: any): T[] {
@@ -122,21 +121,62 @@ function withinDays(ms?: number, days = 7) {
   return delta <= days * 24 * 60 * 60 * 1000;
 }
 
+// ---- Parse common API list shapes to get pagination info
+function parseListResponse(
+  data: any,
+  fallbackLimit: number
+): {
+  array: MangaRaw[];
+  page: number;
+  limit: number;
+  total?: number;
+  totalPages?: number;
+} {
+  const array = normalizeToArray<MangaRaw>(data?.data ?? data);
+  // Try common shapes: { pagination: { page, limit, total, totalPages } }
+  const p = data?.pagination ?? data?.meta ?? {};
+  const page = Number(p.page ?? data?.page ?? 1);
+  const limit = Number(p.limit ?? data?.limit ?? fallbackLimit);
+  const total = Number(p.total ?? data?.total ?? data?.count ?? undefined);
+  const totalPages = Number(
+    p.totalPages ??
+      data?.totalPages ??
+      (total ? Math.ceil(total / limit) : undefined)
+  );
+  return { array, page, limit, total, totalPages };
+}
+
 // ================= API utils
-async function fetchAll(signal?: AbortSignal) {
+// Smaller "summary" fetch (for Featured/Ranking). We can use a larger page size to populate sidebars.
+async function fetchSummary(signal?: AbortSignal) {
   const api = process.env.NEXT_PUBLIC_API_URL!;
-  const url = `${api}/api/manga/get/all?page=1&limit=100`;
+  const url = `${api}/api/manga/get/all?page=1&limit=200`;
   const res = await axios.get(url, { withCredentials: true, signal });
   const raw = normalizeToArray<MangaRaw>(res.data?.data ?? res.data);
   return raw.map(mapToCard);
 }
 
+// Paged fetch for "Latest"
+async function fetchLatestPage(
+  page: number,
+  limit: number,
+  signal?: AbortSignal
+) {
+  const api = process.env.NEXT_PUBLIC_API_URL!;
+  const url = `${api}/api/manga/get/all?page=${page}&limit=${limit}`;
+  const res = await axios.get(url, { withCredentials: true, signal });
+  const parsed = parseListResponse(res.data, limit);
+  return {
+    items: parsed.array.map(mapToCard),
+    page: parsed.page || page,
+    limit: parsed.limit || limit,
+    totalPages: parsed.totalPages ?? 1,
+  };
+}
+
 async function fetchFilters(signal?: AbortSignal) {
   const [genresRes, stylesRes] = await Promise.all([
-    axios.get(`${API_BASE}/api/genre/`, {
-      withCredentials: true,
-      signal,
-    }),
+    axios.get(`${API_BASE}/api/genre/`, { withCredentials: true, signal }),
     axios.get(`${API_BASE}/api/styles/active`, {
       withCredentials: true,
       signal,
@@ -151,24 +191,142 @@ async function fetchFilters(signal?: AbortSignal) {
 
 type RankTab = "day" | "week" | "month";
 
+// ---- Pagination UI helper
+function buildPageWindow(current: number, total: number, window: number = 1) {
+  // returns an array like [1, '...', 4,5,6, '...', 20]
+  if (total <= 9) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = new Set<number>();
+  pages.add(1);
+  pages.add(2);
+  pages.add(total);
+  pages.add(total - 1);
+  for (let i = current - window; i <= current + window; i++) {
+    if (i >= 1 && i <= total) pages.add(i);
+  }
+  const arr = Array.from(pages).sort((a, b) => a - b);
+  const out: (number | "...")[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    out.push(arr[i]);
+    if (i < arr.length - 1 && arr[i + 1] !== arr[i] + 1) out.push("...");
+  }
+  return out;
+}
+
+function NumberPager({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (p: number) => void;
+}) {
+  const windowed = buildPageWindow(page, totalPages, 1);
+  const btn =
+    "min-w-8 h-8 px-2 inline-flex items-center justify-center rounded border text-sm";
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-2">
+      <button
+        className={`${btn} ${
+          page === 1 ? "cursor-not-allowed opacity-50" : ""
+        }`}
+        onClick={() => page > 1 && onChange(1)}
+        disabled={page === 1}
+        aria-label="First page"
+      >
+        «
+      </button>
+      <button
+        className={`${btn} ${
+          page === 1 ? "cursor-not-allowed opacity-50" : ""
+        }`}
+        onClick={() => page > 1 && onChange(page - 1)}
+        disabled={page === 1}
+        aria-label="Previous page"
+      >
+        ‹
+      </button>
+
+      {windowed.map((it, idx) =>
+        it === "..." ? (
+          <span key={`ellipsis-${idx}`} className="px-1 text-gray-500">
+            …
+          </span>
+        ) : (
+          <button
+            key={it}
+            onClick={() => onChange(it)}
+            className={`${btn} ${
+              it === page
+                ? "bg-black text-white border-black"
+                : "border-gray-300 hover:bg-gray-50"
+            }`}
+            aria-current={it === page ? "page" : undefined}
+          >
+            {it}
+          </button>
+        )
+      )}
+
+      <button
+        className={`${btn} ${
+          page === totalPages ? "cursor-not-allowed opacity-50" : ""
+        }`}
+        onClick={() => page < totalPages && onChange(page + 1)}
+        disabled={page === totalPages}
+        aria-label="Next page"
+      >
+        ›
+      </button>
+      <button
+        className={`${btn} ${
+          page === totalPages ? "cursor-not-allowed opacity-50" : ""
+        }`}
+        onClick={() => page < totalPages && onChange(totalPages)}
+        disabled={page === totalPages}
+        aria-label="Last page"
+      >
+        »
+      </button>
+    </div>
+  );
+}
+
 // ================= Page
 export default function HomePage() {
-  const [items, setItems] = useState<Card[]>([]);
+  // Sidebar/featured summary dataset
+  const [summaryItems, setSummaryItems] = useState<Card[]>([]);
+  // Latest paged dataset
+  const [latestItems, setLatestItems] = useState<Card[]>([]);
+  const [latestPage, setLatestPage] = useState(1);
+  const [latestTotalPages, setLatestTotalPages] = useState(1);
+  const LATEST_LIMIT = 24;
+
   const [loading, setLoading] = useState(true);
+  const [loadingPage, setLoadingPage] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const [genres, setGenres] = useState<Genre[]>([]);
   const [styles, setStyles] = useState<StyleItem[]>([]);
   const [tab, setTab] = useState<RankTab>("day");
 
+  // Initial load
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
-    Promise.all([fetchAll(controller.signal), fetchFilters(controller.signal)])
-      .then(([cards, { genres, styles }]) => {
-        setItems(cards);
+    Promise.all([
+      fetchSummary(controller.signal),
+      fetchFilters(controller.signal),
+      fetchLatestPage(1, LATEST_LIMIT, controller.signal),
+    ])
+      .then(([summary, { genres, styles }, latest]) => {
+        setSummaryItems(summary);
         setGenres(genres);
         setStyles(styles);
+        setLatestItems(latest.items);
+        setLatestPage(latest.page);
+        setLatestTotalPages(latest.totalPages);
       })
       .catch((e) =>
         setErr(e?.response?.data?.message || e?.message || "Tải trang lỗi")
@@ -177,34 +335,53 @@ export default function HomePage() {
     return () => controller.abort();
   }, []);
 
-  // ==== Derive sections
+  // Change page for Latest
+  const changeLatestPage = (page: number) => {
+    if (page === latestPage || page < 1 || page > latestTotalPages) return;
+    const controller = new AbortController();
+    setLoadingPage(true);
+    fetchLatestPage(page, LATEST_LIMIT, controller.signal)
+      .then((res) => {
+        setLatestItems(res.items);
+        setLatestPage(res.page);
+        setLatestTotalPages(res.totalPages);
+        // Scroll into view of the latest section
+        const el = document.getElementById("latest");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        else window.scrollTo({ top: 0, behavior: "smooth" });
+      })
+      .catch((e) =>
+        setErr(e?.response?.data?.message || e?.message || "Tải trang lỗi")
+      )
+      .finally(() => setLoadingPage(false));
+  };
+
+  // ==== Derive sections from summaryItems
   const featured = useMemo(
     () =>
-      [...items].sort((a, b) => (b.views ?? 0) - (a.views ?? 0)).slice(0, 10),
-    [items]
-  );
-
-  const latest = useMemo(
-    () =>
-      [...items]
-        .sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0))
-        .slice(0, 24),
-    [items]
+      [...summaryItems]
+        .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+        .slice(0, 10),
+    [summaryItems]
   );
 
   const hotViews = useMemo(() => {
     const windowDays = tab === "day" ? 1 : tab === "week" ? 7 : 30;
-    const pool = items.filter((it) => withinDays(it.updatedAtMs, windowDays));
-    const base = pool.length ? pool : items;
+    const pool = summaryItems.filter((it) =>
+      withinDays(it.updatedAtMs, windowDays)
+    );
+    const base = pool.length ? pool : summaryItems;
     return [...base]
       .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
       .slice(0, 10);
-  }, [items, tab]);
+  }, [summaryItems, tab]);
 
   const topFollows = useMemo(
     () =>
-      [...items].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 10),
-    [items]
+      [...summaryItems]
+        .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+        .slice(0, 10),
+    [summaryItems]
   );
 
   const goStoriesWithGenre = (g: Genre) => {
@@ -236,7 +413,7 @@ export default function HomePage() {
             {err}
           </div>
         )}
-        {loading && !items.length && (
+        {loading && !summaryItems.length && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="animate-pulse">
@@ -272,10 +449,11 @@ export default function HomePage() {
             </div>
           </section>
         )}
+
         {/* ===== Main content */}
         <section className="grid gap-6 lg:grid-cols-12">
-          {/* Latest */}
-          <div className="lg:col-span-9">
+          {/* Latest (paged) */}
+          <div className="lg:col-span-9" id="latest">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Mới cập nhật</h2>
               <Link
@@ -286,16 +464,51 @@ export default function HomePage() {
               </Link>
             </div>
 
-            <ul className="grid [grid-template-columns:repeat(auto-fill,minmax(192px,1fr))] gap-3 sm:gap-4">
-              {latest.map((m) => (
-                <li key={m.key} className="min-w-0">
-                  <MangaCard item={m} compact />
-                </li>
-              ))}
-            </ul>
+            {loading && !latestItems.length ? (
+              <div className="grid [grid-template-columns:repeat(auto-fill,minmax(192px,1fr))] gap-3 sm:gap-4">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div
+                      className="relative w-full overflow-hidden rounded-lg bg-gray-200"
+                      style={{ paddingBottom: "133%" }}
+                    />
+                    <div className="mt-2 h-4 w-3/4 rounded bg-gray-200" />
+                    <div className="mt-1 h-3 w-1/2 rounded bg-gray-200" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <ul className="grid [grid-template-columns:repeat(auto-fill,minmax(192px,1fr))] gap-3 sm:gap-4">
+                  {latestItems.map((m) => (
+                    <li key={m.key} className="min-w-0">
+                      <MangaCard item={m} compact />
+                    </li>
+                  ))}
+                </ul>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between pt-4">
+                  <div className="text-sm text-gray-600">
+                    Trang {latestPage} / {latestTotalPages}
+                  </div>
+                  <NumberPager
+                    page={latestPage}
+                    totalPages={latestTotalPages}
+                    onChange={(p) => changeLatestPage(p)}
+                  />
+                </div>
+
+                {loadingPage && (
+                  <div className="mt-3 text-sm text-gray-500">
+                    Đang tải trang…
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
-          {/* Rankings */}
+          {/* Rankings (from summaryItems) */}
           <aside className="lg:col-span-3">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Bảng xếp hạng</h2>

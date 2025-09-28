@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -64,11 +64,11 @@ export function Navbar() {
 
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!mounted) return;
 
     const raw = Cookies.get("user_normal_info");
