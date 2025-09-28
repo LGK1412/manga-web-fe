@@ -259,8 +259,9 @@ export default function ProfileByIdPage({
                 ) : (
                   <div className="max-h-96 overflow-y-auto">
                     {favouriteStories.map((story: any) => (
-                      <div
+                      <Link
                         key={story._id}
+                        href={`/story/${story._id}`}
                         className="flex items-center gap-4 p-4 border-b last:border-b-0 hover:bg-muted/50 transition-colors"
                       >
                         <Avatar className="w-16 h-20 flex-shrink-0">
@@ -278,27 +279,25 @@ export default function ProfileByIdPage({
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-sm truncate">
-                              {story.title}
-                            </h3>
+                            <h3 className="font-semibold text-sm truncate">{story.title}</h3>
                             {story.status && (
                               <Badge
                                 variant={
                                   story.status === "completed"
                                     ? "default"
                                     : story.status === "ongoing"
-                                    ? "secondary"
-                                    : "destructive"
+                                      ? "secondary"
+                                      : "destructive"
                                 }
                                 className="text-xs"
                               >
                                 {story.status === "ongoing"
                                   ? "Ongoing"
                                   : story.status === "completed"
-                                  ? "Completed"
-                                  : story.status === "hiatus"
-                                  ? "Hiatus"
-                                  : story.status}
+                                    ? "Completed"
+                                    : story.status === "hiatus"
+                                      ? "Hiatus"
+                                      : story.status}
                               </Badge>
                             )}
                           </div>
@@ -320,7 +319,8 @@ export default function ProfileByIdPage({
                             </p>
                           )}
                         </div>
-                      </div>
+                      </Link>
+
                     ))}
                   </div>
                 )}

@@ -117,12 +117,18 @@ function getKey(x: MangaRaw) {
   return String(x._id ?? x.id ?? x.slug ?? getTitle(x));
 }
 function getHref(x: MangaRaw) {
-  if (x.slug) return `/manga/${encodeURIComponent(x.slug)}`;
+  // ưu tiên slug
+  if (x.slug) return `/story/${encodeURIComponent(x.slug)}`;
+
+  // fallback qua id
   const id = x._id ?? x.id;
-  if (id !== undefined && id !== null)
-    return `/manga/${encodeURIComponent(String(id))}`;
-  return `/stories`;
+  if (id !== undefined && id !== null) {
+    return `/story/${encodeURIComponent(String(id))}`;
+  }
+
+  return `/stories`; 
 }
+
 function extractIds(arr: any): string[] | undefined {
   if (!Array.isArray(arr)) return undefined;
   const ids = arr

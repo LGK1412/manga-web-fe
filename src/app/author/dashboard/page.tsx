@@ -72,12 +72,12 @@ export default function AuthorDashboard() {
 
         setTextStories(
           allStories.filter((s) =>
-            s.styles?.some((style) => style.name === "Manga")
+            s.styles?.some((style) => style.name === "Light Novel")
           )
         );
         setImageStories(
           allStories.filter((s) =>
-            s.styles?.some((style) => style.name === "Light Novel")
+            s.styles?.some((style) => style.name === "Manga")
           )
         );
       } catch (err) {
