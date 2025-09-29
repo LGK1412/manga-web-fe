@@ -2,10 +2,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import axios from "axios";
 import { Navbar } from "@/components/navbar";
-import { Star, Eye, BookOpen, Pencil } from "lucide-react";
 import { MangaCard } from "@/components/MangaCard";
 
 // ===== Types
@@ -22,7 +20,7 @@ type MangaRaw = {
   // cover variants
   coverUrl?: string;
   cover?: string;
-  coverImage?: string; // "1758388183093-xxx.webp"
+  coverImage?: string;
   thumbnail?: string;
   thumb?: string;
   image_url?: string;
@@ -67,9 +65,8 @@ type CardItem = {
   _updatedAt?: number;
 };
 
-// ===== Helpers (đồng bộ với trang Home)
+// ===== Helpers
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
-const IMAGE_BASE = `${API_BASE}/uploads`;
 
 function normalizeToArray<T = unknown>(input: any): T[] {
   if (Array.isArray(input)) return input;
@@ -81,28 +78,6 @@ function normalizeToArray<T = unknown>(input: any): T[] {
 function toNumber(n: any): number | undefined {
   const x = typeof n === "string" ? Number(n) : n;
   return Number.isFinite(x) ? (x as number) : undefined;
-}
-function fmtViews(n?: number) {
-  const v = n ?? 0;
-  if (v >= 1_000_000)
-    return `${(v / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
-  return `${v}`;
-}
-function timeAgo(inputMs?: number) {
-  if (!inputMs) return undefined;
-  const diff = Math.max(0, Date.now() - inputMs);
-  const s = Math.floor(diff / 1000);
-  if (s < 60) return `${s}s trước`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m} phút trước`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} giờ trước`;
-  const d = Math.floor(h / 24);
-  if (d < 30) return `${d} ngày trước`;
-  const mo = Math.floor(d / 30);
-  if (mo < 12) return `${mo} tháng trước`;
-  return `${Math.floor(mo / 12)} năm trước`;
 }
 function buildCoverUrl(filename?: string) {
   if (!filename) return undefined;
@@ -117,18 +92,12 @@ function getKey(x: MangaRaw) {
   return String(x._id ?? x.id ?? x.slug ?? getTitle(x));
 }
 function getHref(x: MangaRaw) {
-  // ưu tiên slug
   if (x.slug) return `/story/${encodeURIComponent(x.slug)}`;
-
-  // fallback qua id
   const id = x._id ?? x.id;
-  if (id !== undefined && id !== null) {
+  if (id !== undefined && id !== null)
     return `/story/${encodeURIComponent(String(id))}`;
-  }
-
-  return `/stories`; 
+  return `/stories`;
 }
-
 function extractIds(arr: any): string[] | undefined {
   if (!Array.isArray(arr)) return undefined;
   const ids = arr
@@ -174,7 +143,7 @@ function mapToCard(x: MangaRaw): CardItem {
         x.thumb ||
         x.image_url
     ),
-    published: (x as any).isPublish ?? true, // backend của bạn có trường này
+    published: (x as any).isPublish ?? true,
     status: statusNorm,
     genres: genresText.slice(0, 3),
     styles: stylesText.slice(0, 2),
@@ -192,20 +161,16 @@ function mapToCard(x: MangaRaw): CardItem {
   return item;
 }
 
-function highlight(text: string, query: string) {
-  if (!query) return text;
-  try {
-    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`(${escaped})`, "ig");
-    return text.replace(re, "<mark>$1</mark>");
-  } catch {
-    return text;
-  }
-}
+// ===== UI constants
+const SORTS: { key: "updated" | "views" | "follows"; label: string }[] = [
+  { key: "updated", label: "Mới cập nhật" },
+  { key: "views", label: "Xem nhiều" },
+  { key: "follows", label: "Theo dõi nhiều" },
+];
 
-// ===== API utils
 const PAGE_SIZE = 24;
 
+// ===== API utils
 function buildGetAllUrl(page: number, limit: number) {
   const api = process.env.NEXT_PUBLIC_API_URL!;
   const base = `${api}/api/manga/get/all`;
@@ -217,10 +182,7 @@ function buildGetAllUrl(page: number, limit: number) {
 
 async function fetchFilters(signal?: AbortSignal) {
   const [genresRes, stylesRes] = await Promise.all([
-    axios.get(`${API_BASE}/api/genre/`, {
-      withCredentials: true,
-      signal,
-    }),
+    axios.get(`${API_BASE}/api/genre/`, { withCredentials: true, signal }),
     axios.get(`${API_BASE}/api/styles/active`, {
       withCredentials: true,
       signal,
@@ -233,26 +195,47 @@ async function fetchFilters(signal?: AbortSignal) {
   return { genres, styles };
 }
 
-// ===== UI constants
-const SORTS: { key: "updated" | "views" | "follows"; label: string }[] = [
-  { key: "updated", label: "Mới cập nhật" },
-  { key: "views", label: "Xem nhiều" },
-  { key: "follows", label: "Theo dõi nhiều" },
-];
+// ===== Facet helpers (đếm số của từng chip)
+function buildFacetCounts(
+  items: CardItem[],
+  q: string,
+  selectedGenreIds: string[],
+  selectedStyleIds: string[]
+) {
+  const qLower = q.trim().toLowerCase();
+  const matchQ = (it: CardItem) =>
+    !qLower || it.title.toLowerCase().includes(qLower);
+
+  // Count theo GENRE: áp dụng search + style đang chọn (bỏ qua genre đang chọn)
+  const byGenre: Record<string, number> = {};
+  const baseForGenre = items.filter(
+    (it) =>
+      matchQ(it) &&
+      (!selectedStyleIds.length ||
+        (it._styleIds || []).some((id) => selectedStyleIds.includes(id)))
+  );
+  for (const it of baseForGenre)
+    for (const gid of it._genreIds || [])
+      byGenre[gid] = (byGenre[gid] || 0) + 1;
+
+  // Count theo STYLE: áp dụng search + genre đang chọn (bỏ qua style đang chọn)
+  const byStyle: Record<string, number> = {};
+  const baseForStyle = items.filter(
+    (it) =>
+      matchQ(it) &&
+      (!selectedGenreIds.length ||
+        (it._genreIds || []).some((id) => selectedGenreIds.includes(id)))
+  );
+  for (const it of baseForStyle)
+    for (const sid of it._styleIds || [])
+      byStyle[sid] = (byStyle[sid] || 0) + 1;
+
+  return { byGenre, byStyle };
+}
 
 export default function StoriesPage() {
-  // search lưu trong sessionStorage
+  // KHÔNG có input search ở đây — chỉ đọc giá trị do Navbar set sẵn
   const [q, setQ] = useState("");
-
-  // Helper: cập nhật cả state và sessionStorage
-  const setSearch = (value: string) => {
-    setQ(value);
-    try {
-      const v = value.trim();
-      if (v) sessionStorage.setItem("stories:q", v);
-      else sessionStorage.removeItem("stories:q");
-    } catch {}
-  };
 
   // Client filters (state local)
   const [sortKey, setSortKey] = useState<"updated" | "views" | "follows">(
@@ -277,18 +260,17 @@ export default function StoriesPage() {
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  // đọc search khi vào trang + khi focus window
+  // Đọc search từ sessionStorage do Navbar đã set
   useEffect(() => {
     const syncQ = () => {
       try {
-        const v = sessionStorage.getItem("stories:q") || "";
-        setQ(v);
+        setQ(sessionStorage.getItem("stories:q") || "");
       } catch {}
     };
     syncQ();
     window.addEventListener("focus", syncQ);
 
-    // ✅ clear search khi rời trang (unmount / đóng tab / reload)
+    // Clear search khi rời trang
     const clearQ = () => {
       try {
         sessionStorage.removeItem("stories:q");
@@ -299,7 +281,7 @@ export default function StoriesPage() {
     return () => {
       window.removeEventListener("focus", syncQ);
       window.removeEventListener("beforeunload", clearQ);
-      clearQ(); // cũng clear khi unmount do chuyển route nội bộ
+      clearQ();
     };
   }, []);
 
@@ -343,7 +325,7 @@ export default function StoriesPage() {
           signal: controller.signal,
         });
 
-        const payload = res.data; // { data, total, page, limit } hoặc array
+        const payload = res.data;
         const raw = normalizeToArray<MangaRaw>(payload?.data ?? payload);
         const mapped = raw.map(mapToCard);
 
@@ -410,12 +392,15 @@ export default function StoriesPage() {
     });
   };
 
-  // Clear all filters
+  // Clear all filters (và xoá luôn search đang active)
   const clearFilters = () => {
     setSelectedGenreIds([]);
     setSelectedStyleIds([]);
     setSortKey("updated");
-    setSearch(""); // xoá luôn search + sessionStorage
+    try {
+      sessionStorage.removeItem("stories:q");
+    } catch {}
+    setQ("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -455,6 +440,14 @@ export default function StoriesPage() {
     sortKey,
   ]);
 
+  // Faceted counts
+  const { byGenre, byStyle } = useMemo(
+    () => buildFacetCounts(allItems, q, selectedGenreIds, selectedStyleIds),
+    [allItems, q, selectedGenreIds.join(","), selectedStyleIds.join(",")]
+  );
+  const activeFiltersCount =
+    selectedGenreIds.length + selectedStyleIds.length + (q ? 1 : 0);
+
   // ===== UI
   return (
     <div className="min-h-screen bg-white">
@@ -473,11 +466,9 @@ export default function StoriesPage() {
             ) : (
               "Tất cả truyện"
             )}
-            {typeof total === "number" && (
-              <span className="ml-2 text-sm text-gray-500">
-                ({total.toLocaleString("vi-VN")} mục)
-              </span>
-            )}
+            <span className="ml-2 text-sm text-gray-500">
+              ({filteredSorted.length.toLocaleString("vi-VN")} mục)
+            </span>
           </h1>
 
           {/* Sort (local) */}
@@ -501,17 +492,19 @@ export default function StoriesPage() {
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters (chỉ Category/Style với số lượng) */}
         <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm font-medium text-gray-800">Lọc theo</div>
+            <div className="text-sm font-medium text-gray-800">
+              Lọc theo{activeFiltersCount ? ` (${activeFiltersCount})` : ""}
+            </div>
             <div className="flex items-center gap-2">
               <button
                 disabled={loadingFilters}
                 onClick={clearFilters}
                 className="rounded border border-gray-300 px-3 py-1 text-xs hover:bg-white disabled:opacity-50"
               >
-                Xoá bộ lọc
+                Xoá tất cả
               </button>
             </div>
           </div>
@@ -529,18 +522,35 @@ export default function StoriesPage() {
                 (availableGenres.length ? (
                   availableGenres.map((g) => {
                     const active = selectedGenreIds.includes(g._id);
+                    const count = byGenre[g._id] || 0;
+                    const disabled = !active && count === 0;
+
                     return (
                       <button
                         key={g._id}
-                        onClick={() => toggleGenre(g._id)}
-                        className={`rounded-full border px-3 py-1 text-xs transition ${
-                          active
-                            ? "border-black bg-black text-white"
-                            : "border-gray-300 bg-white text-gray-800 hover:bg-gray-100"
-                        }`}
+                        onClick={() => !disabled && toggleGenre(g._id)}
+                        disabled={disabled}
+                        className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition
+                          ${
+                            active
+                              ? "border-black bg-black text-white"
+                              : "border-gray-300 bg-white text-gray-800 hover:bg-gray-100"
+                          }
+                          ${
+                            disabled
+                              ? "opacity-50 cursor-not-allowed hover:bg-white"
+                              : ""
+                          }`}
                         title={g.description || g.name}
                       >
-                        {g.name}
+                        <span>{g.name}</span>
+                        <span
+                          className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
+                            active ? "bg-white/20" : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {count}
+                        </span>
                       </button>
                     );
                   })
@@ -565,18 +575,35 @@ export default function StoriesPage() {
                 (availableStyles.length ? (
                   availableStyles.map((s) => {
                     const active = selectedStyleIds.includes(s._id);
+                    const count = byStyle[s._id] || 0;
+                    const disabled = !active && count === 0;
+
                     return (
                       <button
                         key={s._id}
-                        onClick={() => toggleStyle(s._id)}
-                        className={`rounded-full border px-3 py-1 text-xs transition ${
-                          active
-                            ? "border-black bg-black text-white"
-                            : "border-gray-300 bg-white text-gray-800 hover:bg-gray-100"
-                        }`}
+                        onClick={() => !disabled && toggleStyle(s._id)}
+                        disabled={disabled}
+                        className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition
+                          ${
+                            active
+                              ? "border-black bg-black text-white"
+                              : "border-gray-300 bg-white text-gray-800 hover:bg-gray-100"
+                          }
+                          ${
+                            disabled
+                              ? "opacity-50 cursor-not-allowed hover:bg-white"
+                              : ""
+                          }`}
                         title={s.description || s.name}
                       >
-                        {s.name}
+                        <span>{s.name}</span>
+                        <span
+                          className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
+                            active ? "bg-white/20" : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {count}
+                        </span>
                       </button>
                     );
                   })
@@ -599,14 +626,13 @@ export default function StoriesPage() {
 
         {/* Grid */}
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 sm:gap-4">
-          {/* Skeleton khi chưa có dữ liệu */}
           {loading &&
             allItems.length === 0 &&
             Array.from({ length: 12 }).map((_, i) => (
               <li key={`sk-${i}`} className="animate-pulse">
                 <div
                   className="relative w-full overflow-hidden rounded-xl bg-slate-200 ring-1 ring-inset ring-black/5"
-                  style={{ paddingBottom: "150%" }} // 2:3 để khớp MangaCard
+                  style={{ paddingBottom: "150%" }}
                 />
                 <div className="mt-2 h-4 w-5/6 rounded bg-slate-200" />
                 <div className="mt-1 h-3 w-1/3 rounded bg-slate-200" />
@@ -615,7 +641,6 @@ export default function StoriesPage() {
 
           {(Array.isArray(filteredSorted) ? filteredSorted : []).map((m) => (
             <li key={m.key} className="min-w-0">
-              {/* KHÔNG cần div w-[192px]/snap trong layout grid */}
               <MangaCard item={m} compact />
             </li>
           ))}

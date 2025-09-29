@@ -85,6 +85,7 @@ export function Navbar() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    window.location.reload();
     submitSearch(searchQuery);
   };
 
