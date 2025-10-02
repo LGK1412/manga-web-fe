@@ -34,7 +34,7 @@ import Cookies from "js-cookie";
 import { removeCookie } from "@/lib/cookie-func";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { PointBadge } from "./PointBadge";
 
 export function Navbar() {
@@ -44,6 +44,7 @@ export function Navbar() {
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const router = useRouter();
+  const pathname = usePathname();
 
   // Desktop search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,14 +55,22 @@ export function Navbar() {
 
   const submitSearch = (q: string) => {
     const query = q.trim();
-    if (query) {
-      try {
-        sessionStorage.setItem("stories:q", query); // đổi key cho thống nhất /stories
-      } catch {}
-      router.push("/stories"); // <- dùng /stories (không param)
+    if (!query) return;
+    try {
+      sessionStorage.setItem("stories:q", query);
+      sessionStorage.setItem("stories:q:ts", String(Date.now()));
+    } catch {}
+    if (pathname === "/stories") {
+      window.dispatchEvent(new Event("stories:syncQ"));
+    } else {
+      router.push("/stories");
     }
   };
 
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    submitSearch(searchQuery);
+  };
   const [mounted, setMounted] = useState(false);
 
   useLayoutEffect(() => {
@@ -82,12 +91,6 @@ export function Navbar() {
       }
     }
   }, [isLogin, mounted]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    window.location.reload();
-    submitSearch(searchQuery);
-  };
 
   async function logout() {
     const res = await axios.get(

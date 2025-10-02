@@ -264,24 +264,18 @@ export default function StoriesPage() {
   useEffect(() => {
     const syncQ = () => {
       try {
-        setQ(sessionStorage.getItem("stories:q") || "");
+        const v = sessionStorage.getItem("stories:q") || "";
+        if (v) setQ(v);
       } catch {}
     };
     syncQ();
-    window.addEventListener("focus", syncQ);
-
-    // Clear search khi rời trang
-    const clearQ = () => {
+    window.addEventListener("stories:syncQ", syncQ);
+    return () => {
+      window.removeEventListener("stories:syncQ", syncQ);
       try {
         sessionStorage.removeItem("stories:q");
+        sessionStorage.removeItem("stories:q:ts");
       } catch {}
-    };
-    window.addEventListener("beforeunload", clearQ);
-
-    return () => {
-      window.removeEventListener("focus", syncQ);
-      window.removeEventListener("beforeunload", clearQ);
-      clearQ();
     };
   }, []);
 
