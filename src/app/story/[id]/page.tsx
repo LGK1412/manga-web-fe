@@ -6,6 +6,7 @@ import axios from "axios";
 import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { Eye, BookOpen, Star, Calendar, ArrowRight } from "lucide-react";
+import { useTheme } from "next-themes";
 
 interface Author {
   _id: string;
@@ -36,6 +37,12 @@ export default function MangaDetailPage() {
   const [manga, setManga] = useState<MangaDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { theme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  })
 
   useEffect(() => {
     if (!mangaId) return;
@@ -60,6 +67,8 @@ export default function MangaDetailPage() {
       .finally(() => setLoading(false));
   }, [mangaId]);
 
+  if (!mounted) return null;
+
   if (loading) {
     return <p className="text-center mt-10">Đang tải dữ liệu...</p>;
   }
@@ -77,7 +86,7 @@ export default function MangaDetailPage() {
       <Navbar />
       <div className="pt-16 max-w-6xl mx-auto px-4 py-8 space-y-6">
         {/* Manga Info Card */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className={`${theme === "dark" ? "bg-[#1F1F1F]" : "bg-white"} border-gray-200 rounded-lg p-6`}>
           <div className="flex flex-col md:flex-row gap-6">
             {/* Cover Image */}
             <div className="flex-shrink-0">
@@ -88,7 +97,7 @@ export default function MangaDetailPage() {
                   className="w-48 h-64 object-cover rounded border"
                 />
               ) : (
-                <div className="w-48 h-64 flex items-center justify-center bg-gray-100 rounded border text-gray-500">
+                <div className="w-48 h-64 flex items-center justify-center bg-gray-100 rounded border">
                   <div className="text-center">
                     <BookOpen className="w-12 h-12 mx-auto mb-2" />
                     <p>No Image</p>
@@ -99,19 +108,19 @@ export default function MangaDetailPage() {
 
             {/* Manga Details */}
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-black mb-2">
+              <h1 className="text-3xl font-bold mb-2">
                 {manga.title}
               </h1>
 
               <div className="flex items-center gap-3 mb-4">
                 <div>Tác giả:</div>
-                <span className="text-gray-700 font-medium">
+                <span className=" font-medium">
                   {manga.author.username}
                 </span>
               </div>
 
               <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-2 text-gray-600">
+                <div className="flex items-center gap-2 ">
                   <Eye className="w-4 h-4" />
                   <span>{manga.views.toLocaleString()} lượt xem</span>
                 </div>

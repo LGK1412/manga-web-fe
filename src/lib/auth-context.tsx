@@ -1,67 +1,50 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  type ReactNode,
-} from "react";
-import type { User } from "./types";
-import { authAPI } from "./api";
+import { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
-import { removeCookie } from "./cookie-func";
 
-interface AuthContextType {
-  isLoading: boolean;
+type AuthContextType = {
   isLogin: boolean;
-}
+  user: any | null;
+  setLoginStatus: (val: boolean, user?: any) => void;
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isLoading, setIsLoading] = useState(true);
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLogin, setIsLogin] = useState(false);
+  const [user, setUser] = useState<any | null>(null);
 
   useEffect(() => {
-    async function checkLogin() {
+    (async () => {
       try {
-        setIsLoading(true);
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/check-login`,
-          { withCredentials: true }
-        );
+        const res = await axios.get("/api/auth/check-login", { withCredentials: true });
         if (res.data.isLogin) {
+          
           setIsLogin(true);
-        } else {
-          setIsLogin(false);
-          removeCookie();
+          setUser(res.data.user);
         }
       } catch (err) {
         setIsLogin(false);
-      } finally {
-        setIsLoading(false);
+        setUser(null);
       }
-    }
-    checkLogin();
+    })();
   }, []);
 
+  const setLoginStatus = (val: boolean, userData?: any) => {
+    setIsLogin(val);
+    setUser(val ? userData || null : null);
+  };
+
   return (
-    <AuthContext.Provider
-      value={{
-        isLoading,
-        isLogin,
-      }}
-    >
+    <AuthContext.Provider value={{ isLogin, user, setLoginStatus }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+  return ctx;
 }

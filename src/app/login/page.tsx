@@ -21,6 +21,7 @@ import axios from "axios";
 import { useRouter } from "next/navigation";
 import { setCookie } from "@/lib/cookie-func";
 import GoogleButton from "@/components/GoogleButton";
+import { useAuth } from "@/lib/auth-context";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -29,6 +30,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const { setLoginStatus } = useAuth();
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -49,8 +51,8 @@ export default function LoginPage() {
         title: "Chào mừng trở lại!",
         description: "Bạn đã đăng nhập thành công",
       });
-
-      router.push("/");
+       setLoginStatus(true);
+      window.location.href = "/";
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (

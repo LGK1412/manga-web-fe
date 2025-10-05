@@ -5,6 +5,9 @@ import "./globals.css"
 import { AuthProvider } from "@/lib/auth-context"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
+import FCMToken from "@/components/firebase/FCMToken"
+import SWRegister from "@/components/firebase/SWRegister"
+import { cookies } from "next/headers"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -14,17 +17,24 @@ export const metadata: Metadata = {
   generator: 'v0.app'
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("access_token");
+  const isLogin = !!accessToken;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <FCMToken />
+          <SWRegister />
           <AuthProvider>
-              {children}
+            {children}
             <Toaster />
           </AuthProvider>
         </ThemeProvider>

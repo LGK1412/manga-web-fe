@@ -115,6 +115,7 @@ export default function AuthorDashboard() {
           s._id === storyId ? { ...s, isDeleted: !s.isDeleted } : s
         )
       );
+
       setImageStories((prev) =>
         prev.map((s) =>
           s._id === storyId ? { ...s, isDeleted: !s.isDeleted } : s

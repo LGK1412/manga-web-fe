@@ -8,6 +8,8 @@ import { Navbar } from "@/components/navbar";
 import { Star, Eye, BookOpen } from "lucide-react";
 import { MangaCard } from "@/components/MangaCard";
 import { Footer } from "@/components/footer";
+import { useTheme } from "next-themes";
+
 
 // ================= Types
 type Genre = { _id: string; name: string };
@@ -97,8 +99,8 @@ function mapToCard(x: MangaRaw): Card {
   const updatedAtMs = x.updatedAt
     ? new Date(x.updatedAt).getTime()
     : x.createdAt
-    ? new Date(x.createdAt).getTime()
-    : undefined;
+      ? new Date(x.createdAt).getTime()
+      : undefined;
   return {
     key: getKey(x),
     href: getHref(x),
@@ -140,8 +142,8 @@ function parseListResponse(
   const total = Number(p.total ?? data?.total ?? data?.count ?? undefined);
   const totalPages = Number(
     p.totalPages ??
-      data?.totalPages ??
-      (total ? Math.ceil(total / limit) : undefined)
+    data?.totalPages ??
+    (total ? Math.ceil(total / limit) : undefined)
   );
   return { array, page, limit, total, totalPages };
 }
@@ -228,9 +230,8 @@ function NumberPager({
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <button
-        className={`${btn} ${
-          page === 1 ? "cursor-not-allowed opacity-50" : ""
-        }`}
+        className={`${btn} ${page === 1 ? "cursor-not-allowed opacity-50" : ""
+          }`}
         onClick={() => page > 1 && onChange(1)}
         disabled={page === 1}
         aria-label="First page"
@@ -238,9 +239,8 @@ function NumberPager({
         «
       </button>
       <button
-        className={`${btn} ${
-          page === 1 ? "cursor-not-allowed opacity-50" : ""
-        }`}
+        className={`${btn} ${page === 1 ? "cursor-not-allowed opacity-50" : ""
+          }`}
         onClick={() => page > 1 && onChange(page - 1)}
         disabled={page === 1}
         aria-label="Previous page"
@@ -257,11 +257,10 @@ function NumberPager({
           <button
             key={it}
             onClick={() => onChange(it)}
-            className={`${btn} ${
-              it === page
-                ? "bg-black text-white border-black"
-                : "border-gray-300 hover:bg-gray-50"
-            }`}
+            className={`${btn} ${it === page
+              ? "bg-[#0D0D0D] text-white border-black"
+              : "border-gray-300 hover:bg-gray-50"
+              }`}
             aria-current={it === page ? "page" : undefined}
           >
             {it}
@@ -270,9 +269,8 @@ function NumberPager({
       )}
 
       <button
-        className={`${btn} ${
-          page === totalPages ? "cursor-not-allowed opacity-50" : ""
-        }`}
+        className={`${btn} ${page === totalPages ? "cursor-not-allowed opacity-50" : ""
+          }`}
         onClick={() => page < totalPages && onChange(page + 1)}
         disabled={page === totalPages}
         aria-label="Next page"
@@ -280,9 +278,8 @@ function NumberPager({
         ›
       </button>
       <button
-        className={`${btn} ${
-          page === totalPages ? "cursor-not-allowed opacity-50" : ""
-        }`}
+        className={`${btn} ${page === totalPages ? "cursor-not-allowed opacity-50" : ""
+          }`}
         onClick={() => page < totalPages && onChange(totalPages)}
         disabled={page === totalPages}
         aria-label="Last page"
@@ -310,6 +307,7 @@ export default function HomePage() {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [styles, setStyles] = useState<StyleItem[]>([]);
   const [tab, setTab] = useState<RankTab>("day");
+  const { theme, setTheme } = useTheme();
 
   // Initial load
   useEffect(() => {
@@ -384,35 +382,35 @@ export default function HomePage() {
     [summaryItems]
   );
 
-  const goStoriesWithGenre = (g: Genre) => {
-    try {
-      sessionStorage.setItem("stories:q", "");
-      sessionStorage.setItem("stories:presetGenres", JSON.stringify([g._id]));
-    } catch {}
-    window.location.href = "/stories";
-  };
-  const goStoriesWithStyle = (s: StyleItem) => {
-    try {
-      sessionStorage.setItem("stories:q", "");
-      sessionStorage.setItem("stories:presetStyles", JSON.stringify([s._id]));
-    } catch {}
-    window.location.href = "/stories";
-  };
+  // const goStoriesWithGenre = (g: Genre) => {
+  //   try {
+  //     sessionStorage.setItem("stories:q", "");
+  //     sessionStorage.setItem("stories:presetGenres", JSON.stringify([g._id]));
+  //   } catch { }
+  //   window.location.href = "/stories";
+  // };
+  // const goStoriesWithStyle = (s: StyleItem) => {
+  //   try {
+  //     sessionStorage.setItem("stories:q", "");
+  //     sessionStorage.setItem("stories:presetStyles", JSON.stringify([s._id]));
+  //   } catch { }
+  //   window.location.href = "/stories";
+  // };
+  const [mounted, setMounted] = useState(false);
 
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
   return (
-    <div className="min-h-screen bg-white">
+    <div className={`min-h-screen ${theme === "dark" ? "bg-[#1F1F1F]" : "bg-white"}`}>
       <Navbar />
-      <br />
-      <br />
-      <br />
-      <br />
-      <main className="mx-auto max-w-6xl p-4 space-y-8">
+      <main className="mx-auto max-w-6xl p-4 space-y-8 pt-30">
         {/* Error / Loading */}
         {err && (
           <div className="rounded border border-red-200 bg-red-50 p-3 text-red-700">
             {err}
           </div>
         )}
+
         {loading && !summaryItems.length && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {Array.from({ length: 12 }).map((_, i) => (
@@ -517,11 +515,10 @@ export default function HomePage() {
                   <button
                     key={k}
                     onClick={() => setTab(k)}
-                    className={`rounded-full px-3 py-1 text-xs ${
-                      tab === k
-                        ? "bg-black text-white"
-                        : "bg-white text-gray-800"
-                    }`}
+                    className={`rounded-full px-3 py-1 text-xs ${tab === k
+                      ? "bg-black text-white"
+                      : "bg-white text-gray-800"
+                      }`}
                   >
                     {k === "day" ? "Ngày" : k === "week" ? "Tuần" : "Tháng"}
                   </button>

@@ -36,10 +36,10 @@ import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter } from "next/navigation";
 import { PointBadge } from "./PointBadge";
+import NotificationComponent from "./firebase/NotificationComponent";
 
 export function Navbar() {
-  const { isLogin } = useAuth();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { isLogin, setLoginStatus } = useAuth();
   const [user, setUser] = useState<any | undefined>();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
@@ -59,7 +59,7 @@ export function Navbar() {
     try {
       sessionStorage.setItem("stories:q", query);
       sessionStorage.setItem("stories:q:ts", String(Date.now()));
-    } catch {}
+    } catch { }
     if (pathname === "/stories") {
       window.dispatchEvent(new Event("stories:syncQ"));
     } else {
@@ -73,14 +73,13 @@ export function Navbar() {
   };
   const [mounted, setMounted] = useState(false);
 
-  useLayoutEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => {
+    setMounted(true)
+  })
 
   useLayoutEffect(() => {
-    if (!mounted) return;
-
     const raw = Cookies.get("user_normal_info");
+
     if (raw) {
       try {
         const decoded = decodeURIComponent(raw);
@@ -90,7 +89,8 @@ export function Navbar() {
         console.error("Invalid cookie data");
       }
     }
-  }, [isLogin, mounted]);
+  }, []);
+
 
   async function logout() {
     const res = await axios.get(
@@ -100,6 +100,7 @@ export function Navbar() {
 
     if (res.data.success) {
       await removeCookie();
+      setLoginStatus(false);
       router.push("/login");
     } else {
       toast({
@@ -157,7 +158,7 @@ export function Navbar() {
 
           {/* Desktop: right actions */}
           <div className="hidden md:flex items-center gap-2">
-            {isLogin && user && <PointBadge />}
+            {user && <PointBadge />}
             <Button
               variant="ghost"
               size="icon"
@@ -173,13 +174,11 @@ export function Navbar() {
               ) : null}
             </Button>
 
-            {isLogin && user ? (
+            {user ? (
               <>
-                <Button variant="ghost" size="icon" asChild>
-                  <Link href="/notifications">
-                    <Bell className="h-5 w-5S" />
-                  </Link>
-                </Button>
+                <div>
+                  <NotificationComponent />
+                </div>
 
                 {user?.role?.trim() === "author" && (
                   <Button variant="ghost" size="icon" asChild>
@@ -287,7 +286,7 @@ export function Navbar() {
                       />
                     </div>
                   </form>
-                  {isLogin && user && <PointBadge />}
+                  {user && <PointBadge />}
 
                   {/* Vertical menu list */}
                   <div className="space-y-2">

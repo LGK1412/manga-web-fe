@@ -117,7 +117,40 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Chỉ ảnh hưởng scrollbar của element có class .custom-scroll */
+.custom-scroll {
+  max-height: 24rem;
+  /* 96 trong Tailwind ~ 24rem */
+  overflow-y: auto;
+}
+
+/* Chrome, Edge, Safari */
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+  /* chiều ngang scrollbar */
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  /* nền thanh scroll */
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background-color: #9ca3af;
+  /* màu thanh scroll */
+  border-radius: 9999px;
+  /* bo tròn */
+}
+
+/* Firefox */
+.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #9ca3af transparent;
+}
+

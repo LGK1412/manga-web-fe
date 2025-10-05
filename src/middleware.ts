@@ -6,10 +6,8 @@ export async function middleware(req: NextRequest) {
     const token = req.cookies.get("access_token")?.value
     let isLogin = false
     if (token) {
-        console.log("login")
         isLogin = true
     } else {
-        console.log("logined")
         isLogin = false
 
     }
