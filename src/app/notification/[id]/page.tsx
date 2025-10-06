@@ -38,7 +38,13 @@ export default function NotificationPage() {
             const res = await axios.get<Notification[]>(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/user/get-all-noti-for-user/${id}`
             );
-            setNotifications(res.data);
+
+            // 🔽 Sắp xếp thông báo mới nhất lên đầu
+            const sorted = res.data.sort(
+                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+
+            setNotifications(sorted);
         } catch (err: any) {
             console.error(err);
             setError(err?.response?.data?.message || "Lỗi khi tải thông báo");

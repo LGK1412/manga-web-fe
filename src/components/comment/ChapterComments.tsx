@@ -7,6 +7,7 @@ import { Loader2, Send } from "lucide-react";
 import axios from "axios";
 import { Footer } from "../footer";
 import { useTheme } from "next-themes";
+import Cookies from "js-cookie";
 
 export default function ChapterComments() {
     const params = useParams();
@@ -18,10 +19,26 @@ export default function ChapterComments() {
     const [error, setError] = useState<string | null>(null);
     const { theme } = useTheme();
     const [mounted, setMounted] = useState(false);
+    const [user, setUser] = useState<any | undefined>();
+
 
     useEffect(() => {
         setMounted(true)
     })
+
+    useEffect(() => {
+        const raw = Cookies.get("user_normal_info");
+
+        if (raw) {
+            try {
+                const decoded = decodeURIComponent(raw);
+                const parsed = JSON.parse(decoded);
+                setUser(parsed);
+            } catch (e) {
+                console.error("Invalid cookie data");
+            }
+        }
+    }, [mounted]);
 
     const fetchComments = async () => {
         try {
@@ -104,28 +121,39 @@ export default function ChapterComments() {
                     ))}
                 </div>
 
-                {/* Input */}
-                <div className="space-y-2">
-                    <textarea
-                        className="w-full border border-slate-300 rounded-xl p-3 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                        placeholder="Viết bình luận..."
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        maxLength={1000}
-                        rows={4}
-                    />
-                    <div className="flex justify-between items-center text-xs text-slate-500">
-                        <span>{newComment.length}/1000 ký tự</span>
-                        <button
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-black text-white text-sm rounded-lg hover:bg-gray-700 disabled:bg-gray-400"
-                            onClick={handleSubmit}
-                            disabled={loading}
-                        >
-                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                            Gửi
-                        </button>
+                {user && (user.role === "user" || user.role === "author") ? (
+                    <div className="space-y-2">
+                        <textarea
+                            className="w-full border border-slate-300 rounded-xl p-3 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            placeholder="Viết bình luận..."
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            maxLength={1000}
+                            rows={4}
+                        />
+                        <div className="flex justify-between items-center text-xs text-slate-500">
+                            <span>{newComment.length}/1000 ký tự</span>
+                            <button
+                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-black text-white text-sm rounded-lg hover:bg-gray-700 disabled:bg-gray-400"
+                                onClick={handleSubmit}
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Send className="h-4 w-4" />
+                                )}
+                                Gửi
+                            </button>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <p className="text-sm">
+                        <a href="/login" className="text-blue-500 hover:underline">Đăng nhập</a> /
+                        <a href="/register" className="text-blue-500 hover:underline ml-1">Đăng ký</a> để bình luận.
+                    </p>
+                )}
+
 
                 {/* Error */}
                 {error && <p className="text-red-500 text-sm">{error}</p>}

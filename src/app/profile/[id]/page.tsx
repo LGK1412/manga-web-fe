@@ -224,6 +224,12 @@ export default function ProfileByIdPage({
                   ? "Bạn đang ở chế độ tác giả. Bạn có thể viết và đăng truyện."
                   : "Bạn đang ở chế độ độc giả. Chuyển sang chế độ tác giả để viết truyện."}
               </p>
+              <Link
+                href="/change-password"
+                className="text-sm font-medium underline text-left w-full decoration-red-400 decoration-2 underline-offset-2 text-red-600 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200 transition-colors"
+              >
+                Đổi mật khẩu
+              </Link>
             </CardContent>
           </Card>
 
