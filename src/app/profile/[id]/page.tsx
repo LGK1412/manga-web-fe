@@ -25,9 +25,12 @@ export default function ProfileByIdPage({
   const { toast } = useToast();
 
   const [isAuthorRole, setIsAuthorRole] = useState(false);
-  const [readingHistory, setReadingHistory] = useState<any[]>([]);
+  const [followingAuthors, setFollowingAuthors] = useState<any[]>([]);
+  const [followingLoaded, setFollowingLoaded] = useState(false);
   const [favouriteStories, setFavouriteStories] = useState<any[]>([]);
   const [favouritesLoaded, setFavouritesLoaded] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
   const user = useMemo(() => {
     const raw = Cookies.get("user_normal_info");
@@ -109,6 +112,34 @@ export default function ProfileByIdPage({
 
       fetchFavourites();
     }
+
+    // Fetch following authors once
+    if (!followingLoaded) {
+      const fetchFollowing = async () => {
+        try {
+          const res = await axios.get(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/user/following`,
+            { withCredentials: true }
+          );
+          setFollowingAuthors(res.data.following || []);
+          setFollowingLoaded(true);
+        } catch (err) {
+          console.error("Failed to fetch following authors", err);
+          setFollowingLoaded(true);
+        }
+      };
+
+      fetchFollowing();
+    }
+
+    // Fetch follow stats
+    (async () => {
+      try {
+        const stats = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/user/follow-stats`, { withCredentials: true })
+        setFollowersCount(stats.data?.followersCount || 0)
+        setFollowingCount(stats.data?.followingCount || 0)
+      } catch {}
+    })()
   }, [user, router, toast, favouritesLoaded]);
 
   const handleRoleToggle = async (checked: boolean) => {
@@ -192,13 +223,13 @@ export default function ProfileByIdPage({
 
               <div className="flex gap-6 mb-6">
                 <div>
-                  <p className="text-lg font-semibold">{user.followersCount}</p>
+                  <p className="text-lg font-semibold">{followersCount}</p>
                   <p className="text-sm text-muted-foreground">
                     Người theo dõi
                   </p>
                 </div>
                 <div>
-                  <p className="text-lg font-semibold">{user.followingCount}</p>
+                  <p className="text-lg font-semibold">{followingCount}</p>
                   <p className="text-sm text-muted-foreground">Đang theo dõi</p>
                 </div>
               </div>
@@ -237,13 +268,38 @@ export default function ProfileByIdPage({
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <History className="w-5 h-5" /> Lịch sử đọc
+                  <UserIcon className="w-5 h-5" /> Tác giả đang theo dõi
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center py-6 text-muted-foreground">
-                  Không có lịch sử đọc
-                </div>
+              <CardContent className="p-0">
+                {!followingLoaded ? (
+                  <div className="text-center py-6 text-muted-foreground">Đang tải danh sách</div>
+                ) : followingAuthors.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">Bạn chưa theo dõi tác giả nào</div>
+                ) : (
+                  <div className="max-h-96 overflow-y-auto">
+                    {followingAuthors.map((author: any) => (
+                      <Link
+                        key={author._id}
+                        href={`/profile/user?id=${author._id}`}
+                        className="flex items-center gap-4 p-4 border-b last:border-b-0 hover:bg-muted/50 transition-colors"
+                      >
+                        <Avatar className="w-12 h-12 flex-shrink-0">
+                          <AvatarImage
+                            src={author.avatar ? `${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${author.avatar}` : "/placeholder.svg"}
+                            alt={author.username}
+                          />
+                          <AvatarFallback className="text-sm">
+                            {author.username?.charAt(0) || "A"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm truncate">{author.username}</h3>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
