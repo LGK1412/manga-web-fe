@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { Eye, BookOpen, Star, Calendar, ArrowRight } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Author {
   _id: string;
@@ -18,6 +19,9 @@ interface Chapter {
   _id: string;
   title: string;
   order: number;
+  price: number;
+  locked?: boolean;
+  purchased?: boolean;
 }
 
 interface MangaDetail {
@@ -37,12 +41,13 @@ export default function MangaDetailPage() {
   const [manga, setManga] = useState<MangaDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { theme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+  const { theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    setMounted(true)
-  })
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!mangaId) return;
@@ -51,7 +56,8 @@ export default function MangaDetailPage() {
     setError(null);
     axios
       .get<MangaDetail>(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/manga/detail/${mangaId}`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/manga/detail/${mangaId}`,
+        { withCredentials: true }
       )
       .then((res) => {
         const data = res.data;
@@ -81,12 +87,50 @@ export default function MangaDetailPage() {
     return <p className="text-center mt-10">Không tìm thấy truyện.</p>;
   }
 
+  const handleBuyChapter = async (chapterId: string, price: number) => {
+    try {
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/chapter-purchase/${chapterId}`,
+        {},
+        { withCredentials: true }
+      );
+
+      toast({
+        title: "Thành công 🎉",
+        description: `Bạn đã mua chapter với giá ${price} điểm!`,
+      });
+
+      // cập nhật lại trạng thái chapter (mở khóa)
+      setManga((prev) =>
+        prev
+          ? {
+              ...prev,
+              chapters: prev.chapters.map((ch) =>
+                ch._id === chapterId ? { ...ch, locked: false } : ch
+              ),
+            }
+          : prev
+      );
+    } catch (err: any) {
+      toast({
+        title: "Lỗi mua chapter",
+        description:
+          err.response?.data?.message || "Có lỗi xảy ra, vui lòng thử lại!",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="bg-white min-h-screen">
       <Navbar />
       <div className="pt-16 max-w-6xl mx-auto px-4 py-8 space-y-6">
         {/* Manga Info Card */}
-        <div className={`${theme === "dark" ? "bg-[#1F1F1F]" : "bg-white"} border-gray-200 rounded-lg p-6`}>
+        <div
+          className={`${
+            theme === "dark" ? "bg-[#1F1F1F]" : "bg-white"
+          } border-gray-200 rounded-lg p-6`}
+        >
           <div className="flex flex-col md:flex-row gap-6">
             {/* Cover Image */}
             <div className="flex-shrink-0">
@@ -108,15 +152,11 @@ export default function MangaDetailPage() {
 
             {/* Manga Details */}
             <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-2">
-                {manga.title}
-              </h1>
+              <h1 className="text-3xl font-bold mb-2">{manga.title}</h1>
 
               <div className="flex items-center gap-3 mb-4">
                 <div>Tác giả:</div>
-                <span className=" font-medium">
-                  {manga.author.username}
-                </span>
+                <span className=" font-medium">{manga.author.username}</span>
               </div>
 
               <div className="space-y-3 mb-6">
@@ -168,9 +208,8 @@ export default function MangaDetailPage() {
           ) : (
             <div className="space-y-2">
               {manga.chapters.map((ch) => (
-                <Link
+                <div
                   key={ch._id}
-                  href={`/chapter/${ch._id}`}
                   className="flex items-center justify-between p-3 border border-gray-100 rounded hover:bg-gray-50 transition-colors group"
                 >
                   <div className="flex items-center gap-3">
@@ -184,8 +223,25 @@ export default function MangaDetailPage() {
                       <p className="text-sm text-gray-600">{ch.title}</p>
                     </div>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-black transition-colors" />
-                </Link>
+
+                  {/* Hiển thị trạng thái */}
+                  {ch.locked ? (
+                    <button
+                      onClick={() => handleBuyChapter(ch._id, ch.price)}
+                      className="text-sm text-red-500 font-medium hover:underline"
+                    >
+                      {ch.price > 0 ? `Mua với giá ${ch.price} điểm` : "Khoá"}
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/chapter/${ch._id}`}
+                      className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                    >
+                      Đọc
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  )}
+                </div>
               ))}
             </div>
           )}

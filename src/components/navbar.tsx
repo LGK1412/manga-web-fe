@@ -59,7 +59,7 @@ export function Navbar() {
     try {
       sessionStorage.setItem("stories:q", query);
       sessionStorage.setItem("stories:q:ts", String(Date.now()));
-    } catch { }
+    } catch {}
     if (pathname === "/stories") {
       window.dispatchEvent(new Event("stories:syncQ"));
     } else {
@@ -74,8 +74,8 @@ export function Navbar() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true)
-  })
+    setMounted(true);
+  });
 
   useLayoutEffect(() => {
     const raw = Cookies.get("user_normal_info");
@@ -90,7 +90,6 @@ export function Navbar() {
       }
     }
   }, []);
-
 
   async function logout() {
     const res = await axios.get(

@@ -16,8 +16,19 @@ interface TopupPackage {
   alreadyBought: boolean;
 }
 
+interface Transaction {
+  packageId: number;
+  price: number;
+  pointReceived: number;
+  status: "pending" | "success" | "failed";
+  txnRef: string;
+  createdAt: string;
+}
+
 export default function TopupPage() {
   const [packages, setPackages] = useState<TopupPackage[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [showModal, setShowModal] = useState(false);
   const { toast } = useToast();
 
   const decodeToken = () => {
@@ -55,6 +66,28 @@ export default function TopupPage() {
     }
   }
 
+  async function fetchTransactions() {
+    const raw = Cookies.get("user_normal_info");
+    if (!raw) return;
+
+    let userId: string;
+    try {
+      userId = JSON.parse(raw)?.user_id;
+    } catch {
+      return;
+    }
+
+    try {
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/topup/transactions?userId=${userId}`,
+        { withCredentials: true }
+      );
+      setTransactions(res.data.transactions);
+    } catch (error) {
+      console.error("Lỗi khi lấy lịch sử giao dịch:", error);
+    }
+  }
+
   useEffect(() => {
     fetchPackages();
   }, []);
@@ -81,7 +114,6 @@ export default function TopupPage() {
       if (res.data?.paymentUrl) {
         window.location.href = res.data.paymentUrl;
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error(
         "Lỗi tạo URL thanh toán",
@@ -93,6 +125,18 @@ export default function TopupPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900 p-6">
       {/* Header Section */}
+      <div className="flex justify-end max-w-6xl mx-auto mb-6">
+        <Button
+          onClick={() => {
+            fetchTransactions();
+            setShowModal(true);
+          }}
+          className="bg-blue-600 hover:bg-blue-800 text-white"
+        >
+          Lịch sử giao dịch
+        </Button>
+      </div>
+
       <div className="max-w-6xl mx-auto mb-12 text-center">
         <h1 className="text-5xl font-bold text-white mb-4 text-balance">
           Nạp Điểm Đọc Truyện
@@ -186,6 +230,57 @@ export default function TopupPage() {
           </div>
         </div>
       </div>
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-slate-900 text-white rounded-xl w-11/12 max-w-3xl p-6 relative">
+            <h2 className="text-2xl font-bold mb-4">Lịch sử giao dịch</h2>
+            <button
+              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+              onClick={() => setShowModal(false)}
+            >
+              ✕
+            </button>
+            <div className="max-h-96 overflow-y-auto">
+              {transactions.length === 0 ? (
+                <p className="text-center text-gray-400">
+                  Chưa có giao dịch nào.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {transactions.map((tx) => (
+                    <Card
+                      key={tx.txnRef}
+                      className="p-4 bg-slate-800/80 border border-teal-500/30"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="flex-1 text-slate-200">
+                          <p>Gói: {tx.packageId}</p>
+                          <p>Giá: {tx.price.toLocaleString()} VND</p>
+                          <p>Điểm nhận: {tx.pointReceived}</p>
+                          <p>Ngày: {new Date(tx.createdAt).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <span
+                            className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                              tx.status === "success"
+                                ? "bg-green-600 text-white"
+                                : tx.status === "failed"
+                                ? "bg-red-600 text-white"
+                                : "bg-yellow-600 text-white"
+                            }`}
+                          >
+                            {tx.status.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,7 +4,6 @@ export async function removeCookie() {
     await Cookies.remove("user_normal_info", { path: "/" })
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function setCookie(tokenPayload: any) {
     const palyerInfo = {
         user_id: tokenPayload.user_id,
@@ -15,6 +14,7 @@ export async function setCookie(tokenPayload: any) {
         bio: tokenPayload.bio,
         point: tokenPayload.point,
         author_point: tokenPayload.author_point,
+        game_point: tokenPayload.game_point,
         lastBonus: tokenPayload.lastBonus
     }
 

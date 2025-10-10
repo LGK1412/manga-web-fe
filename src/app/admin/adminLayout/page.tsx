@@ -15,6 +15,7 @@ import {
   Tags,
   Palette,
   Shield,
+  Banknote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/navbar";
@@ -51,6 +52,12 @@ export default function AdminLayout({
       label: "Notification",
       icon: Megaphone,
       href: "/admin/announcements",
+    },
+    {
+      id: "withdraws",
+      label: "Withdraw",
+      icon: Banknote,
+      href: "/admin/withdraw",
     },
     {
       id: "settings",
