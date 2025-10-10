@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { Navbar } from "@/components/navbar";
+import { Eye, BookOpen, Star, Calendar, ArrowRight } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useToast } from "@/components/ui/use-toast";
 import { Star, Eye, BookOpen, Heart, UserPlus, Calendar, ArrowRight, ThumbsUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +34,9 @@ interface Chapter {
   _id: string;
   title: string;
   order: number;
+  price: number;
+  locked?: boolean;
+  purchased?: boolean;
 }
 
 interface MangaDetail {
@@ -51,6 +57,15 @@ export default function MangaDetailPage() {
   const [manga, setManga] = useState<MangaDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const { theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [isFavourite, setIsFavourite] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [userRating, setUserRating] = useState(0);
@@ -104,15 +119,39 @@ export default function MangaDetailPage() {
 }, [mangaId]);
 
   // Rating summary now comes from manga detail API (backend aggregates in MangaService)
+ axios
+   .get(`${process.env.NEXT_PUBLIC_API_URL}/api/rating/all`, { params: { mangaId } })
+      .then((res) => setAllRatings(res.data?.items || []))
+      .catch(() => setAllRatings([]));
+  }, [mangaId, ratingDialogOpen]);
 
   // Fetch all ratings for this manga
   useEffect(() => {
     if (!mangaId) return;
     axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/rating/all`, { params: { mangaId } })
-      .then((res) => setAllRatings(res.data?.items || []))
-      .catch(() => setAllRatings([]));
-  }, [mangaId, ratingDialogOpen]);
+      .get<MangaDetail>(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/manga/detail/${mangaId}`,
+        { withCredentials: true }
+      )
+      .then((res) => {
+        const data = res.data;
+        setManga({
+          ...data,
+          chapters: Array.isArray(data.chapters) ? data.chapters : [],
+        });
+      })
+      .catch((err) => {
+        console.error("Lỗi khi fetch manga:", err);
+        setError(err.response?.data?.message || "Không thể tải dữ liệu");
+      })
+      .finally(() => setLoading(false));
+  }, [mangaId]);
+
+  if (!mounted) return null;
+
+  if (loading) {
+    return <p className="text-center mt-10">Đang tải dữ liệu...</p>;
+  }
 
   // Load likes for each rating
   useEffect(() => {
@@ -215,10 +254,50 @@ export default function MangaDetailPage() {
     } catch { }
   }
 
+  const handleBuyChapter = async (chapterId: string, price: number) => {
+    try {
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/chapter-purchase/${chapterId}`,
+        {},
+        { withCredentials: true }
+      );
+
+      toast({
+        title: "Thành công 🎉",
+        description: `Bạn đã mua chapter với giá ${price} điểm!`,
+      });
+
+      // cập nhật lại trạng thái chapter (mở khóa)
+      setManga((prev) =>
+        prev
+          ? {
+              ...prev,
+              chapters: prev.chapters.map((ch) =>
+                ch._id === chapterId ? { ...ch, locked: false } : ch
+              ),
+            }
+          : prev
+      );
+    } catch (err: any) {
+      toast({
+        title: "Lỗi mua chapter",
+        description:
+          err.response?.data?.message || "Có lỗi xảy ra, vui lòng thử lại!",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-
+      <div className="pt-16 max-w-6xl mx-auto px-4 py-8 space-y-6">
+        {/* Manga Info Card */}
+        <div
+          className={`${
+            theme === "dark" ? "bg-[#1F1F1F]" : "bg-white"
+          } border-gray-200 rounded-lg p-6`}
+        >
       <div className="container mx-auto px-4 py-8 pt-20">
         {loading && (
           <p className="text-center mt-10">Đang tải dữ liệu...</p>

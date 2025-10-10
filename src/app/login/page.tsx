@@ -51,7 +51,7 @@ export default function LoginPage() {
         title: "Chào mừng trở lại!",
         description: "Bạn đã đăng nhập thành công",
       });
-       setLoginStatus(true);
+      setLoginStatus(true);
       window.location.href = "/";
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -109,7 +109,9 @@ export default function LoginPage() {
             <BookOpen className="h-8 w-8" />
           </div>
           <CardTitle className="text-2xl">Chào mừng trở lại</CardTitle>
-          <CardDescription>Đăng nhập vào tài khoản Manga World của bạn</CardDescription>
+          <CardDescription>
+            Đăng nhập vào tài khoản Manga World của bạn
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -155,7 +157,10 @@ export default function LoginPage() {
           </form>
 
           <div className="text-center">
-            <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+            <Link
+              href="/forgot-password"
+              className="text-sm text-primary hover:underline"
+            >
               Quên mật khẩu?
             </Link>
           </div>
