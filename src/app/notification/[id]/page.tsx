@@ -8,6 +8,7 @@ import { useTheme } from "next-themes";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import Cookies from "js-cookie";
+import { useToast } from "@/hooks/use-toast";
 
 interface Notification {
     _id: string;
@@ -31,6 +32,8 @@ export default function NotificationPage() {
     const [error, setError] = useState<string | null>(null);
     const [user, setUser] = useState<any | undefined>();
 
+    const { toast } = useToast()
+
     const fetchNotifications = async () => {
         if (!id) return;
         try {
@@ -48,6 +51,11 @@ export default function NotificationPage() {
         } catch (err: any) {
             console.error(err);
             setError(err?.response?.data?.message || "Lỗi khi tải thông báo");
+            toast({
+                title: "Lỗi",
+                description: err?.response?.data?.message || "Lỗi khi tải thông báo",
+                variant: "destructive",
+            })
         } finally {
             setLoading(false);
         }

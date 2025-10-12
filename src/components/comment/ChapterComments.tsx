@@ -8,6 +8,7 @@ import axios from "axios";
 import { Footer } from "../footer";
 import { useTheme } from "next-themes";
 import Cookies from "js-cookie";
+import { useToast } from "@/hooks/use-toast" // Import useToast
 
 export default function ChapterComments() {
     const params = useParams();
@@ -20,6 +21,7 @@ export default function ChapterComments() {
     const { theme } = useTheme();
     const [mounted, setMounted] = useState(false);
     const [user, setUser] = useState<any | undefined>();
+    const { toast } = useToast()
 
 
     useEffect(() => {
@@ -45,9 +47,14 @@ export default function ChapterComments() {
             const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/comment/all-comment-chapter/${chapter_id}`,
                 { withCredentials: true });
 
-            setComments(res.data);
+            setComments(res.data.reverse());
         } catch (err: any) {
             setError(err.response?.data?.message || err.message || "Lỗi khi lấy comment");
+            toast({
+                title: "Lỗi",
+                description: err.response?.data?.message || err.message || "Lỗi khi lấy comment",
+                variant: "destructive",
+            })
         }
     };
 
@@ -71,6 +78,11 @@ export default function ChapterComments() {
             fetchComments(); // reload comment
         } catch (err: any) {
             alert(err.response?.data?.message || err.message || "Gửi comment thất bại");
+            toast({
+                title: "Lỗi",
+                description: err.response?.data?.message || err.message || "Gửi comment thất bại",
+                variant: "destructive",
+            })
         } finally {
             setLoading(false);
         }
