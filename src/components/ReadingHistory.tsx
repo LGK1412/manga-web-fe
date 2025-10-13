@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { History } from "lucide-react";
+import { History, Trash2 } from "lucide-react";
 import Link from "next/link";
 import Cookies from "js-cookie";
 import axios from "axios";
@@ -11,6 +11,7 @@ import axios from "axios";
 export default function ReadingHistory() {
   const [readingHistory, setReadingHistory] = useState<any[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // 🔹 Parse user info từ cookie chỉ 1 lần
   const user = useMemo(() => {
@@ -30,7 +31,7 @@ export default function ReadingHistory() {
     }
   }, []);
 
-  // 🔹 Gọi API trong useEffect, chỉ khi có user.id
+  // 🔹 Fetch history
   useEffect(() => {
     if (!user?.id) return;
 
@@ -50,6 +51,33 @@ export default function ReadingHistory() {
 
     fetchHistory();
   }, [user?.id]);
+
+  // 🔹 Delete 1 truyện trong lịch sử đọc
+  const handleDelete = async (storyId: string) => {
+    if (!user?.id) return;
+    const confirm = window.confirm(
+      "Bạn có chắc muốn xoá lịch sử đọc truyện này?"
+    );
+    if (!confirm) return;
+
+    try {
+      setDeletingId(storyId);
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/chapter/history/${user.id}/${storyId}`,
+        { withCredentials: true }
+      );
+
+      // Cập nhật lại danh sách (lọc bỏ item đã xoá)
+      setReadingHistory((prev) =>
+        prev.filter((item) => item.story_id !== storyId)
+      );
+    } catch (err) {
+      console.error("Xóa lịch sử đọc thất bại:", err);
+      alert("Không thể xoá lịch sử đọc. Vui lòng thử lại!");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   // 🔹 UI hiển thị
   return (
@@ -74,26 +102,33 @@ export default function ReadingHistory() {
             {readingHistory.map((item: any) => {
               const chapter = item.last_read_chapter;
               const manga = chapter?.manga_id;
-              return (
-                <Link
-                  key={item._id}
-                  href={`/story/${manga?._id || item.story_id}`}
-                  className="flex items-center gap-4 p-4 border-b last:border-b-0 hover:bg-muted/50 transition-colors"
-                >
-                  <Avatar className="w-16 h-20 flex-shrink-0">
-                    <AvatarImage
-                      src={
-                        manga?.coverImage
-                          ? `${process.env.NEXT_PUBLIC_API_URL}/assets/coverImages/${manga.coverImage}`
-                          : `${process.env.NEXT_PUBLIC_API_URL}/assets/coverImages/z6830618024816_726c3c47e3792500269a50d2c3fa7af3.webp`
-                      }
-                      alt={manga?.title || "Story"}
-                    />
-                    <AvatarFallback className="text-xs">
-                      {manga?.title?.charAt(0) || "S"}
-                    </AvatarFallback>
-                  </Avatar>
 
+              return (
+                <div
+                  key={item._id}
+                  className="group flex items-center gap-4 p-4 border-b last:border-b-0 hover:bg-muted/50 transition-colors"
+                >
+                  {/* Ảnh bìa */}
+                  <Link
+                    href={`/story/${manga?._id || item.story_id}`}
+                    className="flex-shrink-0"
+                  >
+                    <Avatar className="w-16 h-20">
+                      <AvatarImage
+                        src={
+                          manga?.coverImage
+                            ? `${process.env.NEXT_PUBLIC_API_URL}/assets/coverImages/${manga.coverImage}`
+                            : `${process.env.NEXT_PUBLIC_API_URL}/assets/coverImages/z6830618024816_726c3c47e3792500269a50d2c3fa7af3.webp`
+                        }
+                        alt={manga?.title || "Story"}
+                      />
+                      <AvatarFallback className="text-xs">
+                        {manga?.title?.charAt(0) || "S"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Link>
+
+                  {/* Thông tin truyện */}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm truncate">
                       {manga?.title}
@@ -109,7 +144,21 @@ export default function ReadingHistory() {
                       {new Date(item.last_read_at).toLocaleString("vi-VN")}
                     </p>
                   </div>
-                </Link>
+
+                  {/* Nút Xoá */}
+                  <button
+                    onClick={() => handleDelete(item.story_id)}
+                    disabled={deletingId === item.story_id}
+                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-red-600 disabled:opacity-50"
+                    title="Xoá khỏi lịch sử"
+                  >
+                    {deletingId === item.story_id ? (
+                      <span className="text-xs animate-pulse">...</span>
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               );
             })}
           </div>

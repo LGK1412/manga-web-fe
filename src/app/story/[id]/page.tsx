@@ -93,7 +93,39 @@ export default function MangaDetailPage() {
   const [likesById, setLikesById] = useState<
     Record<string, { count: number; liked: boolean }>
   >({});
-
+  const [lastRead, setLastRead] = useState<any | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => {
+    const cookie = document.cookie
+      .split("; ")
+      .find((r) => r.startsWith("user_normal_info="));
+    if (cookie) {
+      try {
+        const data = JSON.parse(decodeURIComponent(cookie.split("=")[1]));
+        setUserId(data.user_id);
+      } catch (err) {
+        console.error("Cookie parse error:", err);
+      }
+    }
+  }, []);
+  useEffect(() => {
+    if (!mangaId || !userId) return;
+    console.log(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Chapter/history/${userId}/${mangaId}`
+    );
+    axios
+      .get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Chapter/history/${userId}/${mangaId}`
+      )
+      .then((res) => {
+        if (res.data?.last_read_chapter) {
+          setLastRead(res.data);
+        } else {
+          setLastRead(null);
+        }
+      })
+      .catch(() => setLastRead(null));
+  }, [mangaId, userId]);
   useEffect(() => {
     if (!mangaId) return;
 
@@ -446,20 +478,35 @@ export default function MangaDetailPage() {
 
                     {/* Action Buttons */}
                     <div className="flex flex-wrap gap-3">
-                      {manga.chapters.length > 0 && (
-                        <Button size="lg" asChild>
-                          <Link href={`/chapter/${manga.chapters[0]._id}`}>
-                            <BookOpen className="w-4 h-4 mr-2" />
-                            Đọc ngay
-                          </Link>
-                        </Button>
+                      {manga && manga.chapters.length > 0 && (
+                        <>
+                          <Button size="lg" asChild>
+                            <Link href={`/chapter/${manga.chapters[0]._id}`}>
+                              <BookOpen className="w-4 h-4 mr-2" />
+                              Đọc ngay
+                            </Link>
+                          </Button>
+
+                          {lastRead && lastRead.last_read_chapter && (
+                            <Button size="lg" variant="secondary" asChild>
+                              <Link
+                                href={`/chapter/${lastRead.last_read_chapter._id}`}
+                              >
+                                <ArrowRight className="w-4 h-4 mr-2" />
+                                Tiếp tục đọc chương{" "}
+                                {lastRead.last_read_chapter.order}
+                              </Link>
+                            </Button>
+                          )}
+                        </>
                       )}
+
                       <Button
                         variant="outline"
                         size="lg"
                         onClick={handleAddToFavourite}
                         type="button"
-                        className="min-w-[180px] justify-center"
+                        className="min-w-[180px] justify-center bg-transparent"
                       >
                         <Heart
                           className={`w-4 h-4 mr-2 ${
