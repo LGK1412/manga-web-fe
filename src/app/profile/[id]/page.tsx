@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 import PurchaseHistory from "@/components/PurchaseHistory";
+import ReadingHistory from "@/components/ReadingHistory";
 
 export default function ProfileByIdPage({
   params,
@@ -136,11 +137,14 @@ export default function ProfileByIdPage({
     // Fetch follow stats
     (async () => {
       try {
-        const stats = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/user/follow-stats`, { withCredentials: true })
-        setFollowersCount(stats.data?.followersCount || 0)
-        setFollowingCount(stats.data?.followingCount || 0)
+        const stats = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/user/follow-stats`,
+          { withCredentials: true }
+        );
+        setFollowersCount(stats.data?.followersCount || 0);
+        setFollowingCount(stats.data?.followingCount || 0);
       } catch {}
-    })()
+    })();
   }, [user, router, toast, favouritesLoaded]);
 
   const handleRoleToggle = async (checked: boolean) => {
@@ -274,9 +278,13 @@ export default function ProfileByIdPage({
               </CardHeader>
               <CardContent className="p-0">
                 {!followingLoaded ? (
-                  <div className="text-center py-6 text-muted-foreground">Đang tải danh sách</div>
+                  <div className="text-center py-6 text-muted-foreground">
+                    Đang tải danh sách
+                  </div>
                 ) : followingAuthors.length === 0 ? (
-                  <div className="text-center py-6 text-muted-foreground">Bạn chưa theo dõi tác giả nào</div>
+                  <div className="text-center py-6 text-muted-foreground">
+                    Bạn chưa theo dõi tác giả nào
+                  </div>
                 ) : (
                   <div className="max-h-96 overflow-y-auto">
                     {followingAuthors.map((author: any) => (
@@ -287,7 +295,11 @@ export default function ProfileByIdPage({
                       >
                         <Avatar className="w-12 h-12 flex-shrink-0">
                           <AvatarImage
-                            src={author.avatar ? `${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${author.avatar}` : "/placeholder.svg"}
+                            src={
+                              author.avatar
+                                ? `${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${author.avatar}`
+                                : "/placeholder.svg"
+                            }
                             alt={author.username}
                           />
                           <AvatarFallback className="text-sm">
@@ -295,7 +307,9 @@ export default function ProfileByIdPage({
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm truncate">{author.username}</h3>
+                          <h3 className="font-semibold text-sm truncate">
+                            {author.username}
+                          </h3>
                         </div>
                       </Link>
                     ))}
@@ -332,7 +346,7 @@ export default function ProfileByIdPage({
                             src={
                               story.coverImage
                                 ? `${process.env.NEXT_PUBLIC_API_URL}/assets/coverImages/${story.coverImage}`
-                                : "/placeholder.svg"
+                                : `${process.env.NEXT_PUBLIC_API_URL}/assets/coverImages/z6830618024816_726c3c47e3792500269a50d2c3fa7af3.webp`
                             }
                             alt={story.title}
                           />
@@ -390,6 +404,7 @@ export default function ProfileByIdPage({
                 )}
               </CardContent>
             </Card>
+            <ReadingHistory />
             <PurchaseHistory />
           </div>
         </div>

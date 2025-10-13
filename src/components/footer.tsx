@@ -113,7 +113,7 @@ export function Footer({
                 <h3 className="text-sm font-semibold">{sec.title}</h3>
                 <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                   {sec.links.map((link) => (
-                    <li key={link.href}>
+                    <li key={`${link.href}-${link.label}`}>
                       <Link
                         href={link.href}
                         className="hover:text-foreground hover:underline underline-offset-4"
