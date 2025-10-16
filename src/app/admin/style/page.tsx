@@ -237,7 +237,7 @@ export default function StyleManagement() {
                   <SelectValue placeholder="Lọc theo trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  <SelectItem value="all">Tất cả</SelectItem>
                   <SelectItem value="normal">Normal</SelectItem>
                   <SelectItem value="hide">Hide</SelectItem>
                 </SelectContent>

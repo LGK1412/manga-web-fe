@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import ActivePoliciesModal from "@/components/ActivePoliciesModal";
 import { ArrowUp, Mail, MessageSquare } from "lucide-react";
 
 type FooterLink = { label: string; href: string };
@@ -23,7 +25,9 @@ export function Footer({
   const brandName = brand?.name ?? "MangaWorld";
   const tagline = brand?.tagline ?? "Đọc truyện nhanh, mượt, dễ nhìn.";
 
-  // Links mặc định — chỉnh lại route cho đúng app của bạn
+  const [termsOpen, setTermsOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+
   const navSections: Section[] = sections ?? [
     {
       title: "Khám phá",
@@ -60,6 +64,22 @@ export function Footer({
       role="contentinfo"
       className="relative border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70"
     >
+      {/* Modals */}
+      <ActivePoliciesModal
+        open={termsOpen}
+        onOpenChange={setTermsOpen}
+        typeFilter={["Terms"]}
+        title="Điều khoản dịch vụ"
+        description="Các điều khoản hiện đang có hiệu lực"
+      />
+      <ActivePoliciesModal
+        open={privacyOpen}
+        onOpenChange={setPrivacyOpen}
+        typeFilter={["Privacy"]}
+        title="Chính sách bảo mật"
+        description="Chính sách bảo mật hiện đang có hiệu lực"
+      />
+
       {/* viền mảnh có gradient ở đỉnh */}
       <div
         className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent"
@@ -134,13 +154,13 @@ export function Footer({
             © {year} {brandName}. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
-            <Link href="#" className="hover:text-foreground">
+            <button onClick={() => setTermsOpen(true)} className="hover:text-foreground">
               Điều khoản
-            </Link>
+            </button>
             <span className="opacity-50">•</span>
-            <Link href="#" className="hover:text-foreground">
+            <button onClick={() => setPrivacyOpen(true)} className="hover:text-foreground">
               Bảo mật
-            </Link>
+            </button>
             {showBackToTop && (
               <>
                 <span className="hidden opacity-50 md:inline">•</span>

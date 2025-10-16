@@ -183,10 +183,10 @@ export default function UserManagement() {
               Quản lý người dùng trong hệ thống
             </p>
           </div>
-          <Button>
+          {/* <Button>
             <UserPlus className="h-4 w-4 mr-2" />
             Thêm User
-          </Button>
+          </Button> */}
         </div>
 
         {/* Statistics */}

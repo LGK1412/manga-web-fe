@@ -9,11 +9,12 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
-import { BookOpen, Mail, Eye, EyeOff } from "lucide-react"
-import { useToast } from "@/hooks/use-toast" // Import useToast
+import { BookOpen, Eye, EyeOff } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import axios from "axios"
 import { useRouter } from "next/navigation"
-import GoogleButton from '@/components/GoogleButton'
+import GoogleButton from "@/components/GoogleButton"
+import ActivePoliciesModal from "@/components/ActivePoliciesModal"
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -26,6 +27,9 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [termsOpen, setTermsOpen] = useState(false)
+  const [privacyOpen, setPrivacyOpen] = useState(false)
+
   const router = useRouter()
   const { toast } = useToast()
 
@@ -53,79 +57,76 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      try {
-        const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`, {
-          email: formData.email,
-          password: formData.password,
-          username: formData.name
-        }, { withCredentials: true })
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
+        { email: formData.email, password: formData.password, username: formData.name },
+        { withCredentials: true }
+      )
 
-        if (res.data.success) {
+      if (res.data.success) {
+        // gửi verify email
+        const resSend = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/send-verify-email`,
+          { email: formData.email },
+          { withCredentials: true }
+        )
 
-          // Dk thành công gửi Verify
-          const resSend = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/send-verify-email`, {
-            email: formData.email,
-          }, { withCredentials: true })
-          if (resSend.data.success) {
-            toast({
-              title: "Gửi link xác thực thành công!",
-              description: "Vui lòng kiểm tra email để xác minh tài khoản của bạn.",
-            })
-          } else {
-            toast({
-              title: "Gửi link xác thực không thành công!",
-              description: "Vui lòng đăng nhập để thử lại.",
-              variant: "destructive",
-            })
-          }
-
-        } else {
+        if (resSend.data.success) {
           toast({
-            title: "Đăng ký không thành công",
-            description: res.data.message,
-            variant: "destructive",
-          })
-        }
-      } catch (error) {
-        if (axios.isAxiosError(error)) {
-          toast({
-            title: "Đăng ký không thành công",
-            description: error.response?.data.message || error,
-            variant: "destructive",
+            title: "Gửi link xác thực thành công!",
+            description: "Vui lòng kiểm tra email để xác minh tài khoản của bạn.",
           })
         } else {
           toast({
-            title: "Đăng ký không thành công",
-            description: `Lỗi không mong muốn: ${error}`,
+            title: "Gửi link xác thực không thành công!",
+            description: "Vui lòng đăng nhập để thử lại.",
             variant: "destructive",
           })
         }
+      } else {
+        toast({
+          title: "Đăng ký không thành công",
+          description: res.data.message,
+          variant: "destructive",
+        })
       }
     } catch (error) {
-      toast({
-        title: "Lỗi không mong muốn",
-        description: "Vui lòng thử lại sau.",
-        variant: "destructive",
-      })
+      if (axios.isAxiosError(error)) {
+        toast({
+          title: "Đăng ký không thành công",
+          description: (error.response?.data as any)?.message || `${error}`,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Đăng ký không thành công",
+          description: `Lỗi không mong muốn: ${error}`,
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleGoogleRegister = async () => {
-    try {
-      // await loginWithGoogle()
-    } catch (error) {
-      toast({
-        title: "Lỗi không mong muốn",
-        description: "Vui lòng thử lại sau.",
-        variant: "destructive",
-      })
-    }
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      {/* Modals */}
+      <ActivePoliciesModal
+        open={termsOpen}
+        onOpenChange={setTermsOpen}
+        typeFilter={["Terms"]}
+        title="Điều khoản dịch vụ"
+        description="Các điều khoản hiện đang có hiệu lực"
+      />
+      <ActivePoliciesModal
+        open={privacyOpen}
+        onOpenChange={setPrivacyOpen}
+        typeFilter={["Privacy"]}
+        title="Chính sách bảo mật"
+        description="Chính sách bảo mật hiện đang có hiệu lực"
+      />
+
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -147,6 +148,7 @@ export default function RegisterPage() {
                 required
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -158,6 +160,7 @@ export default function RegisterPage() {
                 required
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Mật khẩu</Label>
               <div className="relative">
@@ -179,6 +182,7 @@ export default function RegisterPage() {
                 </button>
               </div>
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
               <div className="relative">
@@ -210,13 +214,13 @@ export default function RegisterPage() {
               />
               <Label htmlFor="terms" className="text-sm">
                 Tôi đồng ý với{" "}
-                <Link href="/terms" className="text-primary hover:underline">
+                <button type="button" onClick={() => setTermsOpen(true)} className="text-primary hover:underline">
                   Điều khoản dịch vụ
-                </Link>{" "}
+                </button>{" "}
                 và{" "}
-                <Link href="/privacy" className="text-primary hover:underline">
+                <button type="button" onClick={() => setPrivacyOpen(true)} className="text-primary hover:underline">
                   Chính sách bảo mật
-                </Link>
+                </button>
               </Label>
             </div>
 
