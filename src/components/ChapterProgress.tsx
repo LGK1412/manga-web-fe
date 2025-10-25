@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams } from "next/navigation";
+import Cookies from "js-cookie";
 
 export default function ChapterProgress() {
   const { id } = useParams();
@@ -10,15 +11,15 @@ export default function ChapterProgress() {
 
   // Lấy user_id từ cookie
   useEffect(() => {
-    const cookie = document.cookie
-      .split("; ")
-      .find((r) => r.startsWith("user_normal_info="));
-    if (cookie) {
+    const raw = Cookies.get("user_normal_info");
+
+    if (raw) {
       try {
-        const data = JSON.parse(decodeURIComponent(cookie.split("=")[1]));
-        setUserId(data.user_id);
-      } catch (err) {
-        console.error("Cookie parse error:", err);
+        const decoded = decodeURIComponent(raw);
+        const parsed = JSON.parse(decoded);
+        setUserId(parsed.user_id);
+      } catch (e) {
+        console.error("Invalid cookie data");
       }
     }
   }, []);
@@ -75,7 +76,7 @@ export default function ChapterProgress() {
         className="h-[3px] bg-blue-500 transition-all duration-150 ease-out"
         style={{ width: `${progress}%` }}
       />
-      <span className="absolute right-4 top-1 text-[11px] text-gray-700 font-medium">
+      <span className="absolute right-4 top-1 text-[11px] font-medium">
         {progress}%
       </span>
     </div>

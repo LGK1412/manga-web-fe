@@ -7,8 +7,8 @@ export default function SWRegister() {
         if ("serviceWorker" in navigator) {
             navigator.serviceWorker
                 .register("/firebase-messaging-sw.js")
-                .then(reg => console.log("✅ Service Worker registered:", reg))
-                .catch(err => console.error("❌ SW registration failed:", err));
+                .then(reg => console.log("✅ Service Worker registered"))
+                .catch(err => console.error("❌ SW registration failed", err));
         }
     }, []);
 

@@ -22,7 +22,7 @@ export default function ChapterContent() {
       .then((res) => setChapter(res.data))
       .catch((err) => console.error(err));
   }, [id]);
-  console.log("Chapter:", JSON.stringify(chapter, null, 2));
+  // console.log("Chapter:", JSON.stringify(chapter, null, 2));
 
   if (!chapter) return <p className="text-center mt-10">Đang tải chương...</p>;
 

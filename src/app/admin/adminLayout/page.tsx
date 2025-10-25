@@ -13,6 +13,8 @@ import {
   Tags,
   Palette,
   Shield,
+  Banknote,
+  Laugh,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -29,6 +31,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: "users", label: "User", icon: Users, href: "/admin/user" },
     { id: "genres", label: "Genre", icon: Tags, href: "/admin/genre" },
     { id: "styles", label: "Style", icon: Palette, href: "/admin/style" },
+    { id: "emoji-pack", label: "Emoji Pack", icon: Laugh, href: "/admin/emoji-pack" },
     {
       id: "reports",
       label: "Report",

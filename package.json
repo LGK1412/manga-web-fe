@@ -9,11 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.15",
     "axios": "^1.11.0",
     "class-variance-authority": "^0.7.1",
-    "firebase": "^12.4.0",
+    "emoji-mart": "^5.6.0",
+    "firebase": "^12.3.0",
     "js-cookie": "^3.0.5",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.542.0",
@@ -21,9 +24,11 @@
     "next-themes": "^0.4.6",
     "radix-ui": "^1.4.3",
     "react": "19.1.0",
+    "react-confirm-alert": "^3.0.6",
     "react-dom": "19.1.0",
     "recharts": "^3.2.1",
     "react-hot-toast": "^2.6.0",
+    "socket.io-client": "^4.8.1",
     "sonner": "^2.0.7",
     "swr": "^2.3.6",
     "tailwind-merge": "^3.3.1",
@@ -41,5 +46,11 @@
     "eslint-config-next": "15.5.2",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@emoji-mart/react": {
+      "react": "19.1.0",
+      "react-dom": "19.1.0"
+    }
   }
 }
