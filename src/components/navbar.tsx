@@ -29,6 +29,7 @@ import {
   Moon,
   Gamepad2,
   UserStar,
+  Trophy,
   Shuffle,
   Loader2,
 } from "lucide-react";
@@ -189,7 +190,14 @@ export function Navbar() {
           </form>
 
           {/* Desktop: right actions */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-4">
+            <Link
+              href="/achievement"
+              className="py-2 text-sm hover:underline flex items-center gap-2"
+            >
+              <Trophy className="h-4 w-4" />
+              Thành tựu
+            </Link>
             {user && <PointBadge />}
             <Button
               variant="ghost"
@@ -353,6 +361,15 @@ export function Navbar() {
                     >
                       <Gamepad2 className="h-4 w-4" />
                       Game
+                    </Link>
+
+                    <Link
+                      href="/achievement"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="py-2 text-sm hover:underline flex items-center gap-2"
+                    >
+                      <Trophy className="h-4 w-4" />
+                      Thành tựu
                     </Link>
                   </div>
 

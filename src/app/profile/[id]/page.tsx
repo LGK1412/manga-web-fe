@@ -17,6 +17,8 @@ import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 import PurchaseHistory from "@/components/PurchaseHistory";
 import ReadingHistory from "@/components/ReadingHistory";
+import DonationSentList from "@/components/DonationSendList";
+import DonationReceivedList from "@/components/DonationReceivedList";
 
 export default function ProfileByIdPage({
   params,
@@ -405,6 +407,8 @@ export default function ProfileByIdPage({
               </CardContent>
             </Card>
             <ReadingHistory />
+            <DonationSentList />
+            {isAuthorRole && <DonationReceivedList />}
             <PurchaseHistory />
           </div>
         </div>

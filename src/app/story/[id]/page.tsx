@@ -13,6 +13,7 @@ import {
   UserPlus,
   ThumbsUp,
   ArrowRight,
+  Gift,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useToast } from "@/components/ui/use-toast";
@@ -36,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import DonationModal from "@/components/DonationModal";
 
 interface Author {
   _id: string;
@@ -97,19 +99,20 @@ export default function MangaDetailPage() {
   const [lastRead, setLastRead] = useState<any | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
-useEffect(() => {
-    const cookie = document.cookie
-      .split("; ")
-      .find((r) => r.startsWith("user_normal_info="));
-    if (cookie) {
-      try {
-        const data = JSON.parse(decodeURIComponent(cookie.split("=")[1]));
-        setUserId(data.user_id);
-      } catch (err) {
-        console.error("Cookie parse error:", err);
-      }
-    }
+  const [donationOpen, setDonationOpen] = useState(false);
+
+  useEffect(() => {
+    axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
+        withCredentials: true,
+      })
+      .then((res) => {
+        console.log("User info:", res.data);
+        setUserId(res.data.user_id);
+      })
+      .catch(() => console.log("Chưa đăng nhập hoặc token hết hạn"));
   }, []);
+
   useEffect(() => {
     if (!mangaId || !userId) return;
     console.log(
@@ -298,11 +301,11 @@ useEffect(() => {
     setRatingDialogOpen(true);
   };
 
-    const submitRating = async () => {
+  const submitRating = async () => {
     if (!mangaId) return;
     if (!ratingInput || ratingInput < 1 || ratingInput > 5) return;
     if (!ratingComment.trim()) return;
-    
+
     setIsSubmittingRating(true);
     try {
       await axios.post(
@@ -312,19 +315,19 @@ useEffect(() => {
       );
       setUserRating(ratingInput);
       setMyRating({ rating: ratingInput, comment: ratingComment });
-      
+
       // Optimistic update: Tính toán rating trung bình ngay lập tức
       const currentCount = ratingSummary?.count || 0;
       const currentAvg = ratingSummary?.avgRating || 0;
       const totalRating = currentAvg * currentCount;
-      
+
       // Nếu đây là rating mới (chưa có rating trước đó)
       if (!myRating) {
         const newCount = currentCount + 1;
         const newAvg = (totalRating + ratingInput) / newCount;
         setRatingSummary({
           avgRating: newAvg,
-          count: newCount
+          count: newCount,
         });
       } else {
         // Nếu đây là update rating cũ
@@ -333,10 +336,10 @@ useEffect(() => {
         const newAvg = newTotalRating / currentCount;
         setRatingSummary({
           avgRating: newAvg,
-          count: currentCount
+          count: currentCount,
         });
       }
-      
+
       // Vẫn gọi API để đảm bảo data chính xác
       try {
         const summaryRes = await axios.get(
@@ -346,22 +349,22 @@ useEffect(() => {
         setRatingSummary(summaryRes.data || null);
       } catch {}
       setRatingDialogOpen(false);
-    } catch {}
-    finally {
+    } catch {
+    } finally {
       setIsSubmittingRating(false);
     }
   };
 
   const handleBuyChapter = async (chapterId: string, price: number) => {
     try {
-      const res = await axios.post(
+      await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/chapter-purchase/${chapterId}`,
         {},
         { withCredentials: true }
       );
 
       toast({
-        title: "Thành công 🎉",
+        title: "Thành công",
         description: `Bạn đã mua chapter với giá ${price} điểm!`,
       });
 
@@ -473,15 +476,32 @@ useEffect(() => {
                         </Link>
                       </div>
                       {/* Chỉ hiển thị nút follow nếu không phải tác giả của truyện */}
-                      {userId && manga.author._id !== userId && (
-                        <Button
-                          variant={isFollowing ? "outline" : "default"}
-                          size="sm"
-                          onClick={handleToggleFollow}
-                        >
-                          <UserPlus className="w-4 h-4 mr-2" />
-                          {isFollowing ? "Đang theo dõi" : "Theo dõi"}
-                        </Button>
+                      {mounted && userId && manga.author._id !== userId && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant={isFollowing ? "outline" : "default"}
+                            size="sm"
+                            onClick={handleToggleFollow}
+                          >
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            {isFollowing ? "Đang theo dõi" : "Theo dõi"}
+                          </Button>
+
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setDonationOpen(true)}
+                          >
+                            <Gift /> <span>Tặng quà</span>
+                          </Button>
+
+                          <DonationModal
+                            open={donationOpen}
+                            onClose={() => setDonationOpen(false)}
+                            senderId={userId as string}
+                            receiverId={manga.author._id}
+                          />
+                        </div>
                       )}
                     </div>
 
@@ -795,7 +815,3 @@ useEffect(() => {
     </div>
   );
 }
-function setIsSubmittingRating(arg0: boolean) {
-  throw new Error("Function not implemented.");
-}
-
