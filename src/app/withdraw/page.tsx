@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Cookies from "js-cookie";
 import { useToast } from "@/hooks/use-toast";
+import { Navbar } from "@/components/navbar";
 
 interface Bank {
   id: number;
@@ -181,17 +182,19 @@ export default function WithdrawPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto mt-10 space-y-10">
-      {/* Form rút tiền */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h1 className="text-xl font-bold mb-6">Yêu cầu rút tiền</h1>
-        <p className="mb-4 text-sm text-gray-600">
-          Điểm hiện tại: <span className="font-semibold">{currentPoints}</span>
-        </p>
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <div className="max-w-4xl mx-auto pt-24 px-4 pb-10 space-y-10">
+        {/* Form rút tiền */}
+        <div className="bg-white dark:bg-card p-6 rounded-lg shadow border border-input">
+          <h1 className="text-xl font-bold mb-6 text-foreground">Yêu cầu rút tiền</h1>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Điểm hiện tại: <span className="font-semibold text-foreground">{currentPoints}</span>
+          </p>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm font-medium mb-1 text-foreground">
               Số điểm muốn rút
             </label>
             <Input
@@ -203,11 +206,11 @@ export default function WithdrawPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Ngân hàng</label>
+            <label className="block text-sm font-medium mb-1 text-foreground">Ngân hàng</label>
             <select
               value={bankCode}
               onChange={(e) => setBankCode(e.target.value)}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border border-input dark:bg-input/30 rounded px-3 py-2 text-foreground bg-transparent"
             >
               <option value="">-- Chọn ngân hàng --</option>
               {bankList.map((bank) => (
@@ -219,7 +222,7 @@ export default function WithdrawPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm font-medium mb-1 text-foreground">
               Số tài khoản
             </label>
             <Input
@@ -230,7 +233,7 @@ export default function WithdrawPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm font-medium mb-1 text-foreground">
               Chủ tài khoản
             </label>
             <Input
@@ -243,43 +246,43 @@ export default function WithdrawPage() {
           <Button
             onClick={handleWithdraw}
             disabled={loading}
-            className="w-full bg-primary text-white"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {loading ? "Đang xử lý..." : "Xác nhận rút tiền"}
           </Button>
         </div>
       </div>
 
-      {/* Lịch sử rút tiền */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-lg font-bold mb-6">Lịch sử rút tiền</h2>
-        {withdrawList.length === 0 ? (
-          <p className="text-sm text-gray-500">Chưa có yêu cầu nào.</p>
+        {/* Lịch sử rút tiền */}
+        <div className="bg-white dark:bg-card p-6 rounded-lg shadow border border-input">
+          <h2 className="text-lg font-bold mb-6 text-foreground">Lịch sử rút tiền</h2>
+          {withdrawList.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Chưa có yêu cầu nào.</p>
         ) : (
           <div className="space-y-4">
             {withdrawList.map((w) => (
               <div
                 key={w._id}
-                className="p-6 border rounded-lg flex justify-between items-center"
+                className="p-6 border border-input rounded-lg flex justify-between items-center bg-background dark:bg-card"
               >
                 <div>
-                  <p className="font-medium">
+                  <p className="font-medium text-foreground">
                     {w.withdraw_point} điểm → {w.amount.toLocaleString()} VND
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     {w.bankAccount} ({w.accountHolder}) - {w.bankCode}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {new Date(w.createdAt).toLocaleString()}
                   </p>
                 </div>
                 <span
                   className={`px-3 py-1 text-xs rounded-full ${
                     w.status === "pending"
-                      ? "bg-yellow-100 text-yellow-700"
+                      ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
                       : w.status === "approved"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
+                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                      : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                   }`}
                 >
                   {w.status}
@@ -299,7 +302,7 @@ export default function WithdrawPage() {
             >
               Trang trước
             </Button>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               Trang {page} / {Math.ceil(total / pageSize)}
             </span>
             <Button
@@ -311,6 +314,7 @@ export default function WithdrawPage() {
             </Button>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

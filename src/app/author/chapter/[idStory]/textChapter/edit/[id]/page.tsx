@@ -616,8 +616,10 @@ export default function EditChapterPage({
                   <div className="text-sm text-slate-700 font-medium">
                     Nội dung
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    {liveWordCount} từ
+                  <div className="flex items-center gap-3">
+                    <div className="text-[11px] text-slate-500">
+                      {liveWordCount} từ
+                    </div>
                   </div>
                 </div>
 

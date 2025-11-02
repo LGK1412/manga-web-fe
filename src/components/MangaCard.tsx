@@ -55,9 +55,9 @@ export function MangaCard({
       href={item.href}
       aria-label={item.title}
       className={[
-        "group block overflow-hidden rounded-xl bg-white",
-        "ring-1 ring-black/5 transition-all duration-200",
-        "hover:-translate-y-0.5 hover:shadow-lg hover:ring-black/10",
+        "group block overflow-hidden rounded-xl bg-white dark:bg-card",
+        "ring-1 ring-black/5 dark:ring-border transition-all duration-200",
+        "hover:-translate-y-0.5 hover:shadow-lg hover:ring-black/10 dark:hover:ring-border",
         compact ? "" : "shadow-sm",
       ].join(" ")}
       prefetch={false}
@@ -73,7 +73,7 @@ export function MangaCard({
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-500">
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-100 dark:from-muted to-slate-200 dark:to-muted text-slate-500 dark:text-muted-foreground">
             Không có ảnh
           </div>
         )}
@@ -127,19 +127,19 @@ export function MangaCard({
       </div>
 
       {/* Footer: genres + rating + views (gọn gàng kiểu QQ) */}
-      <div className="bg-white p-2">
+      <div className="bg-white dark:bg-card p-2">
         <div className="mb-1 flex min-h-[20px] flex-wrap gap-1">
           {item.genres.slice(0, 2).map((g) => (
             <span
               key={g}
-              className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-700"
+              className="rounded-full border border-slate-200 dark:border-input bg-slate-50 dark:bg-muted px-2 py-0.5 text-[10px] text-slate-700 dark:text-muted-foreground"
               title={g}
             >
               {g}
             </span>
           ))}
         </div>
-        <div className="flex items-center justify-between text-xs text-slate-600">
+        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <Star className="h-3.5 w-3.5 fill-yellow-400 stroke-yellow-400" />
             {(item.rating || 0).toFixed(1)}
@@ -157,14 +157,14 @@ export function MangaCard({
 /* Skeleton (giữ layout y hệt khi loading) */
 export function MangaCardSkeleton() {
   return (
-    <div className="overflow-hidden rounded-xl bg-white ring-1 ring-black/5">
+    <div className="overflow-hidden rounded-xl bg-white dark:bg-card ring-1 ring-black/5 dark:ring-border">
       <div
         className="relative w-full animate-pulse"
         style={{ paddingBottom: "150%" }}
       >
-        <div className="absolute inset-0 bg-slate-200" />
+        <div className="absolute inset-0 bg-slate-200 dark:bg-muted" />
       </div>
-      <div className="space-y-2 bg-white p-2">
+      <div className="space-y-2 bg-white dark:bg-card p-2">
         <div className="h-4 w-5/6 rounded bg-slate-200" />
         <div className="flex gap-1">
           <div className="h-4 w-12 rounded-full bg-slate-200" />
