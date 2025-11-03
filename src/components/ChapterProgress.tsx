@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import axios from "axios";
-import { useParams } from "next/navigation";
 import Cookies from "js-cookie";
+import { useParams } from "next/navigation";
 
 export default function ChapterProgress() {
   const { id } = useParams();
@@ -10,7 +10,7 @@ export default function ChapterProgress() {
   const [progress, setProgress] = useState(0);
 
   // Lấy user_id từ cookie
-  useEffect(() => {
+  useLayoutEffect(() => {
     const raw = Cookies.get("user_normal_info");
 
     if (raw) {
@@ -65,18 +65,29 @@ export default function ChapterProgress() {
     window.addEventListener("beforeunload", handleUnload);
     return () => {
       handleUnload();
+
       window.removeEventListener("beforeunload", handleUnload);
     };
   }, [userId, id, progress]);
 
-  // ✅ Thanh bar hiển thị (ngang top)
+  useEffect(() => {
+    if (id) {
+      axios
+        .patch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/manga/view/${id}/increase`
+        )
+        .catch(console.error);
+      console.log(`Đã tăng view cho chapter ${id}`);
+    }
+  }, [id]);
+
   return (
     <div className="fixed left-0 top-0 w-full h-[3px] bg-gray-200 z-50">
       <div
         className="h-[3px] bg-blue-500 transition-all duration-150 ease-out"
         style={{ width: `${progress}%` }}
       />
-      <span className="absolute right-4 top-1 text-[11px] font-medium">
+      <span className="absolute right-4 top-1 text-[11px] text-gray-700 font-medium">
         {progress}%
       </span>
     </div>

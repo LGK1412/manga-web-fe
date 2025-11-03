@@ -11,6 +11,7 @@
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
+    "@google/generative-ai": "^0.24.1",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.15",
     "axios": "^1.11.0",
@@ -26,8 +27,8 @@
     "react": "19.1.0",
     "react-confirm-alert": "^3.0.6",
     "react-dom": "19.1.0",
-    "recharts": "^3.2.1",
     "react-hot-toast": "^2.6.0",
+    "recharts": "^3.2.1",
     "socket.io-client": "^4.8.1",
     "sonner": "^2.0.7",
     "swr": "^2.3.6",
