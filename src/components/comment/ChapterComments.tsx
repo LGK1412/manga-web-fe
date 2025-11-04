@@ -52,6 +52,14 @@ export default function ChapterComments() {
 
   const MAX_COMMENT_LENGTH = 300000;
 
+  // ===== Report dialog states =====
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<any | null>(null);
+  const [reportReason, setReportReason] = useState("Spam");
+  const [reportDescription, setReportDescription] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -283,13 +291,6 @@ export default function ChapterComments() {
 
   if (!mounted) return null;
 
-  // ===== Report dialog states =====
-  const [reportDialogOpen, setReportDialogOpen] = useState(false);
-  const [reportTarget, setReportTarget] = useState<any | null>(null);
-  const [reportReason, setReportReason] = useState("Spam");
-  const [reportDescription, setReportDescription] = useState("");
-  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-
   return (
     <>
       <div className="rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4 max-w-3xl mx-auto mb-20 mt-10">
@@ -305,9 +306,8 @@ export default function ChapterComments() {
             return (
               <div
                 key={c._id}
-                className={`border rounded-xl p-3 text-sm transition-all duration-200 ${
-                  theme === "dark" ? "border-[#2F2F2F]" : "border-gray-300"
-                }`}
+                className={`border rounded-xl p-3 text-sm transition-all duration-200 ${theme === "dark" ? "border-[#2F2F2F]" : "border-gray-300"
+                  }`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="px-3 py-1 rounded-md bg-gradient-to-r from-blue-500 to-blue-400 text-white font-bold text-base shadow-sm">
@@ -442,7 +442,7 @@ export default function ChapterComments() {
         {/* Error */}
         {error && <p className="text-red-500 text-sm">{error}</p>}
 
-        {/* Report Dialog */}
+        Report Dialog
         <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
           <DialogContent className="sm:max-w-[480px]">
             <DialogHeader>
@@ -540,7 +540,6 @@ export default function ChapterComments() {
           </DialogContent>
         </Dialog>
       </div>
-
       <Footer />
     </>
   );
