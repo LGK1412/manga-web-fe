@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Gift, Loader2 } from "lucide-react";
-import { useToast } from "./ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 type DonationItem = {
   _id: string;
@@ -94,13 +94,11 @@ export default function DonationShopModal({
   };
 
   const handleConfirmDonation = async () => {
-    if (!selectedItem) {
-      console.log("thiếu");
-    } else if (!receiverId) {
-      console.log("Thiếu recieve");
-    } else if (!senderId) {
-      console.log("thiếu sender");
-    }
+    if (!selectedItem || !receiverId || !senderId)
+      return toast({
+        title: "Không thể gửi quà",
+        description: "Thiếu thông tin khi gửi",
+      });
 
     try {
       await axios.post(
@@ -138,7 +136,7 @@ export default function DonationShopModal({
     <>
       {/* SHOP MODAL */}
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto bg-white rounded-2xl shadow-xl">
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto bg-white">
           <DialogHeader className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="text-yellow-500 w-6 h-6" />
@@ -190,7 +188,7 @@ export default function DonationShopModal({
                       <img
                         src={`${process.env.NEXT_PUBLIC_API_URL}/donation-items/${item.image}`}
                         alt={item.name}
-                        className="w-full h-40 object-cover rounded-t-2xl"
+                        className="w-full h-full object-cover rounded-t-2xl"
                       />
                       <div
                         className={`absolute top-2 left-2 px-2 py-1 text-xs font-semibold rounded ${
@@ -211,7 +209,7 @@ export default function DonationShopModal({
                       </p>
 
                       <p className="text-primary font-bold text-sm">
-                        {item.price.toLocaleString()} xu / quà
+                        {item.price.toLocaleString()} điểm / quà
                       </p>
 
                       <div className="flex items-center justify-center gap-2 mt-2">
@@ -235,7 +233,7 @@ export default function DonationShopModal({
                       <p className="text-xs text-gray-600">
                         Tổng:{" "}
                         <span className="font-semibold text-primary">
-                          {totalPrice.toLocaleString()} xu
+                          {totalPrice.toLocaleString()} điểm
                         </span>
                       </p>
 
@@ -260,7 +258,7 @@ export default function DonationShopModal({
         <DialogContent className="max-w-md bg-white rounded-2xl shadow-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold">
-              Gửi lời nhắn kèm quà 🎁
+              Gửi lời nhắn kèm quà
             </DialogTitle>
             <DialogDescription className="text-gray-500">
               Bạn có thể để trống nếu không muốn gửi lời nhắn.
