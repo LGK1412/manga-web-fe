@@ -74,7 +74,7 @@ export default function DonationSentList() {
                     {gift.item?.name} × {gift.quantity}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Tổng: {gift.totalPrice.toLocaleString()} xu
+                    Tổng: {gift.totalPrice.toLocaleString()} điểm
                   </p>
                   {gift.message && (
                     <p className="text-xs italic text-muted-foreground mt-1">

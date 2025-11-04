@@ -191,13 +191,15 @@ export function Navbar() {
 
           {/* Desktop: right actions */}
           <div className="hidden md:flex items-center gap-4">
-            <Link
-              href="/achievement"
-              className="py-2 text-sm hover:underline flex items-center gap-2"
-            >
-              <Trophy className="h-4 w-4" />
-              Thành tựu
-            </Link>
+            {user && (
+              <Link
+                href="/achievement"
+                className="py-2 text-sm hover:underline flex items-center gap-2"
+              >
+                <Trophy className="h-4 w-4" />
+                Thành tựu
+              </Link>
+            )}
             {user && <PointBadge />}
             <Button
               variant="ghost"
@@ -363,14 +365,16 @@ export function Navbar() {
                       Game
                     </Link>
 
-                    <Link
-                      href="/achievement"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="py-2 text-sm hover:underline flex items-center gap-2"
-                    >
-                      <Trophy className="h-4 w-4" />
-                      Thành tựu
-                    </Link>
+                    {user && (
+                      <Link
+                        href="/achievement"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="py-2 text-sm hover:underline flex items-center gap-2"
+                      >
+                        <Trophy className="h-4 w-4" />
+                        Thành tựu
+                      </Link>
+                    )}
                   </div>
 
                   <Separator />
