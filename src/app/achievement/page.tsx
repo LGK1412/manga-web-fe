@@ -70,18 +70,18 @@ export default function AchievementsPage() {
     );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900 p-6">
       <Navbar />
       <div className="max-w-5xl mx-auto m-12">
         {/* Header */}
         <div className="mb-12">
           <div className="flex items-center gap-3 mb-3">
             <Trophy className="w-8 h-8 text-amber-500" />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-indigo-400 dark:to-blue-400 bg-clip-text text-transparent">
               Thành tựu
             </h1>
           </div>
-          <p className="text-gray-600 text-lg italic">
+          <p className="text-muted-foreground text-lg italic">
             Hoàn thành các nhiệm vụ để nhận phần thưởng!
           </p>
         </div>
@@ -99,7 +99,7 @@ export default function AchievementsPage() {
               return (
                 <div
                   key={a._id}
-                  className="group bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 hover:border-blue-200 overflow-hidden"
+                  className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-gray-700 hover:border-blue-200 overflow-hidden"
                 >
                   <div className="p-6 flex items-center gap-6">
                     {/* Icon */}
@@ -119,17 +119,17 @@ export default function AchievementsPage() {
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                      <h2 className="text-xl font-semibold text-foreground mb-2">
                         {ach.name}
                       </h2>
-                      <p className="text-gray-600 text-sm mb-4">
+                      <p className="text-muted-foreground text-sm mb-4">
                         {ach.description}
                       </p>
 
                       {/* Progress Bar */}
                       <div className="space-y-2">
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-600">
+                          <span className="text-muted-foreground">
                             Tiến độ:{" "}
                             <span className="font-semibold text-gray-800">
                               {a.progressCount}/{ach.threshold}
@@ -139,7 +139,7 @@ export default function AchievementsPage() {
                             {percent.toFixed(0)}%
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 h-3 rounded-full overflow-hidden">
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 h-3 rounded-full overflow-hidden">
                           <div
                             className={`h-full transition-all duration-500 ${
                               isCompleted
@@ -179,7 +179,7 @@ export default function AchievementsPage() {
 
                       {/* Status Button */}
                       {!isCompleted ? (
-                        <div className="text-xs text-gray-500 px-3 py-1 bg-gray-100 rounded-full">
+                        <div className="text-xs text-muted-foreground px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full">
                           Đang tiến hành
                         </div>
                       ) : isCompleted && !isRewardClaimed ? (
@@ -202,7 +202,7 @@ export default function AchievementsPage() {
                           )}
                         </Button>
                       ) : (
-                        <div className="flex items-center gap-1 text-green-600 font-medium text-sm px-3 py-1 bg-green-50 rounded-full">
+                        <div className="flex items-center gap-1 text-green-600 font-medium text-sm px-3 py-1 bg-green-50 dark:bg-green-900/30 rounded-full">
                           <CheckCircle2 className="w-4 h-4" />
                           Đã nhận
                         </div>
@@ -216,7 +216,7 @@ export default function AchievementsPage() {
         ) : (
           <div className="text-center py-12">
             <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">Chưa có thành tựu nào.</p>
+            <p className="text-muted-foreground text-lg">Chưa có thành tựu nào.</p>
           </div>
         )}
       </div>

@@ -11,9 +11,9 @@ export default async function translateWithGemini(
   text: string,
   targetLang: string
 ): Promise<string> {
-  if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
-    throw new Error("Missing GEMINI_API_KEY");
-  }
+  // if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
+  //   throw new Error("Missing GEMINI_API_KEY");
+  // }
   const genAI = new GoogleGenerativeAI(
     "AIzaSyCzmWfJh9MFA8heDY0OsALx15svezvXxdo"
   );
