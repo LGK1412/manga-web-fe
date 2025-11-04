@@ -8,7 +8,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
@@ -28,12 +34,14 @@ export default function AdminPolicyFormPage() {
   const router = useRouter()
   const [formData, setFormData] = useState({
     title: "",
-    type: "Policy",
+    mainType: "TERM", // ✅ TERM hoặc PRIVACY
+    subCategory: "general", // ✅ loại nhỏ
     status: "Draft",
     isPublic: false,
     description: "",
     content: "",
   })
+
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -77,6 +85,7 @@ export default function AdminPolicyFormPage() {
             <span className="mx-2">/</span>
             <span className="text-gray-900 font-medium">Create</span>
           </div>
+
           <div className="flex items-center gap-4">
             <Link href="/admin/policies">
               <Button variant="ghost" size="sm">
@@ -94,12 +103,19 @@ export default function AdminPolicyFormPage() {
             <div className="flex gap-3">
               <Info className="h-5 w-5 text-blue-600 mt-0.5" />
               <div className="space-y-1 text-sm text-gray-700">
-                <p className="font-semibold text-blue-900">Understanding Policy Status & Visibility:</p>
+                <p className="font-semibold text-blue-900">
+                  Understanding Policy Types & Visibility:
+                </p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li><strong>Active</strong> = Legally enforced</li>
-                  <li><strong>Public</strong> = Visible to end users</li>
-                  <li>Can be Active but Internal (hidden)</li>
-                  <li>Can be Public but Archived (reference only)</li>
+                  <li>
+                    <strong>TERM</strong> = Điều khoản sử dụng (Usage, Account, Posting…)
+                  </li>
+                  <li>
+                    <strong>PRIVACY</strong> = Chính sách quyền riêng tư (Dữ liệu, Bình luận…)
+                  </li>
+                  <li><strong>Active</strong> = Đang có hiệu lực</li>
+                  <li><strong>Public</strong> = Hiển thị cho người dùng</li>
+                  <li>Có thể Active nhưng nội bộ (Internal)</li>
                 </ul>
               </div>
             </div>
@@ -108,7 +124,9 @@ export default function AdminPolicyFormPage() {
 
         {/* Form */}
         <Card>
-          <CardHeader><CardTitle>Policy Details</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Policy Details</CardTitle>
+          </CardHeader>
           <CardContent>
             <form
               className="space-y-6"
@@ -118,6 +136,7 @@ export default function AdminPolicyFormPage() {
               }}
             >
               <div className="grid md:grid-cols-2 gap-6">
+                {/* Title */}
                 <div className="space-y-2">
                   <Label>Title *</Label>
                   <Input
@@ -127,21 +146,53 @@ export default function AdminPolicyFormPage() {
                   />
                 </div>
 
+                {/* Main Type */}
                 <div className="space-y-2">
-                  <Label>Type *</Label>
-                  <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Label>Main Type *</Label>
+                  <Select
+                    value={formData.mainType}
+                    onValueChange={(v) => setFormData({ ...formData, mainType: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Policy">Policy</SelectItem>
-                      <SelectItem value="Terms">Terms</SelectItem>
+                      <SelectItem value="TERM">TERM</SelectItem>
+                      <SelectItem value="PRIVACY">PRIVACY</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
+                {/* Subcategory */}
+                <div className="space-y-2">
+                  <Label>Subcategory *</Label>
+                  <Select
+                    value={formData.subCategory}
+                    onValueChange={(v) => setFormData({ ...formData, subCategory: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="posting">Posting</SelectItem>
+                      <SelectItem value="data_usage">Data Usage</SelectItem>
+                      <SelectItem value="comment">Comment</SelectItem>
+                      <SelectItem value="account">Account</SelectItem>
+                      <SelectItem value="general">General</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Status */}
                 <div className="space-y-2">
                   <Label>Status *</Label>
-                  <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(v) => setFormData({ ...formData, status: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Draft">Draft</SelectItem>
                       <SelectItem value="Active">Active</SelectItem>
@@ -150,43 +201,58 @@ export default function AdminPolicyFormPage() {
                   </Select>
                 </div>
 
+                {/* Visibility */}
                 <div className="space-y-2">
                   <Label>Visibility</Label>
                   <div className="flex items-center gap-2 pt-2">
                     <Checkbox
                       checked={formData.isPublic}
-                      onCheckedChange={(c) => setFormData({ ...formData, isPublic: c as boolean })}
+                      onCheckedChange={(c) =>
+                        setFormData({ ...formData, isPublic: c as boolean })
+                      }
                     />
                     <span className="text-sm">Make this policy public</span>
                   </div>
                 </div>
               </div>
 
+              {/* Description */}
               <div className="space-y-2">
                 <Label>Description</Label>
                 <Textarea
                   rows={3}
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                 />
               </div>
 
+              {/* Content */}
               <div className="space-y-2">
                 <Label>Full Content *</Label>
                 <Textarea
                   required
                   rows={10}
                   value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, content: e.target.value })
+                  }
                 />
               </div>
 
+              {/* Preview */}
               <div className="flex justify-end">
-                <Button variant="outline" type="button" onClick={() => setIsPreviewOpen(true)}>
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => setIsPreviewOpen(true)}
+                >
                   <Eye className="h-4 w-4 mr-2" /> Preview
                 </Button>
               </div>
 
+              {/* Actions */}
               <div className="flex flex-wrap gap-3 pt-4 border-t">
                 <Button
                   type="button"
@@ -207,20 +273,22 @@ export default function AdminPolicyFormPage() {
                 </Button>
 
                 <Link href="/admin/policies">
-                  <Button type="button" variant="ghost">Cancel</Button>
+                  <Button type="button" variant="ghost">
+                    Cancel
+                  </Button>
                 </Link>
               </div>
             </form>
           </CardContent>
         </Card>
 
-        {/* Preview */}
+        {/* Preview Dialog */}
         <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
           <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Policy Preview</DialogTitle>
+              <DialogTitle>{formData.title || "Untitled"}</DialogTitle>
               <DialogDescription>
-                {formData.title || "Untitled"} ({formData.type}) — {formData.isPublic ? "Public" : "Internal"}
+                {formData.mainType} — {formData.subCategory} ({formData.isPublic ? "Public" : "Internal"})
               </DialogDescription>
             </DialogHeader>
             <div className="bg-gray-50 p-6 rounded-lg whitespace-pre-wrap text-gray-800">

@@ -14,8 +14,9 @@ import {
   ThumbsUp,
   ArrowRight,
   Gift,
+  Flag,
 } from "lucide-react";
-import { useTheme } from "next-themes";
+// import { useTheme } from "next-themes"; // bỏ nếu không dùng
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +28,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import DonationModal from "@/components/DonationModal";
 
+/* ================== Types ================== */
 interface Author {
   _id: string;
   username: string;
@@ -64,6 +65,28 @@ interface MangaDetail {
   ratingSummary?: { avgRating: number; count: number };
 }
 
+interface UserLite {
+  _id: string;
+  username: string;
+  avatar?: string;
+}
+
+interface RatingItem {
+  _id: string;
+  rating: number; // 0.5 - 5
+  comment: string;
+  createdAt?: string;
+  user?: UserLite;
+}
+
+interface LastReadPayload {
+  last_read_chapter?: {
+    _id: string;
+    order: number;
+  };
+}
+
+/* =============== Component =============== */
 export default function MangaDetailPage() {
   const params = useParams();
   const mangaId = params?.id as string;
@@ -72,7 +95,7 @@ export default function MangaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { theme } = useTheme();
+  // const { theme } = useTheme(); // không dùng -> giữ comment nếu sau này dùng
   const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
 
@@ -82,7 +105,7 @@ export default function MangaDetailPage() {
 
   const [isFavourite, setIsFavourite] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [userRating, setUserRating] = useState(0);
+
   const [ratingSummary, setRatingSummary] = useState<{
     avgRating: number;
     count: number;
@@ -91,46 +114,49 @@ export default function MangaDetailPage() {
   const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
   const [ratingInput, setRatingInput] = useState<number>(0);
   const [ratingComment, setRatingComment] = useState<string>("");
-  const [myRating, setMyRating] = useState<any | null>(null);
-  const [allRatings, setAllRatings] = useState<any[]>([]);
+  const [myRating, setMyRating] = useState<RatingItem | null>(null);
+  const [allRatings, setAllRatings] = useState<RatingItem[]>([]);
   const [likesById, setLikesById] = useState<
     Record<string, { count: number; liked: boolean }>
   >({});
-  const [lastRead, setLastRead] = useState<any | null>(null);
+  const [lastRead, setLastRead] = useState<LastReadPayload | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
   const [donationOpen, setDonationOpen] = useState(false);
 
+  // Lấy userId từ cookie "user_normal_info"
   useEffect(() => {
-    axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
-        withCredentials: true,
-      })
-      .then((res) => {
-        console.log("User info:", res.data);
-        setUserId(res.data.user_id);
-      })
-      .catch(() => console.log("Chưa đăng nhập hoặc token hết hạn"));
+    const cookie = document.cookie
+      .split("; ")
+      .find((r) => r.startsWith("user_normal_info="));
+    if (cookie) {
+      try {
+        const data = JSON.parse(decodeURIComponent(cookie.split("=")[1]));
+        setUserId(data.user_id);
+      } catch (err) {
+        console.error("Cookie parse error:", err);
+      }
+    }
   }, []);
 
+  // Lịch sử đọc
   useEffect(() => {
     if (!mangaId || !userId) return;
-    console.log(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Chapter/history/${userId}/${mangaId}`
-    );
     axios
       .get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/Chapter/history/${userId}/${mangaId}`
       )
       .then((res) => {
         if (res.data?.last_read_chapter) {
-          setLastRead(res.data);
+          setLastRead(res.data as LastReadPayload);
         } else {
           setLastRead(null);
         }
       })
       .catch(() => setLastRead(null));
   }, [mangaId, userId]);
+
+  // Fetch chi tiết manga + fav + follow
   useEffect(() => {
     if (!mangaId) return;
 
@@ -185,6 +211,7 @@ export default function MangaDetailPage() {
       .finally(() => setLoading(false));
   }, [mangaId]);
 
+  // Fetch tất cả rating
   useEffect(() => {
     if (!mangaId) return;
     axios
@@ -195,6 +222,7 @@ export default function MangaDetailPage() {
       .catch(() => setAllRatings([]));
   }, [mangaId, ratingDialogOpen]);
 
+  // Đếm Like + trạng thái Like của tôi cho từng rating
   useEffect(() => {
     if (!allRatings.length) {
       setLikesById({});
@@ -203,7 +231,7 @@ export default function MangaDetailPage() {
     (async () => {
       try {
         const results = await Promise.all(
-          allRatings.map(async (r: any) => {
+          allRatings.map(async (r) => {
             const [countRes, mineRes] = await Promise.all([
               axios.get(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/rating-like/count`,
@@ -230,7 +258,9 @@ export default function MangaDetailPage() {
           next[id] = v;
         });
         setLikesById(next);
-      } catch {}
+      } catch {
+        // ignore
+      }
     })();
   }, [allRatings]);
 
@@ -248,7 +278,9 @@ export default function MangaDetailPage() {
           count: res.data?.likesCount ?? 0,
         },
       }));
-    } catch {}
+    } catch {
+      // ignore
+    }
   };
 
   const handleAddToFavourite = async () => {
@@ -263,7 +295,12 @@ export default function MangaDetailPage() {
       setIsFavourite(isFavourite);
     } catch (err: any) {
       console.error("Lỗi khi thêm/trừ khỏi yêu thích:", err);
-      alert(err.response?.data?.message || "Có lỗi xảy ra khi xử lý yêu thích");
+      toast({
+        title: "Không thể cập nhật yêu thích",
+        description:
+          err.response?.data?.message || "Vui lòng đăng nhập hoặc thử lại.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -277,9 +314,12 @@ export default function MangaDetailPage() {
       setIsFollowing(res.data.isFollowing);
     } catch (err: any) {
       console.error("Lỗi khi theo dõi/bỏ theo dõi:", err);
-      alert(
-        err.response?.data?.message || "Có lỗi xảy ra khi theo dõi tác giả"
-      );
+      toast({
+        title: "Không thể cập nhật theo dõi",
+        description:
+          err.response?.data?.message || "Vui lòng đăng nhập hoặc thử lại.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -289,7 +329,7 @@ export default function MangaDetailPage() {
         `${process.env.NEXT_PUBLIC_API_URL}/api/rating/mine`,
         { params: { mangaId }, withCredentials: true }
       );
-      const mine = mineRes.data?.rating || null;
+      const mine = (mineRes.data?.rating || null) as RatingItem | null;
       setMyRating(mine);
       setRatingInput(mine?.rating || 0);
       setRatingComment(mine?.comment || "");
@@ -313,43 +353,35 @@ export default function MangaDetailPage() {
         { mangaId, rating: ratingInput, comment: ratingComment.trim() },
         { withCredentials: true }
       );
-      setUserRating(ratingInput);
-      setMyRating({ rating: ratingInput, comment: ratingComment });
+      setMyRating({ _id: "temp", rating: ratingInput, comment: ratingComment });
 
-      // Optimistic update: Tính toán rating trung bình ngay lập tức
+      // Optimistic update
       const currentCount = ratingSummary?.count || 0;
       const currentAvg = ratingSummary?.avgRating || 0;
       const totalRating = currentAvg * currentCount;
 
-      // Nếu đây là rating mới (chưa có rating trước đó)
       if (!myRating) {
         const newCount = currentCount + 1;
         const newAvg = (totalRating + ratingInput) / newCount;
-        setRatingSummary({
-          avgRating: newAvg,
-          count: newCount,
-        });
+        setRatingSummary({ avgRating: newAvg, count: newCount });
       } else {
-        // Nếu đây là update rating cũ
         const oldRating = myRating.rating || 0;
         const newTotalRating = totalRating - oldRating + ratingInput;
         const newAvg = newTotalRating / currentCount;
-        setRatingSummary({
-          avgRating: newAvg,
-          count: currentCount,
-        });
+        setRatingSummary({ avgRating: newAvg, count: currentCount });
       }
 
-      // Vẫn gọi API để đảm bảo data chính xác
+      // Xác nhận lại từ server
       try {
         const summaryRes = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/api/rating/summary`,
           { params: { mangaId } }
         );
         setRatingSummary(summaryRes.data || null);
-      } catch {}
+      } catch {
+        // ignore
+      }
       setRatingDialogOpen(false);
-    } catch {
     } finally {
       setIsSubmittingRating(false);
     }
@@ -364,7 +396,7 @@ export default function MangaDetailPage() {
       );
 
       toast({
-        title: "Thành công",
+        title: "Thành công 🎉",
         description: `Bạn đã mua chapter với giá ${price} điểm!`,
       });
 
@@ -387,6 +419,12 @@ export default function MangaDetailPage() {
       });
     }
   };
+
+  // ==== report ====
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("Spam");
+  const [reportDescription, setReportDescription] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   if (!mounted) return null;
 
@@ -439,10 +477,7 @@ export default function MangaDetailPage() {
                           <BookOpen className="w-10 h-10" />
                         </div>
                       )}
-                      <Badge
-                        className="absolute top-2 right-2"
-                        variant="secondary"
-                      >
+                      <Badge className="absolute top-2 right-2" variant="secondary">
                         Manga
                       </Badge>
                     </div>
@@ -475,8 +510,9 @@ export default function MangaDetailPage() {
                           {manga.author.username}
                         </Link>
                       </div>
-                      {/* Chỉ hiển thị nút follow nếu không phải tác giả của truyện */}
-                      {mounted && userId && manga.author._id !== userId && (
+
+                      {/* Follow + Donate (ẩn khi là chính tác giả) */}
+                      {userId && manga.author._id !== userId && (
                         <div className="flex gap-2">
                           <Button
                             variant={isFollowing ? "outline" : "default"}
@@ -492,7 +528,8 @@ export default function MangaDetailPage() {
                             size="sm"
                             onClick={() => setDonationOpen(true)}
                           >
-                            <Gift /> <span>Tặng quà</span>
+                            <Gift className="w-4 h-4 mr-2" />
+                            <span>Tặng quà</span>
                           </Button>
 
                           <DonationModal
@@ -534,7 +571,7 @@ export default function MangaDetailPage() {
 
                     {/* Action Buttons */}
                     <div className="flex flex-wrap gap-3">
-                      {manga && manga.chapters.length > 0 && (
+                      {manga.chapters.length > 0 && (
                         <>
                           <Button size="lg" asChild>
                             <Link href={`/chapter/${manga.chapters[0]._id}`}>
@@ -543,14 +580,11 @@ export default function MangaDetailPage() {
                             </Link>
                           </Button>
 
-                          {lastRead && lastRead.last_read_chapter && (
+                          {lastRead?.last_read_chapter && (
                             <Button size="lg" variant="secondary" asChild>
-                              <Link
-                                href={`/chapter/${lastRead.last_read_chapter._id}`}
-                              >
+                              <Link href={`/chapter/${lastRead.last_read_chapter._id}`}>
                                 <ArrowRight className="w-4 h-4 mr-2" />
-                                Tiếp tục đọc chương{" "}
-                                {lastRead.last_read_chapter.order}
+                                Tiếp tục đọc chương {lastRead.last_read_chapter.order}
                               </Link>
                             </Button>
                           )}
@@ -570,6 +604,16 @@ export default function MangaDetailPage() {
                           }`}
                         />
                         {isFavourite ? "Đã yêu thích" : "Thêm vào yêu thích"}
+                      </Button>
+
+                      <Button
+                        variant="destructive"
+                        size="lg"
+                        onClick={() => setReportDialogOpen(true)}
+                        type="button"
+                        className="text-xs justify-center"
+                      >
+                        <Flag className="w-4 h-4 flex-shrink-0" />
                       </Button>
                     </div>
                   </div>
@@ -629,17 +673,103 @@ export default function MangaDetailPage() {
                   />
                 </div>
                 <DialogFooter>
-                  <Button
-                    onClick={() => setRatingDialogOpen(false)}
-                    variant="outline"
-                  >
+                  <Button onClick={() => setRatingDialogOpen(false)} variant="outline">
                     Hủy
                   </Button>
                   <Button
                     onClick={submitRating}
-                    disabled={!ratingInput || !ratingComment.trim()}
+                    disabled={!ratingInput || !ratingComment.trim() || isSubmittingRating}
                   >
-                    Gửi
+                    {isSubmittingRating ? "Đang gửi..." : "Gửi"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Report Dialog */}
+            <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+              <DialogContent className="sm:max-w-[480px]">
+                <DialogHeader>
+                  <DialogTitle>Báo cáo nội dung</DialogTitle>
+                  <DialogDescription>
+                    Vui lòng chọn lý do báo cáo và mô tả chi tiết (nếu có).
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid gap-4 py-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Lý do</label>
+                    <select
+                      className="w-full border rounded-md px-3 py-2 text-sm"
+                      value={reportReason}
+                      onChange={(e) => setReportReason(e.target.value)}
+                    >
+                      <option value="Spam">Spam</option>
+                      <option value="Copyright">Vi phạm bản quyền</option>
+                      <option value="Inappropriate">Nội dung không phù hợp</option>
+                      <option value="Harassment">Quấy rối / xúc phạm</option>
+                      <option value="Other">Khác</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Mô tả chi tiết</label>
+                    <Textarea
+                      placeholder="Mô tả vấn đề bạn gặp phải..."
+                      value={reportDescription}
+                      onChange={(e) => setReportDescription(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
+                    Hủy
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      if (!userId) {
+                        toast({
+                          title: "Chưa đăng nhập",
+                          description: "Vui lòng đăng nhập để gửi báo cáo.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      setIsSubmittingReport(true);
+                      try {
+                        await axios.post(
+                          `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
+                          {
+                            reporter_id: userId,
+                            target_type: "Manga",
+                            target_id: manga._id,
+                            reason: reportReason,
+                            description: reportDescription.trim() || undefined,
+                          },
+                          { withCredentials: true }
+                        );
+                        toast({
+                          title: "Gửi báo cáo thành công ✅",
+                          description: "Cảm ơn bạn đã gửi phản hồi.",
+                        });
+                        setReportDialogOpen(false);
+                        setReportDescription("");
+                        setReportReason("Spam");
+                      } catch (err: any) {
+                        toast({
+                          title: "Lỗi khi gửi báo cáo",
+                          description:
+                            err.response?.data?.message || "Vui lòng thử lại sau.",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setIsSubmittingReport(false);
+                      }
+                    }}
+                    disabled={isSubmittingReport}
+                  >
+                    {isSubmittingReport ? "Đang gửi..." : "Gửi báo cáo"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -659,7 +789,7 @@ export default function MangaDetailPage() {
               </CardHeader>
               <CardContent>
                 <div>
-                  {allRatings.map((r: any, idx: number) => (
+                  {allRatings.map((r, idx) => (
                     <div
                       key={r._id}
                       className={`flex items-start gap-3 ${
@@ -694,12 +824,12 @@ export default function MangaDetailPage() {
                           </span>
                         </div>
                         <div className="mt-1 flex items-center gap-3">
-                          {Array.from({ length: 5 }).map((_, idx) => {
+                          {Array.from({ length: 5 }).map((_, idx2) => {
                             const value = Number(r.rating || 0);
-                            const fill = Math.max(0, Math.min(1, value - idx));
+                            const fill = Math.max(0, Math.min(1, value - idx2));
                             const pct = Math.round(fill * 100);
                             return (
-                              <div key={idx} className="relative w-4 h-4">
+                              <div key={idx2} className="relative w-4 h-4">
                                 <Star className="absolute inset-0 w-4 h-4 text-gray-300" />
                                 <div
                                   className="absolute inset-0 overflow-hidden"

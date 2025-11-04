@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import ActivePoliciesModal from "@/components/ActivePoliciesModal";
+import { useRouter } from "next/navigation";
 import { ArrowUp, Mail, MessageSquare } from "lucide-react";
+import { useState } from "react";
 
 type FooterLink = { label: string; href: string };
 type Section = { title: string; links: FooterLink[] };
@@ -21,12 +21,10 @@ export function Footer({
   contact,
   showBackToTop = true,
 }: FooterProps) {
+  const router = useRouter();
   const year = new Date().getFullYear();
   const brandName = brand?.name ?? "MangaWorld";
   const tagline = brand?.tagline ?? "Đọc truyện nhanh, mượt, dễ nhìn.";
-
-  const [termsOpen, setTermsOpen] = useState(false);
-  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   const navSections: Section[] = sections ?? [
     {
@@ -64,23 +62,7 @@ export function Footer({
       role="contentinfo"
       className="relative border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70"
     >
-      {/* Modals */}
-      <ActivePoliciesModal
-        open={termsOpen}
-        onOpenChange={setTermsOpen}
-        typeFilter={["Terms"]}
-        title="Điều khoản dịch vụ"
-        description="Các điều khoản hiện đang có hiệu lực"
-      />
-      <ActivePoliciesModal
-        open={privacyOpen}
-        onOpenChange={setPrivacyOpen}
-        typeFilter={["Privacy"]}
-        title="Chính sách bảo mật"
-        description="Chính sách bảo mật hiện đang có hiệu lực"
-      />
-
-      {/* viền mảnh có gradient ở đỉnh */}
+      {/* viền gradient ở đỉnh */}
       <div
         className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent"
         aria-hidden="true"
@@ -150,17 +132,26 @@ export function Footer({
 
         {/* Bottom bar */}
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t pt-6 text-sm text-muted-foreground md:flex-row">
-          <p>
-            © {year} {brandName}. All rights reserved.
-          </p>
+          <p>© {year} {brandName}. All rights reserved.</p>
+
           <div className="flex items-center gap-4">
-            <button onClick={() => setTermsOpen(true)} className="hover:text-foreground">
-              Điều khoản
+            {/* Chuyển sang trang riêng */}
+            <button
+              onClick={() => router.push("/policy/term")}
+              className="hover:text-foreground"
+            >
+              Điều khoản sử dụng
             </button>
+
             <span className="opacity-50">•</span>
-            <button onClick={() => setPrivacyOpen(true)} className="hover:text-foreground">
-              Bảo mật
+
+            <button
+              onClick={() => router.push("/policy/privacy")}
+              className="hover:text-foreground"
+            >
+              Chính sách bảo mật
             </button>
+
             {showBackToTop && (
               <>
                 <span className="hidden opacity-50 md:inline">•</span>
