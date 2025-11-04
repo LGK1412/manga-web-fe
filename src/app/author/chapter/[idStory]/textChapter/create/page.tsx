@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import NativeRichEditor from "@/components/NativeRichEditor";
 
+
 // ---- Axios instance (trỏ tới NestJS)
 const api = axios.create({
   baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api`,
@@ -534,13 +535,15 @@ export default function CreateChapterPage({
                   <div className="text-sm text-slate-700 font-medium">
                     Nội dung
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    {liveWordCount} từ
+                  <div className="flex items-center gap-3">
+                    <div className="text-[11px] text-slate-500">
+                      {liveWordCount} từ
+                    </div>
                   </div>
                 </div>
                 <div className="p-5">
                   <NativeRichEditor
-                    value={content} // HTML
+                    value={content} 
                     onChange={(html) => {
                       setContent(html);
                       setDirty(true);

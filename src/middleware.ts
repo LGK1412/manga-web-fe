@@ -4,12 +4,12 @@ import type { NextRequest } from "next/server"
 
 export async function middleware(req: NextRequest) {
     const token = req.cookies.get("access_token")?.value
+    const user = req.cookies.get("user_normal_info")?.value
     let isLogin = false
-    if (token) {
+    if (token && user) {
         isLogin = true
     } else {
         isLogin = false
-
     }
 
     const pathname = req.nextUrl.pathname

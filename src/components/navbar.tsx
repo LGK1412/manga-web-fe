@@ -29,6 +29,9 @@ import {
   Moon,
   Gamepad2,
   UserStar,
+  Trophy,
+  Shuffle,
+  Loader2,
 } from "lucide-react";
 import Cookies from "js-cookie";
 import { removeCookie } from "@/lib/cookie-func";
@@ -52,6 +55,7 @@ export function Navbar() {
   // Mobile menu state
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mobileSearch, setMobileSearch] = useState("");
+  const [loadingRandom, setLoadingRandom] = useState(false);
 
   const submitSearch = (q: string) => {
     const query = q.trim();
@@ -75,7 +79,7 @@ export function Navbar() {
 
   useEffect(() => {
     setMounted(true);
-  });
+  }, []);
 
   useLayoutEffect(() => {
     const raw = Cookies.get("user_normal_info");
@@ -110,6 +114,27 @@ export function Navbar() {
     }
   }
 
+  const handleRandomStory = async () => {
+    setLoadingRandom(true);
+    try {
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/manga/random`,
+        { withCredentials: true }
+      );
+      if (res.data?._id) {
+        router.push(`/story/${res.data._id}`);
+      }
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải truyện ngẫu nhiên. Vui lòng thử lại.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingRandom(false);
+    }
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4">
@@ -122,12 +147,21 @@ export function Navbar() {
             </Link>
 
             <div className="hidden md:flex items-center">
-              <Link
-                href="/genres"
-                className="text-sm font-medium hover:text-primary ml-4"
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRandomStory}
+                disabled={loadingRandom}
+                className="text-sm font-medium hover:text-primary ml-4 flex items-center gap-1"
+                aria-label="Random"
               >
-                Thể loại
-              </Link>
+                {loadingRandom ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Shuffle className="h-4 w-4" />
+                )}
+                Random
+              </Button>
               <Link
                 href="/game"
                 className="text-sm font-medium hover:text-primary ml-4 flex items-center gap-1"
@@ -156,7 +190,16 @@ export function Navbar() {
           </form>
 
           {/* Desktop: right actions */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-4">
+            {user && (
+              <Link
+                href="/achievement"
+                className="py-2 text-sm hover:underline flex items-center gap-2"
+              >
+                <Trophy className="h-4 w-4" />
+                Thành tựu
+              </Link>
+            )}
             {user && <PointBadge />}
             <Button
               variant="ghost"
@@ -297,13 +340,22 @@ export function Navbar() {
                     >
                       Home
                     </Link>
-                    <Link
-                      href="/genres"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="block py-2 text-sm hover:underline"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleRandomStory();
+                        setIsMenuOpen(false);
+                      }}
+                      disabled={loadingRandom}
+                      className="block py-2 text-sm hover:underline flex items-center gap-2 w-full text-left disabled:opacity-50"
                     >
-                      Thể loại
-                    </Link>
+                      {loadingRandom ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Shuffle className="h-4 w-4" />
+                      )}
+                      Random
+                    </button>
                     <Link
                       href="/game"
                       onClick={() => setIsMenuOpen(false)}
@@ -312,6 +364,17 @@ export function Navbar() {
                       <Gamepad2 className="h-4 w-4" />
                       Game
                     </Link>
+
+                    {user && (
+                      <Link
+                        href="/achievement"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="py-2 text-sm hover:underline flex items-center gap-2"
+                      >
+                        <Trophy className="h-4 w-4" />
+                        Thành tựu
+                      </Link>
+                    )}
                   </div>
 
                   <Separator />
@@ -417,15 +480,17 @@ export function Navbar() {
                       }
                       className="bg-transparent"
                     >
-                      {theme === "dark" ? (
-                        <>
-                          <Sun className="h-4 w-4 mr-2" /> Light
-                        </>
-                      ) : (
-                        <>
-                          <Moon className="h-4 w-4 mr-2" /> Dark
-                        </>
-                      )}
+                      {mounted ? (
+                        theme === "dark" ? (
+                          <>
+                            <Sun className="h-4 w-4 mr-2" /> Light
+                          </>
+                        ) : (
+                          <>
+                            <Moon className="h-4 w-4 mr-2" /> Dark
+                          </>
+                        )
+                      ) : null}
                     </Button>
                   </div>
                 </div>

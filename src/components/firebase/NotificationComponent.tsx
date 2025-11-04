@@ -9,7 +9,7 @@ import Cookies from "js-cookie";
 import axios from "axios";
 
 interface Notification {
-    id: string;
+    _id: string;
     title: string;
     body: string;
     is_read: boolean;
@@ -55,11 +55,10 @@ export default function NotificationComponent() {
                         new Date(b.createdAt).getTime() -
                         new Date(a.createdAt).getTime()
                 );
-
             setNotifications(unread);
             setHasNew(unread.length > 0);
 
-            if (unread.length > 0) console.log("Có thông báo chưa đọc!");
+            // if (unread.length > 0) console.log("Có thông báo chưa đọc!");
         } catch (err: any) {
             console.error(err);
             setError(err?.response?.data?.message || "Lỗi khi tải thông báo");
@@ -80,7 +79,7 @@ export default function NotificationComponent() {
         if (!messaging) return;
 
         const unsubscribe = onMessage(messaging, (payload) => {
-            console.log("Foreground message received: ", payload);
+            // console.log("Foreground message received: ", payload);
             setHasNew(true);
             if (user?.user_id) fetchNotifications(user.user_id);
         });
@@ -91,7 +90,7 @@ export default function NotificationComponent() {
     // 🔹 Khi user focus lại web → refresh noti
     useEffect(() => {
         const handleFocus = () => {
-            console.log("User focus lại web");
+            // console.log("User focus lại web");
             if (user?.user_id) fetchNotifications(user.user_id);
         };
         window.addEventListener("focus", handleFocus);
@@ -162,7 +161,7 @@ export default function NotificationComponent() {
                         <ul className="divide-y divide-gray-100 custom-scroll max-h-80 overflow-y-auto">
                             {notifications.map((msg) => (
                                 <li
-                                    key={msg.id}
+                                    key={msg._id}
                                     className="px-3 py-2 bg-gray-50 font-medium"
                                 >
                                     <strong className="block text-sm text-black">

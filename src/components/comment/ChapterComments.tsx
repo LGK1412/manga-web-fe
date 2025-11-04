@@ -1,298 +1,547 @@
 // components/ChapterComments.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, Send, Flag } from "lucide-react";
+import { Loader2, Send, MessageSquare, Flag } from "lucide-react";
 import axios from "axios";
 import { Footer } from "../footer";
 import { useTheme } from "next-themes";
 import Cookies from "js-cookie";
-import { useToast } from "@/hooks/use-toast" // Import useToast
+import { useToast } from "@/hooks/use-toast";
+import { io, Socket } from "socket.io-client";
+import VoteButtons from "./VoteButtons";
+import ReplySection from "./ReplySection";
+import EmojiInputBox from "../emoji/EmojiInputBox";
 
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";// Component for reportting comment
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";// Something Ui for button
+import { Button } from "@/components/ui/button";
+
+let socket: Socket | null = null;
 
 export default function ChapterComments() {
-    const params = useParams();
-    const chapter_id = params.id; // URL: /chapter/[id]
+  const params = useParams();
+  const chapter_id = params.id as string;
 
-    const [comments, setComments] = useState<any[]>([]);
-    const [newComment, setNewComment] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const { theme } = useTheme();
-    const [mounted, setMounted] = useState(false);
-    const [user, setUser] = useState<any | undefined>();
-    const { toast } = useToast()
+  const { theme } = useTheme();
+  const { toast } = useToast();
 
-    // report comment dialog
-    const [reportDialogOpen, setReportDialogOpen] = useState(false);
-    const [reportTarget, setReportTarget] = useState<any | null>(null);
-    const [reportReason, setReportReason] = useState("Spam");
-    const [reportDescription, setReportDescription] = useState("");
-    const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  // ===== Core states =====
+  const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<any | undefined>();
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // ===== Replies & sockets =====
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replies, setReplies] = useState<Record<string, any[]>>({});
+  const [groupName, setGroupName] = useState("");
+  const [messageSent, setMessageSent] = useState(false);
+  const replyingToRef = useRef(replyingTo);
 
-    useEffect(() => {
-        setMounted(true)
-    })
+  const MAX_COMMENT_LENGTH = 300000;
 
-    useEffect(() => {
-        const raw = Cookies.get("user_normal_info");
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-        if (raw) {
-            try {
-                const decoded = decodeURIComponent(raw);
-                const parsed = JSON.parse(decoded);
-                setUser(parsed);
-            } catch (e) {
-                console.error("Invalid cookie data");
-            }
-        }
-    }, [mounted]);
+  useEffect(() => {
+    replyingToRef.current = replyingTo;
+  }, [replyingTo]);
 
-    const fetchComments = async () => {
-        try {
-            const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/comment/all-comment-chapter/${chapter_id}`,
-                { withCredentials: true });
+  // ===== Socket connect =====
+  useEffect(() => {
+    // Tránh chạy ở SSR
+    if (typeof window === "undefined") return;
 
-            setComments(res.data.reverse());
-        } catch (err: any) {
-            setError(err.response?.data?.message || err.message || "Lỗi khi lấy comment");
-            toast({
-                title: "Lỗi",
-                description: err.response?.data?.message || err.message || "Lỗi khi lấy comment",
-                variant: "destructive",
-            })
-        }
+    socket = io("http://localhost:4001", {
+      transports: ["websocket"],
+      autoConnect: true,
+    });
+
+    socket.on("connect", () => {
+      // console.log("Socket connected:", socket?.id);
+      socket?.emit("join-group", { url: window.location.href });
+    });
+
+    socket.on("disconnect", () => {
+      // console.log("Socket disconnected");
+    });
+
+    socket.on("user-joined", (data: any) => {
+      setGroupName(data.groupName);
+    });
+
+    socket.on("refresh-reply", (data: { commentId: string }) => {
+      if (replyingToRef.current === data.commentId) {
+        fetchReplies(data.commentId);
+      }
+    });
+
+    socket.on("refresh-comment", () => {
+      fetchComments();
+    });
+
+    return () => {
+      socket?.disconnect();
+      socket = null;
     };
+  }, []);
 
-    const handleSubmit = async () => {
-        if (!newComment.trim()) return;
-        if (newComment.length > 1000) {
-            alert("Comment không được vượt quá 1000 ký tự");
-            return;
-        }
+  // ===== Read cookie user =====
+  useEffect(() => {
+    if (!mounted) return;
+    const raw = Cookies.get("user_normal_info");
+    if (raw) {
+      try {
+        const decoded = decodeURIComponent(raw);
+        setUser(JSON.parse(decoded));
+      } catch {
+        console.error("Invalid cookie data");
+      }
+    }
+  }, [mounted]);
 
-        setLoading(true);
+  // ===== API calls =====
+  const fetchComments = async () => {
+    try {
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/comment/all-comment-chapter/${chapter_id}`,
+        { withCredentials: true }
+      );
 
-        try {
-            const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/comment/create-comment`, {
-                chapter_id,
-                content: newComment,
-            }, { withCredentials: true });
+      // Back-end của bạn có 2 dạng: [] hoặc { comments: [] }
+      const data = Array.isArray(res.data) ? res.data : res.data?.comments || [];
+      setComments(data);
+      setError(null);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || "Không tải được bình luận";
+      setError(msg);
+      toast({
+        title: "Lỗi",
+        description: msg,
+        variant: "destructive",
+      });
+    }
+  };
 
-            // Nếu backend trả về lỗi, axios sẽ throw, nên ở đây coi như thành công
-            setNewComment("");
-            fetchComments(); // reload comment
-        } catch (err: any) {
-            alert(err.response?.data?.message || err.message || "Gửi comment thất bại");
-            toast({
-                title: "Lỗi",
-                description: err.response?.data?.message || err.message || "Gửi comment thất bại",
-                variant: "destructive",
-            })
-        } finally {
-            setLoading(false);
-        }
-    };
+  const fetchReplies = async (commentId: string) => {
+    try {
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/reply/${commentId}`,
+        { withCredentials: true }
+      );
+      setReplies((prev) => ({ ...prev, [commentId]: res.data }));
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description: err.response?.data?.message || "Không tải được phản hồi",
+        variant: "destructive",
+      });
+    }
+  };
 
-    useEffect(() => {
-        fetchComments();
-    }, [chapter_id]);
+  const handleSubmit = async () => {
+    const length = newComment.length;
 
-    if (!mounted) return null;
+    if (length > MAX_COMMENT_LENGTH) {
+      toast({
+        title: "Bình luận quá dài!",
+        description: `Hiện tại: ${length.toLocaleString()} / ${MAX_COMMENT_LENGTH.toLocaleString()} ký tự. Hãy xoá bớt emoji tùy chỉnh hoặc rút gọn nội dung.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
-    return (
-        <>
-            <div className={`${theme === "dark" ? "bg-[#1F1F1F]" : "bg-white"} rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4 max-w-3xl mx-auto mb-20`}>
-                <h2 className="text-sm font-semibol">Bình luận</h2>
+    if (!newComment.trim()) return;
 
-                {/* Comment list */}
-                <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scroll">
-                    {comments.length === 0 && (
-                        <p className="text-sm">Chưa có bình luận nào.</p>
-                    )}
-                    {comments.map((c) => (
-                        <div
-                            key={c._id}
-                            className={`border rounded-xl p-3 text-sm transition-all duration-200 
-                                ${theme === "dark"
-                                    ? "bg-[#181818] border-[#2F2F2F] shadow-[0_4px_5px_rgba(0,0,0,0.6)]"
-                                    : "bg-white border-gray-300 shadow-[0_4px_10px_rgba(0,0,0,0.1)]"
-                                } hover:border-blue-400 hover:shadow-[0_6px_5px_rgba(59,130,246,0.3)]`}
+    setLoading(true);
+    try {
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/comment/create-comment`,
+        { chapter_id, content: newComment },
+        { withCredentials: true }
+      );
+      setNewComment("");
+      setMessageSent(true);
+      await fetchComments();
 
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="px-3 py-1 rounded-md bg-gradient-to-r from-blue-500 to-blue-400 text-white font-bold text-base shadow-sm">
-                                    {c.user_id.username}
-                                </span>
-                                <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                                    {new Date(c.createdAt).toLocaleString()}
-                                </span>
-                                {/* Nút report */}
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    type="button"
-                                    className="p-1"
-                                    onClick={() => {
-                                        setReportTarget(c);
-                                        setReportDialogOpen(true);
-                                    }}
-                                >
-                                    <Flag className="w-3.5 h-3.5" />
-                                </Button>
-                            </div>
+      if (res.data?.success) {
+        socket?.emit("new-comment", { groupName });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description: err.response?.data?.message || "Gửi comment thất bại",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-                            <p
-                                className={`leading-relaxed ${theme === "dark" ? "text-gray-300" : "text-gray-700"
-                                    }`}
-                            >
-                                {c.content}
-                            </p>
-                        </div>
-                    ))}
+  const handleReplySubmit = async (
+    parentId: string,
+    chapterId: string,
+    receiver_id: string
+  ) => {
+    if (!replyText.trim()) return;
+    setLoading(true);
+    try {
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/reply/create-reply-chapter`,
+        { comment_id: parentId, chapter_id: chapterId, content: replyText, receiver_id },
+        { withCredentials: true }
+      );
+      setReplyText("");
+      await fetchComments(); // cập nhật lại replyCount
+
+      if (res.data?.success) {
+        socket?.emit("new-reply", { chapterId, commentId: parentId, groupName });
+        setMessageSent(true);
+      }
+
+      fetchReplies(parentId);
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description: err.response?.data?.message || "Gửi phản hồi thất bại",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpvote = async (comment_id: string) => {
+    try {
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/comment/upvote`,
+        { comment_id },
+        { withCredentials: true }
+      );
+      toast({
+        title: "Thành công",
+        description: res.data?.message || "Hành động thành công",
+        variant: "success",
+      });
+      fetchComments();
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message || err?.message || "Không thể upvote";
+      toast({
+        title: "Lỗi",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownvote = async (comment_id: string) => {
+    try {
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/comment/downvote`,
+        { comment_id },
+        { withCredentials: true }
+      );
+      toast({
+        title: "Thành công",
+        description: res.data?.message || "Hành động thành công",
+        variant: "success",
+      });
+      fetchComments();
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message || err?.message || "Không thể downvote";
+      toast({
+        title: "Lỗi",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (messageSent) setMessageSent(false);
+  }, [messageSent]);
+
+  useEffect(() => {
+    fetchComments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapter_id]);
+
+  if (!mounted) return null;
+
+  // ===== Report dialog states =====
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<any | null>(null);
+  const [reportReason, setReportReason] = useState("Spam");
+  const [reportDescription, setReportDescription] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  return (
+    <>
+      <div className="rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4 max-w-3xl mx-auto mb-20 mt-10">
+        <h2 className="text-sm font-semibold">Bình luận</h2>
+
+        <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scroll">
+          {comments.length === 0 && <p className="text-sm">Chưa có bình luận nào.</p>}
+
+          {comments.map((c) => {
+            const username =
+              c?.user?.username || c?.user_id?.username || "Ẩn danh";
+
+            return (
+              <div
+                key={c._id}
+                className={`border rounded-xl p-3 text-sm transition-all duration-200 ${
+                  theme === "dark" ? "border-[#2F2F2F]" : "border-gray-300"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="px-3 py-1 rounded-md bg-gradient-to-r from-blue-500 to-blue-400 text-white font-bold text-base shadow-sm">
+                    {username}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px]">
+                      {new Date(c.createdAt).toLocaleString()}
+                    </span>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      type="button"
+                      className="p-1"
+                      onClick={() => {
+                        setReportTarget(c);
+                        setReportDialogOpen(true);
+                      }}
+                    >
+                      <Flag className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
 
-                {user && (user.role === "user" || user.role === "author") ? (
-                    <div className="space-y-2">
-                        <textarea
-                            className="w-full border border-slate-300 rounded-xl p-3 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                            placeholder="Viết bình luận..."
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            maxLength={1000}
-                            rows={4}
-                        />
-                        <div className="flex justify-between items-center text-xs text-slate-500">
-                            <span>{newComment.length}/1000 ký tự</span>
-                            <button
-                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-black text-white text-sm rounded-lg hover:bg-gray-700 disabled:bg-gray-400"
-                                onClick={handleSubmit}
-                                disabled={loading}
-                            >
-                                {loading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Send className="h-4 w-4" />
-                                )}
-                                Gửi
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <p className="text-sm">
-                        <a href="/login" className="text-blue-500 hover:underline">Đăng nhập</a> /
-                        <a href="/register" className="text-blue-500 hover:underline ml-1">Đăng ký</a> để bình luận.
-                    </p>
+                <div
+                  className="text-sm whitespace-pre-wrap break-words"
+                  // Nếu content đã là HTML từ EmojiInputBox
+                  dangerouslySetInnerHTML={{ __html: c.content }}
+                />
+
+                {/* React + Reply Count */}
+                <div className="flex flex-wrap gap-2 mt-2 text-xs items-center">
+                  <VoteButtons
+                    comment={c}
+                    onUpvote={() => {
+                      if (!user) {
+                        toast({
+                          title: "Cần đăng nhập",
+                          description: "Bạn phải đăng nhập để vote.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      handleUpvote(c._id);
+                    }}
+                    onDownvote={() => {
+                      if (!user) {
+                        toast({
+                          title: "Cần đăng nhập",
+                          description: "Bạn phải đăng nhập để vote.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      handleDownvote(c._id);
+                    }}
+                  />
+
+                  <button
+                    onClick={() => {
+                      if (replyingTo === c._id) {
+                        setReplyingTo(null);
+                      } else {
+                        setReplyingTo(c._id);
+                        fetchReplies(c._id);
+                      }
+                    }}
+                    className="ml-2 text-blue-500 hover:underline flex items-center gap-1"
+                  >
+                    <MessageSquare className="h-3 w-3" /> Phản hồi
+                  </button>
+
+                  {c.replyCount ? (
+                    <span className="ml-2 text-gray-500">{c.replyCount}</span>
+                  ) : null}
+                </div>
+
+                {replyingTo === c._id && (
+                  <ReplySection
+                    comment={c}
+                    replies={replies[c._id] || []}
+                    theme={theme}
+                    replyingTo={replyingTo}
+                    replyText={replyText}
+                    setReplyText={setReplyText}
+                    loading={loading}
+                    handleReplySubmit={handleReplySubmit}
+                    fetchReplies={fetchReplies}
+                    user={user}
+                    messageSent={messageSent}
+                    setMessageSent={setMessageSent}
+                  />
                 )}
+              </div>
+            );
+          })}
+        </div>
 
+        {/* Ô nhập bình luận mới */}
+        {user && (user.role === "user" || user.role === "author") ? (
+          <div className="space-y-2">
+            <EmojiInputBox
+              onChange={(html) => {
+                setNewComment(html);
+              }}
+              clear={messageSent}
+            />
 
-                {/* Error */}
-                {error && <p className="text-red-500 text-sm">{error}</p>}
-                {/* Report Dialog */}
-                <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-                    <DialogContent className="sm:max-w-[480px]">
-                        <DialogHeader>
-                            <DialogTitle>Báo cáo bình luận</DialogTitle>
-                            <DialogDescription>
-                                Vui lòng chọn lý do và mô tả chi tiết (nếu có).
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        <div className="grid gap-4 py-4">
-                            <div>
-                                <label className="text-sm font-medium mb-2 block">Lý do</label>
-                                <select
-                                    className="w-full border rounded-md px-3 py-2 text-sm"
-                                    value={reportReason}
-                                    onChange={(e) => setReportReason(e.target.value)}
-                                >
-                                    <option value="Spam">Spam</option>
-                                    <option value="Inappropriate">Nội dung không phù hợp</option>
-                                    <option value="Harassment">Quấy rối / xúc phạm</option>
-                                    <option value="Other">Khác</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="text-sm font-medium mb-2 block">
-                                    Mô tả chi tiết
-                                </label>
-                                <Textarea
-                                    placeholder="Mô tả vấn đề bạn gặp phải..."
-                                    value={reportDescription}
-                                    onChange={(e) => setReportDescription(e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
-                                Hủy </Button>
-                            <Button
-                                onClick={async () => {
-                                    if (!user) {
-                                        toast({
-                                            title: "Chưa đăng nhập",
-                                            description: "Vui lòng đăng nhập để gửi báo cáo.",
-                                            variant: "destructive",
-                                        });
-                                        return;
-                                    }
-                                    setIsSubmittingReport(true);
-                                    try {
-                                        await axios.post(
-                                            `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
-                                            {
-                                                reporter_id: user.user_id,
-                                                target_type: "Comment",
-                                                target_id: reportTarget?._id,
-                                                reason: reportReason,
-                                                description:
-                                                    reportDescription.trim() || undefined,
-                                            },
-                                            { withCredentials: true }
-                                        );
-                                        toast({
-                                            title: "Gửi báo cáo thành công ✅",
-                                            description: "Cảm ơn bạn đã gửi phản hồi.",
-                                        });
-                                        setReportDialogOpen(false);
-                                        setReportDescription("");
-                                        setReportReason("Spam");
-                                    } catch (err: any) {
-                                        toast({
-                                            title: "Lỗi khi gửi báo cáo",
-                                            description:
-                                                err.response?.data?.message ||
-                                                "Vui lòng thử lại sau.",
-                                            variant: "destructive",
-                                        });
-                                    } finally {
-                                        setIsSubmittingReport(false);
-                                    }
-                                }}
-                                disabled={isSubmittingReport}
-                            >
-                                {isSubmittingReport ? "Đang gửi..." : "Gửi báo cáo"}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+            <div className="flex justify-between items-center text-xs text-slate-500">
+              <span>{newComment.length}/{MAX_COMMENT_LENGTH} ký tự</span>
+              <button
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-black text-white text-sm rounded-lg hover:bg-gray-700 disabled:bg-gray-400 border border-amber-100"
+                onClick={handleSubmit}
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Gửi
+              </button>
             </div>
-            <Footer />
-        </>
+          </div>
+        ) : (
+          <p className="text-sm">
+            <a href="/login" className="text-blue-500 hover:underline">Đăng nhập</a>{" "}
+            /{" "}
+            <a href="/register" className="text-blue-500 hover:underline ml-1">
+              Đăng ký
+            </a>{" "}
+            để bình luận.
+          </p>
+        )}
 
-    );
+        {/* Error */}
+        {error && <p className="text-red-500 text-sm">{error}</p>}
+
+        {/* Report Dialog */}
+        <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+          <DialogContent className="sm:max-w-[480px]">
+            <DialogHeader>
+              <DialogTitle>Báo cáo bình luận</DialogTitle>
+              <DialogDescription>
+                Vui lòng chọn lý do và mô tả chi tiết (nếu có).
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Lý do</label>
+                <select
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                >
+                  <option value="Spam">Spam</option>
+                  <option value="Inappropriate">Nội dung không phù hợp</option>
+                  <option value="Harassment">Quấy rối / xúc phạm</option>
+                  <option value="Other">Khác</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Mô tả chi tiết
+                </label>
+                <Textarea
+                  placeholder="Mô tả vấn đề bạn gặp phải..."
+                  value={reportDescription}
+                  onChange={(e) => setReportDescription(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
+                Hủy
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!user) {
+                    toast({
+                      title: "Chưa đăng nhập",
+                      description: "Vui lòng đăng nhập để gửi báo cáo.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  if (!reportTarget?._id) {
+                    toast({
+                      title: "Thiếu mục tiêu báo cáo",
+                      description: "Không tìm thấy bình luận cần báo cáo.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  setIsSubmittingReport(true);
+                  try {
+                    await axios.post(
+                      `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
+                      {
+                        reporter_id: user.user_id,
+                        target_type: "Comment",
+                        target_id: reportTarget._id,
+                        reason: reportReason,
+                        description: reportDescription.trim() || undefined,
+                      },
+                      { withCredentials: true }
+                    );
+                    toast({
+                      title: "Gửi báo cáo thành công ✅",
+                      description: "Cảm ơn bạn đã gửi phản hồi.",
+                    });
+                    setReportDialogOpen(false);
+                    setReportDescription("");
+                    setReportReason("Spam");
+                  } catch (err: any) {
+                    toast({
+                      title: "Lỗi khi gửi báo cáo",
+                      description:
+                        err.response?.data?.message || "Vui lòng thử lại sau.",
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setIsSubmittingReport(false);
+                  }
+                }}
+                disabled={isSubmittingReport}
+              >
+                {isSubmittingReport ? "Đang gửi..." : "Gửi báo cáo"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Footer />
+    </>
+  );
 }

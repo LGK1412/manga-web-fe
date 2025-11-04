@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import FCMToken from "@/components/firebase/FCMToken";
 import SWRegister from "@/components/firebase/SWRegister";
 import { cookies } from "next/headers";
+import 'react-confirm-alert/src/react-confirm-alert.css';
 
 const inter = Inter({ subsets: ["latin"] });
 

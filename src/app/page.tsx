@@ -248,9 +248,9 @@ function NumberPager({
         ‹
       </button>
 
-      {windowed.map((it, idx) =>
+                {windowed.map((it, idx) =>
         it === "..." ? (
-          <span key={`ellipsis-${idx}`} className="px-1 text-gray-500">
+          <span key={`ellipsis-${idx}`} className="px-1 text-gray-500 dark:text-muted-foreground">
             …
           </span>
         ) : (
@@ -258,8 +258,8 @@ function NumberPager({
             key={it}
             onClick={() => onChange(it)}
             className={`${btn} ${it === page
-              ? "bg-[#0D0D0D] text-white border-black"
-              : "border-gray-300 hover:bg-gray-50"
+              ? "bg-[#0D0D0D] dark:bg-primary text-white dark:text-primary-foreground border-black dark:border-primary"
+              : "border-gray-300 dark:border-input hover:bg-gray-50 dark:hover:bg-accent"
               }`}
             aria-current={it === page ? "page" : undefined}
           >
@@ -406,7 +406,7 @@ export default function HomePage() {
       <main className="mx-auto max-w-6xl p-4 space-y-8 pt-30">
         {/* Error / Loading */}
         {err && (
-          <div className="rounded border border-red-200 bg-red-50 p-3 text-red-700">
+          <div className="rounded border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 p-3 text-red-700 dark:text-red-400">
             {err}
           </div>
         )}
@@ -416,11 +416,11 @@ export default function HomePage() {
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="animate-pulse">
                 <div
-                  className="relative w-full overflow-hidden rounded-lg bg-gray-200"
+                  className="relative w-full overflow-hidden rounded-lg bg-gray-200 dark:bg-muted"
                   style={{ paddingBottom: "133%" }}
                 />
-                <div className="mt-2 h-4 w-3/4 rounded bg-gray-200" />
-                <div className="mt-1 h-3 w-1/2 rounded bg-gray-200" />
+                <div className="mt-2 h-4 w-3/4 rounded bg-gray-200 dark:bg-muted" />
+                <div className="mt-1 h-3 w-1/2 rounded bg-gray-200 dark:bg-muted" />
               </div>
             ))}
           </div>
@@ -430,10 +430,10 @@ export default function HomePage() {
         {!loading && featured.length > 0 && (
           <section>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Nổi bật</h2>
+              <h2 className="text-lg font-semibold text-foreground">Nổi bật</h2>
               <Link
                 href="/stories"
-                className="text-sm text-blue-600 hover:underline"
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
                 Xem thêm
               </Link>
@@ -453,10 +453,10 @@ export default function HomePage() {
           {/* Latest (paged) */}
           <div className="lg:col-span-9" id="latest">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Mới cập nhật</h2>
+              <h2 className="text-lg font-semibold text-foreground">Mới cập nhật</h2>
               <Link
                 href="/stories"
-                className="text-sm text-blue-600 hover:underline"
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
                 Xem thêm
               </Link>
@@ -467,11 +467,11 @@ export default function HomePage() {
                 {Array.from({ length: 12 }).map((_, i) => (
                   <div key={i} className="animate-pulse">
                     <div
-                      className="relative w-full overflow-hidden rounded-lg bg-gray-200"
+                      className="relative w-full overflow-hidden rounded-lg bg-gray-200 dark:bg-muted"
                       style={{ paddingBottom: "133%" }}
                     />
-                    <div className="mt-2 h-4 w-3/4 rounded bg-gray-200" />
-                    <div className="mt-1 h-3 w-1/2 rounded bg-gray-200" />
+                    <div className="mt-2 h-4 w-3/4 rounded bg-gray-200 dark:bg-muted" />
+                    <div className="mt-1 h-3 w-1/2 rounded bg-gray-200 dark:bg-muted" />
                   </div>
                 ))}
               </div>
@@ -487,7 +487,7 @@ export default function HomePage() {
 
                 {/* Pagination */}
                 <div className="flex items-center justify-between pt-4">
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-gray-600 dark:text-muted-foreground">
                     Trang {latestPage} / {latestTotalPages}
                   </div>
                   <NumberPager
@@ -498,7 +498,7 @@ export default function HomePage() {
                 </div>
 
                 {loadingPage && (
-                  <div className="mt-3 text-sm text-gray-500">
+                  <div className="mt-3 text-sm text-gray-500 dark:text-muted-foreground">
                     Đang tải trang…
                   </div>
                 )}
@@ -509,15 +509,15 @@ export default function HomePage() {
           {/* Rankings (from summaryItems) */}
           <aside className="lg:col-span-3">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Bảng xếp hạng</h2>
-              <div className="flex gap-1 rounded-full border border-gray-300 p-1">
+              <h2 className="text-lg font-semibold text-foreground">Bảng xếp hạng</h2>
+              <div className="flex gap-1 rounded-full border border-gray-300 dark:border-input p-1 bg-background">
                 {(["day", "week", "month"] as RankTab[]).map((k) => (
                   <button
                     key={k}
                     onClick={() => setTab(k)}
                     className={`rounded-full px-3 py-1 text-xs ${tab === k
-                      ? "bg-black text-white"
-                      : "bg-white text-gray-800"
+                      ? "bg-black dark:bg-primary text-white dark:text-primary-foreground"
+                      : "bg-white dark:bg-card text-gray-800 dark:text-foreground"
                       }`}
                   >
                     {k === "day" ? "Ngày" : k === "week" ? "Tuần" : "Tháng"}
@@ -531,7 +531,7 @@ export default function HomePage() {
                 <Link
                   href={m.href}
                   key={m.key}
-                  className="flex items-center gap-3 rounded border border-gray-200 p-2 hover:bg-gray-50"
+                  className="flex items-center gap-3 rounded border border-gray-200 dark:border-input p-2 hover:bg-gray-50 dark:hover:bg-accent"
                 >
                   <div className="relative h-16 w-12 overflow-hidden rounded">
                     {m.coverUrl ? (
@@ -542,16 +542,16 @@ export default function HomePage() {
                         loading="lazy"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gray-100 text-[10px] text-gray-500">
+                      <div className="flex h-full w-full items-center justify-center bg-gray-100 dark:bg-muted text-[10px] text-gray-500 dark:text-muted-foreground">
                         No cover
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">
+                    <div className="truncate text-sm font-medium text-foreground">
                       {idx + 1}. {m.title}
                     </div>
-                    <div className="mt-0.5 flex items-center justify-between text-xs text-gray-600">
+                    <div className="mt-0.5 flex items-center justify-between text-xs text-gray-600 dark:text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <BookOpen className="h-3.5 w-3.5" /> {m.chapters} chương
                       </span>
@@ -564,14 +564,14 @@ export default function HomePage() {
               ))}
             </div>
 
-            <div className="mt-6">
-              <h3 className="mb-2 text-sm font-semibold">Rating cao</h3>
+              <div className="mt-6">
+              <h3 className="mb-2 text-sm font-semibold text-foreground">Rating cao</h3>
               <div className="space-y-2">
                 {topFollows.map((m) => (
                   <Link
                     href={m.href}
                     key={m.key}
-                    className="flex items-center gap-3 rounded border border-gray-200 p-2 hover:bg-gray-50"
+                    className="flex items-center gap-3 rounded border border-gray-200 dark:border-input p-2 hover:bg-gray-50 dark:hover:bg-accent"
                   >
                     <div className="relative h-12 w-9 overflow-hidden rounded">
                       {m.coverUrl ? (
@@ -582,14 +582,14 @@ export default function HomePage() {
                           loading="lazy"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gray-100 text-[10px] text-gray-500">
+                        <div className="flex h-full w-full items-center justify-center bg-gray-100 dark:bg-muted text-[10px] text-gray-500 dark:text-muted-foreground">
                           No cover
                         </div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm">{m.title}</div>
-                      <div className="text-xs text-gray-600 flex items-center gap-1">
+                      <div className="truncate text-sm text-foreground">{m.title}</div>
+                      <div className="text-xs text-gray-600 dark:text-muted-foreground flex items-center gap-1">
                         <Star className="h-3.5 w-3.5 fill-yellow-400 stroke-yellow-400" />{" "}
                         {(m.rating || 0).toFixed(1)}
                       </div>

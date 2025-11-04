@@ -154,3 +154,7 @@
   scrollbar-color: #9ca3af transparent;
 }
 
+.search input {
+  background-color: #fff !important;
+  color: red !important;
+}

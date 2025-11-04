@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import axios from "axios";
+import Cookies from "js-cookie";
 import { useParams } from "next/navigation";
 
 export default function ChapterProgress() {
@@ -9,16 +10,16 @@ export default function ChapterProgress() {
   const [progress, setProgress] = useState(0);
 
   // Lấy user_id từ cookie
-  useEffect(() => {
-    const cookie = document.cookie
-      .split("; ")
-      .find((r) => r.startsWith("user_normal_info="));
-    if (cookie) {
+  useLayoutEffect(() => {
+    const raw = Cookies.get("user_normal_info");
+
+    if (raw) {
       try {
-        const data = JSON.parse(decodeURIComponent(cookie.split("=")[1]));
-        setUserId(data.user_id);
-      } catch (err) {
-        console.error("Cookie parse error:", err);
+        const decoded = decodeURIComponent(raw);
+        const parsed = JSON.parse(decoded);
+        setUserId(parsed.user_id);
+      } catch (e) {
+        console.error("Invalid cookie data");
       }
     }
   }, []);
@@ -64,11 +65,22 @@ export default function ChapterProgress() {
     window.addEventListener("beforeunload", handleUnload);
     return () => {
       handleUnload();
+
       window.removeEventListener("beforeunload", handleUnload);
     };
   }, [userId, id, progress]);
 
-  // ✅ Thanh bar hiển thị (ngang top)
+  useEffect(() => {
+    if (id) {
+      axios
+        .patch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/manga/view/${id}/increase`
+        )
+        .catch(console.error);
+      console.log(`Đã tăng view cho chapter ${id}`);
+    }
+  }, [id]);
+
   return (
     <div className="fixed left-0 top-0 w-full h-[3px] bg-gray-200 z-50">
       <div
