@@ -12,7 +12,7 @@ import {
   Heart,
   UserPlus,
   ThumbsUp,
-  ArrowRight,
+  ArrowRight, Flag
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useToast } from "@/components/ui/use-toast";
@@ -97,7 +97,7 @@ export default function MangaDetailPage() {
   const [lastRead, setLastRead] = useState<any | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
-useEffect(() => {
+  useEffect(() => {
     const cookie = document.cookie
       .split("; ")
       .find((r) => r.startsWith("user_normal_info="));
@@ -227,7 +227,7 @@ useEffect(() => {
           next[id] = v;
         });
         setLikesById(next);
-      } catch {}
+      } catch { }
     })();
   }, [allRatings]);
 
@@ -245,7 +245,7 @@ useEffect(() => {
           count: res.data?.likesCount ?? 0,
         },
       }));
-    } catch {}
+    } catch { }
   };
 
   const handleAddToFavourite = async () => {
@@ -298,11 +298,11 @@ useEffect(() => {
     setRatingDialogOpen(true);
   };
 
-    const submitRating = async () => {
+  const submitRating = async () => {
     if (!mangaId) return;
     if (!ratingInput || ratingInput < 1 || ratingInput > 5) return;
     if (!ratingComment.trim()) return;
-    
+
     setIsSubmittingRating(true);
     try {
       await axios.post(
@@ -312,12 +312,12 @@ useEffect(() => {
       );
       setUserRating(ratingInput);
       setMyRating({ rating: ratingInput, comment: ratingComment });
-      
+
       // Optimistic update: Tính toán rating trung bình ngay lập tức
       const currentCount = ratingSummary?.count || 0;
       const currentAvg = ratingSummary?.avgRating || 0;
       const totalRating = currentAvg * currentCount;
-      
+
       // Nếu đây là rating mới (chưa có rating trước đó)
       if (!myRating) {
         const newCount = currentCount + 1;
@@ -336,7 +336,7 @@ useEffect(() => {
           count: currentCount
         });
       }
-      
+
       // Vẫn gọi API để đảm bảo data chính xác
       try {
         const summaryRes = await axios.get(
@@ -344,9 +344,9 @@ useEffect(() => {
           { params: { mangaId } }
         );
         setRatingSummary(summaryRes.data || null);
-      } catch {}
+      } catch { }
       setRatingDialogOpen(false);
-    } catch {}
+    } catch { }
     finally {
       setIsSubmittingRating(false);
     }
@@ -368,11 +368,11 @@ useEffect(() => {
       setManga((prev) =>
         prev
           ? {
-              ...prev,
-              chapters: prev.chapters.map((ch) =>
-                ch._id === chapterId ? { ...ch, locked: false } : ch
-              ),
-            }
+            ...prev,
+            chapters: prev.chapters.map((ch) =>
+              ch._id === chapterId ? { ...ch, locked: false } : ch
+            ),
+          }
           : prev
       );
     } catch (err: any) {
@@ -384,6 +384,12 @@ useEffect(() => {
       });
     }
   };
+
+  // ==== report ====
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("Spam");
+  const [reportDescription, setReportDescription] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   if (!mounted) return null;
 
@@ -545,12 +551,21 @@ useEffect(() => {
                         className="min-w-[180px] justify-center bg-transparent"
                       >
                         <Heart
-                          className={`w-4 h-4 mr-2 ${
-                            isFavourite ? "fill-red-500 text-red-500" : ""
-                          }`}
+                          className={`w-4 h-4 mr-2 ${isFavourite ? "fill-red-500 text-red-500" : ""
+                            }`}
                         />
                         {isFavourite ? "Đã yêu thích" : "Thêm vào yêu thích"}
                       </Button>
+                      <Button
+                        variant="destructive"
+                        size="lg"
+                        onClick={() => setReportDialogOpen(true)}
+                        type="button"
+                        className=" text-xs justify-center m-auto"
+                      >
+                        <Flag className="w-4 h-4 flex-shrink-0" />
+                      </Button>
+
                     </div>
                   </div>
                 </div>
@@ -625,6 +640,99 @@ useEffect(() => {
               </DialogContent>
             </Dialog>
 
+            {/* Report Dialog */}
+            <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+              <DialogContent className="sm:max-w-[480px]">
+                <DialogHeader>
+                  <DialogTitle>Báo cáo nội dung</DialogTitle>
+                  <DialogDescription>
+                    Vui lòng chọn lý do báo cáo và mô tả chi tiết (nếu có).
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid gap-4 py-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Lý do</label>
+                    <select
+                      className="w-full border rounded-md px-3 py-2 text-sm"
+                      value={reportReason}
+                      onChange={(e) => setReportReason(e.target.value)}
+                    >
+                      <option value="Spam">Spam</option>
+                      <option value="Copyright">Vi phạm bản quyền</option>
+                      <option value="Inappropriate">Nội dung không phù hợp</option>
+                      <option value="Harassment">Quấy rối / xúc phạm</option>
+                      <option value="Other">Khác</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Mô tả chi tiết</label>
+                    <Textarea
+                      placeholder="Mô tả vấn đề bạn gặp phải..."
+                      value={reportDescription}
+                      onChange={(e) => setReportDescription(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setReportDialogOpen(false)}
+                  >
+                    Hủy
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      if (!userId) {
+                        toast({
+                          title: "Chưa đăng nhập",
+                          description: "Vui lòng đăng nhập để gửi báo cáo.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      setIsSubmittingReport(true);
+                      try {
+                        await axios.post(
+                          `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
+                          {
+                            reporter_id: userId,
+                            target_type: "Manga",
+                            target_id: manga._id,
+                            reason: reportReason,
+                            description: reportDescription.trim() || undefined,
+                          },
+                          { withCredentials: true }
+                        );
+                        toast({
+                          title: "Gửi báo cáo thành công ✅",
+                          description: "Cảm ơn bạn đã gửi phản hồi.",
+                        });
+                        setReportDialogOpen(false);
+                        setReportDescription("");
+                        setReportReason("Spam");
+                      } catch (err: any) {
+                        toast({
+                          title: "Lỗi khi gửi báo cáo",
+                          description:
+                            err.response?.data?.message || "Vui lòng thử lại sau.",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setIsSubmittingReport(false);
+                      }
+                    }}
+                    disabled={isSubmittingReport}
+                  >
+                    {isSubmittingReport ? "Đang gửi..." : "Gửi báo cáo"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+
             {/* Ratings List */}
             <Card>
               <CardHeader>
@@ -642,9 +750,8 @@ useEffect(() => {
                   {allRatings.map((r: any, idx: number) => (
                     <div
                       key={r._id}
-                      className={`flex items-start gap-3 ${
-                        idx > 0 ? "border-t pt-4 mt-4" : ""
-                      }`}
+                      className={`flex items-start gap-3 ${idx > 0 ? "border-t pt-4 mt-4" : ""
+                        }`}
                     >
                       <Avatar className="w-8 h-8">
                         <AvatarImage
@@ -702,11 +809,10 @@ useEffect(() => {
                             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                           >
                             <ThumbsUp
-                              className={`w-3 h-3 ${
-                                likesById[r._id]?.liked
-                                  ? "fill-blue-500 text-blue-500"
-                                  : ""
-                              }`}
+                              className={`w-3 h-3 ${likesById[r._id]?.liked
+                                ? "fill-blue-500 text-blue-500"
+                                : ""
+                                }`}
                             />
                             {likesById[r._id]?.count ?? "—"}
                           </button>

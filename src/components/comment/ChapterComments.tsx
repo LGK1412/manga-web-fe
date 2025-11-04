@@ -3,12 +3,23 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, Flag } from "lucide-react";
 import axios from "axios";
 import { Footer } from "../footer";
 import { useTheme } from "next-themes";
 import Cookies from "js-cookie";
 import { useToast } from "@/hooks/use-toast" // Import useToast
+
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";// Component for reportting comment
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";// Something Ui for button
 
 export default function ChapterComments() {
     const params = useParams();
@@ -22,6 +33,13 @@ export default function ChapterComments() {
     const [mounted, setMounted] = useState(false);
     const [user, setUser] = useState<any | undefined>();
     const { toast } = useToast()
+
+    // report comment dialog
+    const [reportDialogOpen, setReportDialogOpen] = useState(false);
+    const [reportTarget, setReportTarget] = useState<any | null>(null);
+    const [reportReason, setReportReason] = useState("Spam");
+    const [reportDescription, setReportDescription] = useState("");
+    const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
 
     useEffect(() => {
@@ -121,6 +139,19 @@ export default function ChapterComments() {
                                 <span className="text-[11px] text-gray-500 dark:text-gray-400">
                                     {new Date(c.createdAt).toLocaleString()}
                                 </span>
+                                {/* Nút report */}
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    type="button"
+                                    className="p-1"
+                                    onClick={() => {
+                                        setReportTarget(c);
+                                        setReportDialogOpen(true);
+                                    }}
+                                >
+                                    <Flag className="w-3.5 h-3.5" />
+                                </Button>
                             </div>
 
                             <p
@@ -169,6 +200,96 @@ export default function ChapterComments() {
 
                 {/* Error */}
                 {error && <p className="text-red-500 text-sm">{error}</p>}
+                {/* Report Dialog */}
+                <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+                    <DialogContent className="sm:max-w-[480px]">
+                        <DialogHeader>
+                            <DialogTitle>Báo cáo bình luận</DialogTitle>
+                            <DialogDescription>
+                                Vui lòng chọn lý do và mô tả chi tiết (nếu có).
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="grid gap-4 py-4">
+                            <div>
+                                <label className="text-sm font-medium mb-2 block">Lý do</label>
+                                <select
+                                    className="w-full border rounded-md px-3 py-2 text-sm"
+                                    value={reportReason}
+                                    onChange={(e) => setReportReason(e.target.value)}
+                                >
+                                    <option value="Spam">Spam</option>
+                                    <option value="Inappropriate">Nội dung không phù hợp</option>
+                                    <option value="Harassment">Quấy rối / xúc phạm</option>
+                                    <option value="Other">Khác</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium mb-2 block">
+                                    Mô tả chi tiết
+                                </label>
+                                <Textarea
+                                    placeholder="Mô tả vấn đề bạn gặp phải..."
+                                    value={reportDescription}
+                                    onChange={(e) => setReportDescription(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
+                                Hủy </Button>
+                            <Button
+                                onClick={async () => {
+                                    if (!user) {
+                                        toast({
+                                            title: "Chưa đăng nhập",
+                                            description: "Vui lòng đăng nhập để gửi báo cáo.",
+                                            variant: "destructive",
+                                        });
+                                        return;
+                                    }
+                                    setIsSubmittingReport(true);
+                                    try {
+                                        await axios.post(
+                                            `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
+                                            {
+                                                reporter_id: user.user_id,
+                                                target_type: "Comment",
+                                                target_id: reportTarget?._id,
+                                                reason: reportReason,
+                                                description:
+                                                    reportDescription.trim() || undefined,
+                                            },
+                                            { withCredentials: true }
+                                        );
+                                        toast({
+                                            title: "Gửi báo cáo thành công ✅",
+                                            description: "Cảm ơn bạn đã gửi phản hồi.",
+                                        });
+                                        setReportDialogOpen(false);
+                                        setReportDescription("");
+                                        setReportReason("Spam");
+                                    } catch (err: any) {
+                                        toast({
+                                            title: "Lỗi khi gửi báo cáo",
+                                            description:
+                                                err.response?.data?.message ||
+                                                "Vui lòng thử lại sau.",
+                                            variant: "destructive",
+                                        });
+                                    } finally {
+                                        setIsSubmittingReport(false);
+                                    }
+                                }}
+                                disabled={isSubmittingReport}
+                            >
+                                {isSubmittingReport ? "Đang gửi..." : "Gửi báo cáo"}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
             <Footer />
         </>

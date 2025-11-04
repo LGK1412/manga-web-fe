@@ -13,6 +13,7 @@ import {
   Tags,
   Palette,
   Shield,
+  MessageSquare
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -29,24 +30,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: "users", label: "User", icon: Users, href: "/admin/user" },
     { id: "genres", label: "Genre", icon: Tags, href: "/admin/genre" },
     { id: "styles", label: "Style", icon: Palette, href: "/admin/style" },
-    {
-      id: "reports",
-      label: "Report",
-      icon: FileWarning,
-      href: "/admin/report",
-    },
-    {
-      id: "announcements",
-      label: "Notification",
-      icon: Megaphone,
-      href: "/admin/announcements",
-    },
-    {
-      id: "settings",
-      label: "Setting",
-      icon: Settings,
-      href: "/admin/settings",
-    },
+    { id: "reports", label: "Report", icon: FileWarning, href: "/admin/report",},
+    { id: "comments", label: "Comment", icon: MessageSquare, href: "/admin/comments" },
+    { id: "announcements", label: "Notification", icon: Megaphone, href: "/admin/notifications",},
+    { id: "policies", label: "Policies", icon: BookOpen, href: "/admin/policies" },
+    { id: "settings", label: "Setting", icon: Settings, href: "/admin/settings",},
   ];
 
   return (
