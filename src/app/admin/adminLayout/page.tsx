@@ -40,13 +40,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen">
       <Navbar />
 
       <div className="flex flex-1 pt-16">
         {/* Sidebar */}
         <aside
-          className={`bg-white shadow-lg border-r transition-all duration-300 ${
+          className={` shadow-lg border-r transition-all duration-300 ${
             open ? "w-64" : "w-16"
           } flex flex-col`}
         >
@@ -55,7 +55,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {open && (
               <div className="flex items-center gap-2">
                 <Shield className="h-6 w-6 text-red-600" />
-                <span className="font-bold text-gray-800 text-lg">Admin Tool</span>
+                <span className="font-bold text-lg">Admin Tool</span>
               </div>
             )}
             <Button
@@ -79,7 +79,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   className={`flex items-center ${
                     open ? "gap-3 px-3 justify-start" : "justify-center"
                   } py-2 rounded-lg text-sm font-medium transition-colors
-                  ${active ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"}`}
+                  ${active ? "bg-blue-100 text-blue-700" : " hover:bg-gray-100"}`}
                   title={!open ? label : ""}
                 >
                   <Icon className={`${open ? "h-5 w-5" : "h-6 w-6"} shrink-0`} />

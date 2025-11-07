@@ -32,6 +32,8 @@ import {
   Trophy,
   Shuffle,
   Loader2,
+  Package,
+  Smile,
 } from "lucide-react";
 import Cookies from "js-cookie";
 import { removeCookie } from "@/lib/cookie-func";
@@ -272,6 +274,28 @@ export function Navbar() {
                         Hồ sơ cá nhân
                       </Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                       <Link
+                        href={
+                          user?.user_id ? `/inventory/${user.user_id}` : "/login"
+                        }
+                        className="flex items-center"
+                      >
+                        <Package className="mr-2 h-4 w-4" />
+                        Kho đồ
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                       <Link
+                        href={
+                          user?.user_id ? `/emoji-pack-shop` : "/login"
+                        }
+                        className="flex items-center"
+                      >
+                        <Smile className="mr-2 h-4 w-4" />
+                        Emoji Pack
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={logout}
@@ -453,6 +477,15 @@ export function Navbar() {
                         className="block py-2 text-sm"
                       >
                         Hồ sơ cá nhân
+                      </Link>
+                      <Link
+                        href={
+                          user?.user_id ? `/inventory/${user.user_id}` : "/login"
+                        }
+                        onClick={() => setIsMenuOpen(false)}
+                        className="block py-2 text-sm"
+                      >
+                        Kho đồ
                       </Link>
                       <button
                         onClick={() => {

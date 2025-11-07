@@ -140,6 +140,16 @@ export default function EmojiInputBox({ onChange, clear }: EmojiInputBoxProps) {
             }
         }
 
+        const fetchPacksOwn = async () => {
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/emoji-pack/emoji-packs-own`);
+                const data = await res.json();
+                setPacks(data); // giả sử API trả về array các pack, mỗi pack có emojis
+            } catch (err) {
+                console.error("Lỗi fetch emoji pack:", err);
+            }
+        }
+
         fetchPacks();
     }, []);
 

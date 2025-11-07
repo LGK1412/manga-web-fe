@@ -50,6 +50,7 @@ export default function LoginPage() {
       toast({
         title: "Chào mừng trở lại!",
         description: "Bạn đã đăng nhập thành công",
+        variant: "success"
       });
       setLoginStatus(true);
       window.location.href = "/";
@@ -74,6 +75,7 @@ export default function LoginPage() {
               title: "Gửi link xác thực thành công!",
               description:
                 "Vui lòng kiểm tra email để xác minh tài khoản của bạn để có thể đăng nhập.",
+              variant: "default"
             });
           } else {
             toast({
