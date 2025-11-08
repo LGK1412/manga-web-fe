@@ -5,6 +5,7 @@ import Picker from "@emoji-mart/react"
 import data from "@emoji-mart/data"
 import { Smile } from "lucide-react"
 import { useTheme } from "next-themes"
+import axios from "axios"
 
 interface EmojiInputBoxProps {
     onChange?: (html: string) => void
@@ -130,28 +131,40 @@ export default function EmojiInputBox({ onChange, clear }: EmojiInputBoxProps) {
 
 
     useEffect(() => {
-        const fetchPacks = async () => {
+        const fetchAllPacks = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/emoji-pack/free-emoji-pack`);
-                const data = await res.json();
-                setPacks(data); // giả sử API trả về array các pack, mỗi pack có emojis
+                // Chạy song song 2 API
+                const [freeRes, ownRes] = await Promise.all([
+                    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/emoji-pack/free-emoji-pack`),
+                    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/user/emoji-packs-own`, {
+                        withCredentials: true,
+                    }),
+                ]);
+
+                const freePacks = Array.isArray(freeRes.data) ? freeRes.data : [];
+                const ownPacks = Array.isArray(ownRes.data) ? ownRes.data : [];
+
+                console.log("Free ", freePacks);
+                console.log("Own ", ownPacks);
+
+                // Gộp lại, loại pack trùng ID
+                const mergedPacks = [
+                    ...ownPacks, // ưu tiên pack user sở hữu lên trước
+                    ...freePacks.filter(
+                        free => !ownPacks.some(own => own._id === free._id)
+                    ),
+                ];
+
+                setPacks(mergedPacks);
             } catch (err) {
                 console.error("Lỗi fetch emoji pack:", err);
             }
-        }
+        };
 
-        const fetchPacksOwn = async () => {
-            try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/emoji-pack/emoji-packs-own`);
-                const data = await res.json();
-                setPacks(data); // giả sử API trả về array các pack, mỗi pack có emojis
-            } catch (err) {
-                console.error("Lỗi fetch emoji pack:", err);
-            }
-        }
-
-        fetchPacks();
+        fetchAllPacks();
     }, []);
+
+
 
     // 👉 Click ngoài tắt picker
     useEffect(() => {
