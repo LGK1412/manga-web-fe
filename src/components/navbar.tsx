@@ -65,7 +65,7 @@ export function Navbar() {
     try {
       sessionStorage.setItem("stories:q", query);
       sessionStorage.setItem("stories:q:ts", String(Date.now()));
-    } catch {}
+    } catch { }
     if (pathname === "/stories") {
       window.dispatchEvent(new Event("stories:syncQ"));
     } else {
@@ -274,28 +274,33 @@ export function Navbar() {
                         Hồ sơ cá nhân
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                       <Link
-                        href={
-                          user?.user_id ? `/inventory/${user.user_id}` : "/login"
-                        }
-                        className="flex items-center"
-                      >
-                        <Package className="mr-2 h-4 w-4" />
-                        Kho đồ
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                       <Link
-                        href={
-                          user?.user_id ? `/emoji-pack-shop` : "/login"
-                        }
-                        className="flex items-center"
-                      >
-                        <Smile className="mr-2 h-4 w-4" />
-                        Emoji Pack
-                      </Link>
-                    </DropdownMenuItem>
+                    {user?.role?.trim() !== "admin"  && user &&  (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          href={
+                            user?.user_id ? `/inventory/${user.user_id}` : "/login"
+                          }
+                          className="flex items-center"
+                        >
+                          <Package className="mr-2 h-4 w-4" />
+                          Kho đồ
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {user?.role?.trim() !== "admin" && user && (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          href={
+                            user?.user_id ? `/emoji-pack-shop` : "/login"
+                          }
+                          className="flex items-center"
+                        >
+                          <Smile className="mr-2 h-4 w-4" />
+                          Emoji Pack
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={logout}
