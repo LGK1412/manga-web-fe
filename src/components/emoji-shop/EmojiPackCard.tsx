@@ -3,6 +3,16 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function EmojiPackCard({
     pack,
@@ -14,6 +24,7 @@ export default function EmojiPackCard({
     onBought?: (packId: string) => void;
 }) {
     const { toast } = useToast();
+    const [open, setOpen] = useState(false);
 
     const handleBuy = async (pack_id: string, price: string) => {
         try {
@@ -51,7 +62,6 @@ export default function EmojiPackCard({
         }
     };
 
-    // Lấy ảnh đầu tiên trong danh sách emoji (nếu có)
     const coverEmoji =
         pack.emojis && pack.emojis.length > 0
             ? `${process.env.NEXT_PUBLIC_API_URL}${pack.emojis[0].skins[0].src}`
@@ -76,9 +86,38 @@ export default function EmojiPackCard({
                     <Button size="sm" variant="secondary" onClick={onPreview}>
                         Xem trước
                     </Button>
-                    <Button size="sm" onClick={() => handleBuy(pack._id, pack.price)}>
-                        Mua
-                    </Button>
+
+                    {/* Button kích hoạt dialog */}
+                    <Dialog open={open} onOpenChange={setOpen}>
+                        <DialogTrigger asChild>
+                            <Button size="sm">Mua</Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>Xác nhận mua</DialogTitle>
+                                <DialogDescription>
+                                    Bạn có chắc muốn mua "{pack.name}" với giá{" "}
+                                    {pack.price > 0 ? pack.price + " xu" : "Miễn phí"} không?
+                                </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter className="flex justify-end gap-2">
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setOpen(false)}
+                                >
+                                    Hủy
+                                </Button>
+                                <Button
+                                    onClick={() => {
+                                        handleBuy(pack._id, pack.price);
+                                        setOpen(false);
+                                    }}
+                                >
+                                    Xác nhận
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             </CardContent>
         </Card>
