@@ -1,7 +1,23 @@
+// app/(whatever)/components/ChapterContent.tsx
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import axios from "axios";
+import Cookies from "js-cookie";
+import { Flag } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+
 import TTSReader from "./TTSReader";
 import translateWithGemini from "./Aitranlation";
 
@@ -11,28 +27,57 @@ type Chapter = {
   type: "text" | "image" | "unknown";
   content?: string | null;
   images?: string[];
+  createdAt?: string;
 };
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export default function ChapterContent() {
   const { id } = useParams();
-  const [chapterInfo, setChapterInfo] = useState<Omit<
-    Chapter,
-    "content"
-  > | null>(null);
+  const { toast } = useToast();
 
-  // "Default" - Bất biến, chỉ dùng để dịch
-  const [originalContent, setOriginalContent] = useState<string | null>(null);
-  // "Final" - Dùng để hiển thị (article) và để đọc (TTS)
-  const [finalContent, setFinalContent] = useState<string | null>(null);
+  // ===== Chapter data =====
+  const [chapterInfo, setChapterInfo] = useState<Omit<Chapter, "content"> | null>(null);
+  const [originalContent, setOriginalContent] = useState<string | null>(null); // immutable base for translation
+  const [finalContent, setFinalContent] = useState<string | null>(null); // render + TTS
 
+  // ===== Translation =====
   const [targetLang, setTargetLang] = useState("");
   const [translating, setTranslating] = useState(false);
-  const [error, setError] = useState("");
+  const [translateError, setTranslateError] = useState("");
 
+  // ===== Auth (read cookie like ChapterComments) =====
+  const [user, setUser] = useState<any | undefined>();
+  const [mounted, setMounted] = useState(false);
+
+  // ===== Report (Chapter) =====
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("Spam");
+  const [reportDescription, setReportDescription] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  // ===== Effects =====
+  useEffect(() => setMounted(true), []);
+
+  // Read cookie user (same pattern as ChapterComments)
+  useEffect(() => {
+    if (!mounted) return;
+    const raw = Cookies.get("user_normal_info");
+    if (raw) {
+      try {
+        const decoded = decodeURIComponent(raw);
+        setUser(JSON.parse(decoded));
+      } catch {
+        console.error("Invalid cookie data");
+      }
+    }
+  }, [mounted]);
+
+  // Load chapter by id
   useEffect(() => {
     if (!id) return;
     axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/Chapter/content/${id}`)
+      .get(`${API_BASE}/api/Chapter/content/${id}`, { withCredentials: true })
       .then((res) => {
         const data: Chapter = res.data;
         const { content, ...info } = data;
@@ -41,63 +86,148 @@ export default function ChapterContent() {
         if (data.type === "text" && data.content) {
           setOriginalContent(data.content);
           setFinalContent(data.content);
+        } else {
+          setOriginalContent(null);
+          setFinalContent(null);
         }
       })
-      .catch((err) => console.error(err));
-  }, [id]);
+      .catch((err) => {
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Không tải được nội dung chương";
+        toast({
+          title: "Lỗi",
+          description: msg,
+          variant: "destructive",
+        });
+      });
+  }, [id, toast]);
 
-  // === ĐÃ SỬA LỖI CÚ PHÁP TẠI ĐÂY ===
+  // ===== Derived =====
+  const isTextChapter = !!originalContent;
+  const isTranslated = isTextChapter && finalContent !== originalContent;
+  const plainText = useMemo(
+    () => (finalContent ? finalContent.replace(/<[^>]*>/g, "") : ""),
+    [finalContent]
+  );
+
+  // ===== Handlers =====
   const handleTranslate = async () => {
-    // 3. Dùng "default" (originalContent) để dịch
     if (!targetLang || !originalContent) return;
     setTranslating(true);
-    setError("");
+    setTranslateError("");
 
     try {
       const result = await translateWithGemini(originalContent, targetLang);
       if (typeof result === "string") {
-        // 4. Set kết quả vào "final" (finalContent)
         setFinalContent(result);
       } else {
-        setError("Lỗi: Kết quả dịch không hợp lệ.");
+        setTranslateError("Lỗi: Kết quả dịch không hợp lệ.");
       }
     } catch (err: any) {
-      // <-- Sửa lỗi: Xóa <[number]>
       console.error("Translate error:", err);
-      setError(err?.message ?? "Đã xảy ra lỗi khi dịch");
+      setTranslateError(err?.message ?? "Đã xảy ra lỗi khi dịch");
+    } finally {
+      setTranslating(false);
     }
-    setTranslating(false);
   };
-  // ====================================
 
-  // 5. TTS dùng "final" (finalContent)
-  const plainText = finalContent?.replace(/<[^>]*>/g, "") || "";
+  const openReportDialog = () => {
+    setReportReason("Spam");
+    setReportDescription("");
+    setReportDialogOpen(true);
+  };
 
-  const isTextChapter = !!originalContent;
+  const handleSubmitReport = async () => {
+    if (!user) {
+      toast({
+        title: "Chưa đăng nhập",
+        description: "Vui lòng đăng nhập để gửi báo cáo.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!chapterInfo?._id) {
+      toast({
+        title: "Thiếu thông tin chương",
+        description: "Không tìm thấy chương cần báo cáo.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const isTranslated = isTextChapter && finalContent !== originalContent;
+    setIsSubmittingReport(true);
+    try {
+      await axios.post(
+        `${API_BASE}/api/reports`,
+        {
+          reporter_id: user.user_id,
+          target_type: "Chapter", // <<<<<< DIFFERENT FROM COMMENT
+          target_id: chapterInfo._id,
+          reason: reportReason,
+          description: reportDescription.trim() || undefined,
+        },
+        { withCredentials: true }
+      );
 
-  if (!chapterInfo)
-    return <p className="text-center mt-10">Đang tải chương...</p>;
+      toast({
+        title: "Gửi báo cáo thành công ✅",
+        description: "Cảm ơn bạn đã gửi phản hồi.",
+      });
+      setReportDialogOpen(false);
+      setReportDescription("");
+      setReportReason("Spam");
+    } catch (err: any) {
+      toast({
+        title: "Lỗi khi gửi báo cáo",
+        description: err?.response?.data?.message || "Vui lòng thử lại sau.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
+  if (!chapterInfo) return <p className="text-center mt-10">Đang tải chương...</p>;
+  const createdAtText =
+    chapterInfo.createdAt ? new Date(chapterInfo.createdAt).toLocaleString() : undefined;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      {/* Tiêu đề */}
-      <div className="mb-8 border-b border-gray-300 pb-4 text-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-          {chapterInfo.title}
-        </h2>
+      {/* Header */}
+      <div className="mb-6 border-b border-gray-300 pb-4 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white truncate">
+            {chapterInfo.title}
+          </h2>
+          {createdAtText && (
+            <p className="text-xs text-muted-foreground mt-1">{createdAtText}</p>
+          )}
+        </div>
+
+        <Button
+          variant="destructive"
+          size="sm"
+          type="button"
+          className="shrink-0"
+          onClick={openReportDialog}
+          title="Báo cáo chương này"
+        >
+          <Flag className="w-4 h-4 mr-1" />
+          
+        </Button>
       </div>
 
-      {/* Nếu là chương text */}
+      {/* Text chapter */}
       {chapterInfo.type === "text" ? (
         <>
-          {/* TTS (Luôn đọc "finalContent") */}
+          {/* TTS (reads finalContent) */}
           <TTSReader text={plainText} />
 
-          {/* AI translation (Luôn dịch "originalContent") */}
+          {/* Translation controls */}
           <div className="mt-8 p-4 border rounded-lg">
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-3">
               <input
                 type="text"
                 value={targetLang}
@@ -105,29 +235,25 @@ export default function ChapterContent() {
                 placeholder="Target language (e.g., English, vi)"
                 className="flex-1 px-3 py-2 border rounded"
               />
-              <button
-                onClick={handleTranslate}
-                disabled={translating || !targetLang}
-                className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
-              >
+              <Button onClick={handleTranslate} disabled={translating || !targetLang}>
                 {translating ? "Đang dịch..." : "Dịch"}
-              </button>
+              </Button>
             </div>
 
-            {error && <div className="text-red-600 mb-3">{error}</div>}
+            {translateError && <div className="text-red-600 mb-3">{translateError}</div>}
 
-            {/* Chỉ hiển thị nút "Xem lại" nếu nội dung đã bị thay đổi */}
             {isTranslated && (
-              <button
-                onClick={() => setFinalContent(originalContent)} // Reset "final" về "default"
-                className="px-3 py-1 rounded border"
+              <Button
+                variant="outline"
+                onClick={() => setFinalContent(originalContent)}
+                className="mt-1"
               >
                 Xem lại nội dung gốc
-              </button>
+              </Button>
             )}
           </div>
 
-          {/* Nội dung (Luôn hiển thị "finalContent") */}
+          {/* Render finalContent */}
           <article
             className="prose prose-lg leading-relaxed text-justify dark:prose-invert mt-6"
             dangerouslySetInnerHTML={{ __html: finalContent || "" }}
@@ -136,12 +262,9 @@ export default function ChapterContent() {
       ) : chapterInfo.type === "image" ? (
         <div className="flex flex-col items-center gap-4">
           {chapterInfo.images?.map((img, i) => (
-            <figure
-              key={i}
-              className="relative overflow-hidden rounded-xl shadow-md"
-            >
+            <figure key={i} className="relative overflow-hidden rounded-xl shadow-md">
               <img
-                src={`${process.env.NEXT_PUBLIC_API_URL}${img}`}
+                src={`${API_BASE}${img}`}
                 alt={`Trang ${i + 1}`}
                 className="w-full max-w-[900px] rounded-xl object-contain"
                 loading="lazy"
@@ -154,6 +277,52 @@ export default function ChapterContent() {
           Không có nội dung hiển thị.
         </p>
       )}
+
+      {/* Report Dialog (Chapter) */}
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Báo cáo chương</DialogTitle>
+            <DialogDescription>
+              Vui lòng chọn lý do và mô tả chi tiết (nếu có).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Lý do</label>
+              <select
+                className="w-full border rounded-md px-3 py-2 text-sm"
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+              >
+                <option value="Spam">Spam</option>
+                <option value="Inappropriate">Nội dung không phù hợp</option>
+                <option value="Harassment">Quấy rối / xúc phạm</option>
+                <option value="Other">Khác</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Mô tả chi tiết</label>
+              <Textarea
+                placeholder="Mô tả vấn đề bạn gặp phải..."
+                value={reportDescription}
+                onChange={(e) => setReportDescription(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
+              Hủy
+            </Button>
+            <Button onClick={handleSubmitReport} disabled={isSubmittingReport}>
+              {isSubmittingReport ? "Đang gửi..." : "Gửi báo cáo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

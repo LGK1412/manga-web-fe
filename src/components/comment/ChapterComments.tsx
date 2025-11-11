@@ -442,7 +442,7 @@ export default function ChapterComments() {
         {/* Error */}
         {error && <p className="text-red-500 text-sm">{error}</p>}
 
-        Report Dialog
+        {/* Report Dialog */}
         <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
           <DialogContent className="sm:max-w-[480px]">
             <DialogHeader>
