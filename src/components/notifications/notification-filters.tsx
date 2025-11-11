@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search } from "lucide-react"
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search } from "lucide-react";
 
 interface NotificationFiltersProps {
-  onTypeChange: (type: string) => void
-  onRoleChange: (role: string) => void
-  onStatusChange: (status: string) => void
-  onSearchChange: (search: string) => void
+  onTypeChange: (type: string) => void;
+  onRoleChange: (role: string) => void;
+  onStatusChange: (status: string) => void;
+  onSearchChange: (search: string) => void;
 }
 
 export function NotificationFilters({
@@ -23,7 +23,7 @@ export function NotificationFilters({
         <div className="relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Search by username or message..."
+            placeholder="Search by title or message..."
             className="pl-10"
             onChange={(e) => onSearchChange(e.target.value)}
           />
@@ -66,5 +66,5 @@ export function NotificationFilters({
         </Select>
       </div>
     </div>
-  )
+  );
 }

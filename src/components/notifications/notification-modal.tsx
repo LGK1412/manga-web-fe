@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 import { X, RotateCcw } from "lucide-react";
 
-// Khớp với NotificationVM của page.tsx
 export interface NotificationVM {
   _id: string;
   title: string;
@@ -14,17 +13,26 @@ export interface NotificationVM {
   createdAt: string;
   receiver_id: string;
   sender_id: string;
+  is_save?: boolean;
 }
 
 interface NotificationModalProps {
   notification: NotificationVM | null;
   isOpen: boolean;
   onClose: () => void;
-  onMarkAsRead: (id: string, status: "Read" | "Unread") => void;
+  onMarkAsRead: (id: string, status: "Read" | "Unread", receiver_id?: string) => void;
   onResend: (notification: NotificationVM) => void;
+  usersMap?: Record<string, string>; // NEW
 }
 
-export function NotificationModal({ notification, isOpen, onClose, onMarkAsRead, onResend }: NotificationModalProps) {
+export function NotificationModal({
+  notification,
+  isOpen,
+  onClose,
+  onMarkAsRead,
+  onResend,
+  usersMap = {},
+}: NotificationModalProps) {
   if (!notification) return null;
 
   const formatDate = (date: string) =>
@@ -40,6 +48,7 @@ export function NotificationModal({ notification, isOpen, onClose, onMarkAsRead,
     status === "Read" ? "bg-gray-100 text-gray-700" : "bg-blue-100 text-blue-700";
 
   const shortId = (id: string) => (id?.length > 10 ? `${id.slice(0, 6)}…${id.slice(-4)}` : id);
+  const showEmailOrId = (id: string) => usersMap[id] || shortId(id);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -50,7 +59,6 @@ export function NotificationModal({ notification, isOpen, onClose, onMarkAsRead,
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Details */}
           <div className="space-y-4">
             <div>
               <p className="text-sm font-medium text-gray-600">Title</p>
@@ -75,25 +83,30 @@ export function NotificationModal({ notification, isOpen, onClose, onMarkAsRead,
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-600">Receiver ID</p>
+                <p className="text-sm font-medium text-gray-600">Receiver</p>
                 <p className="text-gray-700 mt-1 text-sm" title={notification.receiver_id}>
-                  {shortId(notification.receiver_id)}
+                  {showEmailOrId(notification.receiver_id)}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Sender ID</p>
+                <p className="text-sm font-medium text-gray-600">Sender</p>
                 <p className="text-gray-700 mt-1 text-sm" title={notification.sender_id}>
-                  {shortId(notification.sender_id)}
+                  {showEmailOrId(notification.sender_id)}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 pt-4 border-t border-gray-200">
             <Button
               variant="outline"
-              onClick={() => onMarkAsRead(notification._id, notification.status === "Read" ? "Unread" : "Read")}
+              onClick={() =>
+                onMarkAsRead(
+                  notification._id,
+                  notification.status === "Read" ? "Unread" : "Read",
+                  notification.receiver_id
+                )
+              }
             >
               Mark as {notification.status === "Read" ? "Unread" : "Read"}
             </Button>

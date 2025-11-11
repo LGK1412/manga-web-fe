@@ -1,7 +1,6 @@
-// app/admin/notifications/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import AdminLayout from "../adminLayout/page";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +9,7 @@ import { NotificationFilters } from "@/components/notifications/notification-fil
 import { NotificationModal } from "@/components/notifications/notification-modal";
 import { NotificationCreateForm } from "@/components/notifications/notification-create-form";
 import { Bell, Plus } from "lucide-react";
-import Cookies from "js-cookie";
 
-// ==== BÁM THEO schema từ notifications microservice ====
 export interface BackendNotification {
   _id: string;
   sender_id: string;
@@ -24,7 +21,7 @@ export interface BackendNotification {
   createdAt: string;
 }
 
-interface NotificationVM {
+export interface NotificationVM {
   _id: string;
   title: string;
   body: string;
@@ -32,9 +29,10 @@ interface NotificationVM {
   createdAt: string;
   receiver_id: string;
   sender_id: string;
+  is_save?: boolean;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL;
+const API = process.env.NEXT_PUBLIC_API_URL!;
 
 function mapToVM(n: BackendNotification): NotificationVM {
   return {
@@ -45,6 +43,7 @@ function mapToVM(n: BackendNotification): NotificationVM {
     createdAt: n.createdAt,
     receiver_id: n.receiver_id,
     sender_id: n.sender_id,
+    is_save: n.is_save,
   };
 }
 
@@ -57,78 +56,102 @@ export default function AdminNotificationsPage() {
   const [loading, setLoading] = useState(true);
 
   const [filters, setFilters] = useState({ status: "All", search: "" });
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [stats, setStats] = useState<{ total: number; read: number; unread: number } | null>(null);
 
-  useEffect(() => {
-    const raw = Cookies.get("user_normal_info");
-    if (raw) {
-      try {
-        const parsed = JSON.parse(decodeURIComponent(raw));
-        setCurrentUserId(parsed?.user_id ?? null);
-      } catch {}
+  // NEW: id -> email map for display
+  const [usersMap, setUsersMap] = useState<Record<string, string>>({});
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const resp = await fetch(`${API}/api/user/admin/summary`, { credentials: "include" });
+      if (resp.ok) {
+        // resp chỉ dùng ở dashboard; để tránh thừa call, dùng endpoint riêng stats nếu bạn có
+      }
+      // nếu bạn có endpoint /api/admin/notifications/stats thì dùng nó:
+      const sResp = await fetch(`${API}/api/admin/notifications/stats`, { credentials: "include" });
+      if (sResp.ok) {
+        const s = await sResp.json();
+        setStats(s);
+      }
+    } catch {
+      /* ignore */
     }
   }, []);
 
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      if (!currentUserId) return;
-      try {
-        setLoading(true);
-        const resp = await fetch(
-          `${API}/api/notifications/get-all-for-user?user_id=${currentUserId}`,
-          { credentials: "include" }
-        );
-        const data = await resp.json();
-        const arr: BackendNotification[] = Array.isArray(data) ? data : [];
-        const mapped = arr.map(mapToVM);
-
-        let list = mapped;
-        if (filters.status !== "All") list = list.filter((n) => n.status === filters.status);
-        if (filters.search) {
-          const q = filters.search.toLowerCase();
-          list = list.filter((n) => n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q));
-        }
-
-        setNotifications(mapped);
-        setFilteredNotifications(list);
-      } catch (error) {
-        console.error("❌ Failed to fetch notifications:", error);
-      } finally {
-        setLoading(false);
+  // NEW: fetch all users (admin only) -> build _id => email
+  const fetchUsersMap = useCallback(async () => {
+    try {
+      const resp = await fetch(`${API}/api/user/all`, { credentials: "include" });
+      if (!resp.ok) return;
+      const users = await resp.json(); // [{ _id, email, ... }]
+      const map: Record<string, string> = {};
+      for (const u of users || []) {
+        if (u?._id && u?.email) map[u._id] = u.email;
       }
-    };
+      setUsersMap(map);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
+  const fetchNotifications = useCallback(async () => {
+    try {
+      setLoading(true);
+      const url = new URL(`${API}/api/admin/notifications/sent`);
+      if (filters.status !== "All") url.searchParams.set("status", filters.status as "Read" | "Unread");
+      if (filters.search) url.searchParams.set("q", filters.search);
+
+      const resp = await fetch(url.toString(), { credentials: "include" });
+      const data: BackendNotification[] = await resp.json();
+      const mapped = (data ?? []).map(mapToVM);
+      setNotifications(mapped);
+      setFilteredNotifications(mapped);
+    } catch (error) {
+      console.error("❌ Failed to fetch notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
+
+  useEffect(() => {
+    fetchUsersMap();     // lấy map id→email
+    fetchStats();
+  }, [fetchUsersMap, fetchStats]);
+
+  useEffect(() => {
     fetchNotifications();
-  }, [currentUserId, filters]);
+  }, [fetchNotifications]);
+
+  const refetchAll = async () => {
+    await Promise.all([fetchNotifications(), fetchStats(), fetchUsersMap()]);
+  };
 
   const handleViewDetail = (notification: NotificationVM) => {
     setSelectedNotification(notification);
     setIsModalOpen(true);
   };
 
-  const handleMarkAsRead = async (id: string, status: "Read" | "Unread") => {
-    if (!currentUserId) return;
+  const handleMarkAsRead = async (id: string, status: "Read" | "Unread", receiver_id?: string) => {
     try {
       if (status === "Read") {
-        await fetch(`${API}/api/notifications/mark-as-read`, {
+        await fetch(`${API}/api/admin/notifications/${id}/mark-as-read`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ id, user_id: currentUserId }),
+          body: JSON.stringify({ receiver_id }),
         });
       } else {
-        return; // chưa hỗ trợ mark-as-unread ở BE
+        return; // chưa hỗ trợ mark-as-unread
       }
-
       setNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, status } : n)));
       setFilteredNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, status } : n)));
       if (selectedNotification?._id === id) setSelectedNotification({ ...selectedNotification, status });
+      fetchStats();
     } catch (error) {
       console.error("❌ Failed to update notification:", error);
     }
   };
 
-  // Re-send: dùng receiver_id sẵn có (controller hỗ trợ cả receiver_id & receiver_email)
   const handleResend = async (notification: NotificationVM) => {
     try {
       await fetch(`${API}/api/admin/notifications/send`, {
@@ -141,23 +164,12 @@ export default function AdminNotificationsPage() {
           receiver_id: notification.receiver_id,
         }),
       });
-
-      if (currentUserId) {
-        const resp = await fetch(
-          `${API}/api/notifications/get-all-for-user?user_id=${currentUserId}`,
-          { credentials: "include" }
-        );
-        const data: BackendNotification[] = await resp.json();
-        const mapped = data.map(mapToVM);
-        setNotifications(mapped);
-        setFilteredNotifications(mapped);
-      }
+      await refetchAll();
     } catch (error) {
       console.error("❌ Failed to resend notification:", error);
     }
   };
 
-  // Create mới: gửi theo email
   const handleCreateNotification = async (formData: { receiver_email: string; title: string; body: string }) => {
     try {
       const response = await fetch(`${API}/api/admin/notifications/send`, {
@@ -166,25 +178,46 @@ export default function AdminNotificationsPage() {
         credentials: "include",
         body: JSON.stringify(formData),
       });
-
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err?.message || "Gửi thông báo thất bại");
       }
-
-      if (currentUserId) {
-        const resp = await fetch(
-          `${API}/api/notifications/get-all-for-user?user_id=${currentUserId}`,
-          { credentials: "include" }
-        );
-        const data: BackendNotification[] = await resp.json();
-        const mapped = data.map(mapToVM);
-        setNotifications(mapped);
-        setFilteredNotifications(mapped);
-      }
       setIsFormOpen(false);
+      await refetchAll();
     } catch (error) {
       console.error("❌ Failed to create notification:", error);
+    }
+  };
+
+  const handleDelete = async (id: string, receiver_id: string) => {
+    try {
+      await fetch(`${API}/api/admin/notifications/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ receiver_id }),
+      });
+      setNotifications((prev) => prev.filter((n) => n._id !== id));
+      setFilteredNotifications((prev) => prev.filter((n) => n._id !== id));
+      if (selectedNotification?._id === id) setIsModalOpen(false);
+      fetchStats();
+    } catch (e) {
+      console.error("❌ Delete failed:", e);
+    }
+  };
+
+  const handleToggleSave = async (id: string, receiver_id: string) => {
+    try {
+      await fetch(`${API}/api/admin/notifications/${id}/toggle-save`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ receiver_id }),
+      });
+      setNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, is_save: !n.is_save } : n)));
+      setFilteredNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, is_save: !n.is_save } : n)));
+    } catch (e) {
+      console.error("❌ Toggle save failed:", e);
     }
   };
 
@@ -213,15 +246,15 @@ export default function AdminNotificationsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader><CardTitle>Total Notifications</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold">{notifications.length}</p></CardContent>
+            <CardContent><p className="text-3xl font-bold">{stats?.total ?? notifications.length}</p></CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle>Unread</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold text-blue-600">{unreadCount}</p></CardContent>
+            <CardContent><p className="text-3xl font-bold text-blue-600">{stats?.unread ?? unreadCount}</p></CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle>Read</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold text-gray-600">{notifications.length - unreadCount}</p></CardContent>
+            <CardContent><p className="text-3xl font-bold text-gray-600">{stats?.read ?? (notifications.length - unreadCount)}</p></CardContent>
           </Card>
         </div>
 
@@ -238,22 +271,26 @@ export default function AdminNotificationsPage() {
           <div className="text-center py-12 text-gray-600">Loading notifications...</div>
         ) : (
           <NotificationTable
-            notifications={filteredNotifications as any} // (giữ type cũ của bảng nếu bạn chưa chỉnh)
-            onViewDetail={handleViewDetail as any}
-            onMarkAsRead={handleMarkAsRead as any}
+            notifications={filteredNotifications}
+            onViewDetail={handleViewDetail}
+            onMarkAsRead={handleMarkAsRead}
+            onDelete={handleDelete}
+            onToggleSave={handleToggleSave}
+            usersMap={usersMap}               
           />
         )}
 
         {/* Modal */}
         <NotificationModal
-          notification={selectedNotification as any}
+          notification={selectedNotification}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onMarkAsRead={handleMarkAsRead as any}
-          onResend={handleResend as any}
+          onMarkAsRead={handleMarkAsRead}
+          onResend={handleResend}
+          usersMap={usersMap}                
         />
 
-        {/* Create Form (gửi email) */}
+        {/* Create Form */}
         <NotificationCreateForm
           isOpen={isFormOpen}
           onClose={() => setIsFormOpen(false)}

@@ -1,8 +1,7 @@
-// components/notifications/notification-create-form.tsx
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +26,14 @@ export function NotificationCreateForm({
     title: prefilledData?.title ?? "",
     body: prefilledData?.body ?? "",
   });
+
+  useEffect(() => {
+    setFormData({
+      receiver_email: prefilledData?.receiver_email ?? "",
+      title: prefilledData?.title ?? "",
+      body: prefilledData?.body ?? "",
+    });
+  }, [prefilledData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
