@@ -255,12 +255,13 @@ export default function ChapterContent() {
 
           {/* Render finalContent */}
           <article
+            id="chapter-content"
             className="prose prose-lg leading-relaxed text-justify dark:prose-invert mt-6"
             dangerouslySetInnerHTML={{ __html: finalContent || "" }}
           />
         </>
       ) : chapterInfo.type === "image" ? (
-        <div className="flex flex-col items-center gap-4">
+        <div id="chapter-content" className="flex flex-col items-center gap-4">
           {chapterInfo.images?.map((img, i) => (
             <figure key={i} className="relative overflow-hidden rounded-xl shadow-md">
               <img

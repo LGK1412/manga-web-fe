@@ -9,6 +9,7 @@ import { Star, Eye, BookOpen } from "lucide-react";
 import { MangaCard } from "@/components/MangaCard";
 import { Footer } from "@/components/footer";
 import { useTheme } from "next-themes";
+import StoryRecomment from "@/components/StoryRecomment";
 
 
 // ================= Types
@@ -248,7 +249,7 @@ function NumberPager({
         ‹
       </button>
 
-                {windowed.map((it, idx) =>
+      {windowed.map((it, idx) =>
         it === "..." ? (
           <span key={`ellipsis-${idx}`} className="px-1 text-gray-500 dark:text-muted-foreground">
             …
@@ -425,7 +426,7 @@ export default function HomePage() {
             ))}
           </div>
         )}
-
+        <StoryRecomment />
         {/* ===== Featured strip */}
         {!loading && featured.length > 0 && (
           <section>
@@ -564,7 +565,7 @@ export default function HomePage() {
               ))}
             </div>
 
-              <div className="mt-6">
+            <div className="mt-6">
               <h3 className="mb-2 text-sm font-semibold text-foreground">Rating cao</h3>
               <div className="space-y-2">
                 {topFollows.map((m) => (
