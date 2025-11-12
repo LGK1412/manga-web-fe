@@ -32,8 +32,6 @@ import {
   Trophy,
   Shuffle,
   Loader2,
-  Package,
-  Smile,
 } from "lucide-react";
 import Cookies from "js-cookie";
 import { removeCookie } from "@/lib/cookie-func";
@@ -65,7 +63,7 @@ export function Navbar() {
     try {
       sessionStorage.setItem("stories:q", query);
       sessionStorage.setItem("stories:q:ts", String(Date.now()));
-    } catch { }
+    } catch {}
     if (pathname === "/stories") {
       window.dispatchEvent(new Event("stories:syncQ"));
     } else {
@@ -193,15 +191,13 @@ export function Navbar() {
 
           {/* Desktop: right actions */}
           <div className="hidden md:flex items-center gap-4">
-            {user && (
-              <Link
-                href="/achievement"
-                className="py-2 text-sm hover:underline flex items-center gap-2"
-              >
-                <Trophy className="h-4 w-4" />
-                Thành tựu
-              </Link>
-            )}
+            <Link
+              href="/achievement"
+              className="py-2 text-sm hover:underline flex items-center gap-2"
+            >
+              <Trophy className="h-4 w-4" />
+              Thành tựu
+            </Link>
             {user && <PointBadge />}
             <Button
               variant="ghost"
@@ -274,33 +270,6 @@ export function Navbar() {
                         Hồ sơ cá nhân
                       </Link>
                     </DropdownMenuItem>
-                    {user?.role?.trim() !== "admin"  && user &&  (
-                      <DropdownMenuItem asChild>
-                        <Link
-                          href={
-                            user?.user_id ? `/inventory/${user.user_id}` : "/login"
-                          }
-                          className="flex items-center"
-                        >
-                          <Package className="mr-2 h-4 w-4" />
-                          Kho đồ
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    {user?.role?.trim() !== "admin" && user && (
-                      <DropdownMenuItem asChild>
-                        <Link
-                          href={
-                            user?.user_id ? `/emoji-pack-shop` : "/login"
-                          }
-                          className="flex items-center"
-                        >
-                          <Smile className="mr-2 h-4 w-4" />
-                          Emoji Pack
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={logout}
@@ -394,16 +363,14 @@ export function Navbar() {
                       Game
                     </Link>
 
-                    {user && (
-                      <Link
-                        href="/achievement"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="py-2 text-sm hover:underline flex items-center gap-2"
-                      >
-                        <Trophy className="h-4 w-4" />
-                        Thành tựu
-                      </Link>
-                    )}
+                    <Link
+                      href="/achievement"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="py-2 text-sm hover:underline flex items-center gap-2"
+                    >
+                      <Trophy className="h-4 w-4" />
+                      Thành tựu
+                    </Link>
                   </div>
 
                   <Separator />
@@ -482,15 +449,6 @@ export function Navbar() {
                         className="block py-2 text-sm"
                       >
                         Hồ sơ cá nhân
-                      </Link>
-                      <Link
-                        href={
-                          user?.user_id ? `/inventory/${user.user_id}` : "/login"
-                        }
-                        onClick={() => setIsMenuOpen(false)}
-                        className="block py-2 text-sm"
-                      >
-                        Kho đồ
                       </Link>
                       <button
                         onClick={() => {

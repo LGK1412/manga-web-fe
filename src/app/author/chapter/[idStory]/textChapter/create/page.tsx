@@ -541,7 +541,7 @@ export default function CreateChapterPage({
                     </div>
                   </div>
                 </div>
-                <div className="p-5">
+                <div className="p-5 text-black">
                   <NativeRichEditor
                     value={content} 
                     onChange={(html) => {

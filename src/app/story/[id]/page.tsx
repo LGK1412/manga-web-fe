@@ -71,6 +71,7 @@ interface UserLite {
   avatar?: string;
 }
 
+
 interface RatingItem {
   _id: string;
   rating: number; // 0.5 - 5
@@ -94,6 +95,7 @@ export default function MangaDetailPage() {
   const [manga, setManga] = useState<MangaDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
 
   // const { theme } = useTheme(); // không dùng -> giữ comment nếu sau này dùng
   const [mounted, setMounted] = useState(false);
@@ -120,24 +122,30 @@ export default function MangaDetailPage() {
     Record<string, { count: number; liked: boolean }>
   >({});
   const [lastRead, setLastRead] = useState<LastReadPayload | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  
 
   const [donationOpen, setDonationOpen] = useState(false);
 
   // Lấy userId từ cookie "user_normal_info"
-  useEffect(() => {
+  const getUserIdFromCookie = () => {
     const cookie = document.cookie
       .split("; ")
       .find((r) => r.startsWith("user_normal_info="));
-    if (cookie) {
-      try {
-        const data = JSON.parse(decodeURIComponent(cookie.split("=")[1]));
-        setUserId(data.user_id);
-      } catch (err) {
-        console.error("Cookie parse error:", err);
-      }
+    if (!cookie) return null;
+  
+    try {
+      const data = JSON.parse(decodeURIComponent(cookie.split("=")[1]));
+      return data.user_id;
+    } catch (err) {
+      console.error("Cookie parse error:", err);
+      return null;
     }
-  }, []);
+  };
+  
+  const [userId, setUserId] = useState(getUserIdFromCookie());
+
+  
+  
 
   // Lịch sử đọc
   useEffect(() => {
@@ -499,16 +507,29 @@ export default function MangaDetailPage() {
                           alt={manga.author.username}
                         />
                         <AvatarFallback>
-                          {manga.author.username.charAt(0)}
+                          {manga.author.username.charAt(0)} 
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <Link
-                          href={`/profile/user?id=${manga.author._id}`}
-                          className="font-medium hover:underline"
-                        >
-                          {manga.author.username}
-                        </Link>
+                          {
+                            userId === manga.author._id ? (
+                              <Link
+                              href={`/profile/${manga.author._id}`}
+                              className="font-medium hover:underline"
+                            >
+                              {manga.author.username}
+                            </Link>
+                            ) : (
+                              <Link
+                              href={`/profile/user?id=${manga.author._id}`}
+                              className="font-medium hover:underline"
+                            >
+                              {manga.author.username}
+                            </Link>
+                            )
+                          }
+                         
+                
                       </div>
 
                       {/* Follow + Donate (ẩn khi là chính tác giả) */}
@@ -811,12 +832,24 @@ export default function MangaDetailPage() {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <Link
+                          {
+                            userId === r.user?._id ? (
+                              <Link
+                              href={`/profile/${r.user?._id}`}
+                              className="text-sm font-medium hover:underline"
+                            >
+                              {r.user?.username || "Người dùng"}
+                            </Link>
+                            ) : (
+                              <Link
                             href={`/profile/user?id=${r.user?._id}`}
                             className="text-sm font-medium hover:underline"
                           >
                             {r.user?.username || "Người dùng"}
                           </Link>
+                            )
+                          } 
+                          
                           <span className="text-xs text-muted-foreground">
                             {r.createdAt
                               ? new Date(r.createdAt).toLocaleDateString()

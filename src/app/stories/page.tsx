@@ -444,7 +444,7 @@ export default function StoriesPage() {
 
   // ===== UI
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <Navbar />
       <br />
       <br />
@@ -452,15 +452,15 @@ export default function StoriesPage() {
       <div className="mx-auto max-w-6xl p-4">
         {/* Header + sort */}
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-xl font-semibold">
+          <h1 className="text-xl font-semibold text-foreground">
             {q ? (
               <>
-                Kết quả cho <span className="italic">“{q}”</span>
+                Kết quả cho <span className="italic">"{q}"</span>
               </>
             ) : (
               "Tất cả truyện"
             )}
-            <span className="ml-2 text-sm text-gray-500">
+            <span className="ml-2 text-sm text-muted-foreground">
               ({filteredSorted.length.toLocaleString("vi-VN")} mục)
             </span>
           </h1>
@@ -475,8 +475,8 @@ export default function StoriesPage() {
                   onClick={() => setSortKey(s.key)}
                   className={`rounded-full px-3 py-1 text-sm border transition ${
                     active
-                      ? "bg-black text-white border-black"
-                      : "bg-white hover:bg-gray-100 border-gray-300"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background hover:bg-muted border-border text-foreground"
                   }`}
                 >
                   {s.label}
@@ -487,16 +487,16 @@ export default function StoriesPage() {
         </div>
 
         {/* Filters (chỉ Category/Style với số lượng) */}
-        <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <div className="mb-4 rounded-lg border border-border bg-muted p-3">
           <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm font-medium text-gray-800">
+            <div className="text-sm font-medium text-foreground">
               Lọc theo{activeFiltersCount ? ` (${activeFiltersCount})` : ""}
             </div>
             <div className="flex items-center gap-2">
               <button
                 disabled={loadingFilters}
                 onClick={clearFilters}
-                className="rounded border border-gray-300 px-3 py-1 text-xs hover:bg-white disabled:opacity-50"
+                className="rounded border border-border px-3 py-1 text-xs hover:bg-background disabled:opacity-50 text-foreground"
               >
                 Xoá tất cả
               </button>
@@ -505,12 +505,12 @@ export default function StoriesPage() {
 
           {/* Genre chips */}
           <div className="mb-2">
-            <div className="mb-1 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+            <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Category
             </div>
             <div className="flex flex-wrap gap-2">
               {loadingFilters && (
-                <div className="text-xs text-gray-500">Đang tải category…</div>
+                <div className="text-xs text-muted-foreground">Đang tải category…</div>
               )}
               {!loadingFilters &&
                 (availableGenres.length ? (
@@ -527,12 +527,12 @@ export default function StoriesPage() {
                         className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition
                           ${
                             active
-                              ? "border-black bg-black text-white"
-                              : "border-gray-300 bg-white text-gray-800 hover:bg-gray-100"
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-background text-foreground hover:bg-muted"
                           }
                           ${
                             disabled
-                              ? "opacity-50 cursor-not-allowed hover:bg-white"
+                              ? "opacity-50 cursor-not-allowed hover:bg-background"
                               : ""
                           }`}
                         title={g.description || g.name}
@@ -540,7 +540,7 @@ export default function StoriesPage() {
                         <span>{g.name}</span>
                         <span
                           className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
-                            active ? "bg-white/20" : "bg-gray-100 text-gray-700"
+                            active ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground"
                           }`}
                         >
                           {count}
@@ -549,7 +549,7 @@ export default function StoriesPage() {
                     );
                   })
                 ) : (
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-muted-foreground">
                     Không có category khả dụng
                   </div>
                 ))}
@@ -558,12 +558,12 @@ export default function StoriesPage() {
 
           {/* Style chips */}
           <div>
-            <div className="mb-1 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+            <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Style
             </div>
             <div className="flex flex-wrap gap-2">
               {loadingFilters && (
-                <div className="text-xs text-gray-500">Đang tải style…</div>
+                <div className="text-xs text-muted-foreground">Đang tải style…</div>
               )}
               {!loadingFilters &&
                 (availableStyles.length ? (
@@ -580,12 +580,12 @@ export default function StoriesPage() {
                         className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition
                           ${
                             active
-                              ? "border-black bg-black text-white"
-                              : "border-gray-300 bg-white text-gray-800 hover:bg-gray-100"
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-background text-foreground hover:bg-muted"
                           }
                           ${
                             disabled
-                              ? "opacity-50 cursor-not-allowed hover:bg-white"
+                              ? "opacity-50 cursor-not-allowed hover:bg-background"
                               : ""
                           }`}
                         title={s.description || s.name}
@@ -593,7 +593,7 @@ export default function StoriesPage() {
                         <span>{s.name}</span>
                         <span
                           className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
-                            active ? "bg-white/20" : "bg-gray-100 text-gray-700"
+                            active ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground"
                           }`}
                         >
                           {count}
@@ -602,7 +602,7 @@ export default function StoriesPage() {
                     );
                   })
                 ) : (
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-muted-foreground">
                     Không có style khả dụng
                   </div>
                 ))}
@@ -611,9 +611,9 @@ export default function StoriesPage() {
         </div>
 
         {/* States */}
-        {err && <p className="mb-3 text-red-600">Lỗi: {err}</p>}
+        {err && <p className="mb-3 text-destructive">Lỗi: {err}</p>}
         {!err && !loading && filteredSorted.length === 0 && (
-          <p className="mb-3 text-gray-600">
+          <p className="mb-3 text-muted-foreground">
             Không có kết quả phù hợp (thử thay đổi bộ lọc).
           </p>
         )}
@@ -625,11 +625,11 @@ export default function StoriesPage() {
             Array.from({ length: 12 }).map((_, i) => (
               <li key={`sk-${i}`} className="animate-pulse">
                 <div
-                  className="relative w-full overflow-hidden rounded-xl bg-slate-200 ring-1 ring-inset ring-black/5"
+                  className="relative w-full overflow-hidden rounded-xl bg-muted ring-1 ring-inset ring-border"
                   style={{ paddingBottom: "150%" }}
                 />
-                <div className="mt-2 h-4 w-5/6 rounded bg-slate-200" />
-                <div className="mt-1 h-3 w-1/3 rounded bg-slate-200" />
+                <div className="mt-2 h-4 w-5/6 rounded bg-muted" />
+                <div className="mt-1 h-3 w-1/3 rounded bg-muted" />
               </li>
             ))}
 
@@ -646,14 +646,14 @@ export default function StoriesPage() {
           <div className="mt-4 flex justify-center">
             <button
               onClick={() => setPage((p) => p + 1)}
-              className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+              className="rounded border border-border px-4 py-2 text-sm hover:bg-muted text-foreground"
             >
               Tải thêm
             </button>
           </div>
         )}
         {loading && allItems.length > 0 && (
-          <div className="mt-4 flex justify-center text-sm text-gray-600">
+          <div className="mt-4 flex justify-center text-sm text-muted-foreground">
             Đang tải thêm…
           </div>
         )}

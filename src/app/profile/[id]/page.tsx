@@ -7,8 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Heart, History, UserIcon, PenTool } from "lucide-react";
 import Link from "next/link";
 import Cookies from "js-cookie";
@@ -19,6 +24,9 @@ import PurchaseHistory from "@/components/PurchaseHistory";
 import ReadingHistory from "@/components/ReadingHistory";
 import DonationSentList from "@/components/DonationSendList";
 import DonationReceivedList from "@/components/DonationReceivedList";
+import { useAuthorRequest } from "@/hooks/useAuthorRequest";
+import { AuthorEligibilityChecklist } from "@/components/AuthorEligibilityChecklist";
+import { AuthorRequestBanner } from "@/components/AuthorRequestBanner";
 
 export default function ProfileByIdPage({
   params,
@@ -35,6 +43,7 @@ export default function ProfileByIdPage({
   const [favouritesLoaded, setFavouritesLoaded] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [isAuthorModalOpen, setAuthorModalOpen] = useState(false);
 
   const user = useMemo(() => {
     const raw = Cookies.get("user_normal_info");
@@ -56,6 +65,14 @@ export default function ProfileByIdPage({
       return null;
     }
   }, []);
+
+  const {
+    data: authorRequest,
+    loading: authorLoading,
+    error: authorError,
+    submitting: authorSubmitting,
+    requestAuthor,
+  } = useAuthorRequest(Boolean(user));
 
   // Load user info & favourites
   useEffect(() => {
@@ -149,34 +166,45 @@ export default function ProfileByIdPage({
     })();
   }, [user, router, toast, favouritesLoaded]);
 
-  const handleRoleToggle = async (checked: boolean) => {
-    setIsAuthorRole(checked);
-    try {
-      const newRole = checked ? "author" : "user";
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/user/update-role`,
-        { role: newRole },
-        { withCredentials: true }
-      );
-
+  useEffect(() => {
+    if (authorRequest?.status === "approved" && !isAuthorRole) {
+      setIsAuthorRole(true);
       const raw = Cookies.get("user_normal_info");
-      const parsed = raw ? JSON.parse(decodeURIComponent(raw)) : null;
-      if (parsed) {
-        parsed.role = newRole;
-        Cookies.set("user_normal_info", JSON.stringify(parsed), {
-          expires: 360,
-          path: "/",
+      try {
+        if (raw) {
+          const parsed = JSON.parse(decodeURIComponent(raw));
+          parsed.role = "author";
+          Cookies.set("user_normal_info", JSON.stringify(parsed), {
+            expires: 360,
+            path: "/",
+          });
+        }
+      } catch {
+        // ignore cookie parse errors
+      }
+    }
+  }, [authorRequest, isAuthorRole]);
+
+  const handleRequestAuthor = async () => {
+    try {
+      const result = await requestAuthor();
+      if (result?.success) {
+        toast({
+          title: result.autoApproved
+            ? "Chúc mừng! Bạn đã trở thành tác giả"
+            : "Đã gửi yêu cầu",
+          description: result.message,
         });
       }
-
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.message
+        : "Không thể gửi yêu cầu";
       toast({
-        title: "Cập nhật vai trò thành công",
-        variant: "success",
-        description: "Đã đổi vai trò!",
+        title: "Lỗi",
+        description: message ?? "Không thể gửi yêu cầu",
+        variant: "destructive",
       });
-    } catch (e) {
-      setIsAuthorRole(!checked);
-      toast({ title: "Cập nhật vai trò thất bại", variant: "destructive" });
     }
   };
 
@@ -247,21 +275,27 @@ export default function ProfileByIdPage({
 
               <Separator className="w-full mb-4" />
 
-              <div className="flex items-center justify-between w-full">
-                <Label htmlFor="author-mode" className="text-base font-medium">
-                  Chuyển sang chế độ Tác giả
-                </Label>
-                <Switch
-                  id="author-mode"
-                  checked={isAuthorRole}
-                  onCheckedChange={handleRoleToggle}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-2 text-left w-full">
-                {isAuthorRole
-                  ? "Bạn đang ở chế độ tác giả. Bạn có thể viết và đăng truyện."
-                  : "Bạn đang ở chế độ độc giả. Chuyển sang chế độ tác giả để viết truyện."}
-              </p>
+              {isAuthorRole ? (
+                <Button variant="secondary" className="w-full mb-4" asChild>
+                  <Link href="/author/dashboard">Tới trang tác giả</Link>
+                </Button>
+              ) : (
+                <div className="w-full space-y-2 mb-4">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setAuthorModalOpen(true)}
+                  >
+                    Trở thành tác giả
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-left">
+                    {authorRequest?.status === "pending"
+                      ? "Yêu cầu của bạn đang được xét duyệt. Khi đủ điều kiện, hệ thống sẽ tự động phê duyệt."
+                      : "Hệ thống sẽ kiểm tra số chương, người theo dõi và hoạt động gần đây để phê duyệt yêu cầu của bạn."}
+                  </p>
+                </div>
+              )}
+
               <Link
                 href="/change-password"
                 className="text-sm font-medium underline text-left w-full decoration-red-400 decoration-2 underline-offset-2 text-red-600 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200 transition-colors"
@@ -413,6 +447,55 @@ export default function ProfileByIdPage({
           </div>
         </div>
       </div>
+
+      <Dialog open={isAuthorModalOpen} onOpenChange={setAuthorModalOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Đăng ký trở thành tác giả</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {authorError && (
+              <p className="text-sm text-destructive">{authorError}</p>
+            )}
+            {authorLoading && (
+              <p className="text-sm text-muted-foreground">
+                Đang tải dữ liệu đánh giá...
+              </p>
+            )}
+            {!authorLoading && authorRequest && (
+              <div className="space-y-4">
+                <AuthorRequestBanner
+                  status={authorRequest.status}
+                  message={authorRequest.message}
+                  requestedAt={authorRequest.requestedAt}
+                  approvedAt={authorRequest.approvedAt}
+                  autoApproved={authorRequest.autoApproved}
+                />
+                <AuthorEligibilityChecklist criteria={authorRequest.criteria} />
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setAuthorModalOpen(false)}>
+              Đóng
+            </Button>
+            {!isAuthorRole && (
+              <Button
+                onClick={handleRequestAuthor}
+                disabled={
+                  authorSubmitting ||
+                  authorLoading ||
+                  authorRequest?.status === "pending" ||
+                  authorRequest?.status === "approved" ||
+                  authorRequest?.canRequest === false
+                }
+              >
+                {authorSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
