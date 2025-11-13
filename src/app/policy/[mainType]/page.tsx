@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { Mail, ArrowLeft } from "lucide-react";
@@ -24,26 +24,55 @@ interface Heading {
   type: "subCategory" | "title";
 }
 
-export default function PolicyPage({ params }: { params: { mainType: string } }) {
-  const mainType = params.mainType.toUpperCase(); // TERM | PRIVACY
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "http://localhost:3333";
+
+export default function PolicyPage({
+  params,
+}: {
+  params: Promise<{ mainType: string }>;
+}) {
+  // ✅ Unwrap params Promise (Next.js 15+)
+  const { mainType } = use(params);
+  const mainTypeUpper = (mainType ?? "").toUpperCase(); // TERM | PRIVACY
+
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [headings, setHeadings] = useState<Heading[]>([]);
   const [active, setActive] = useState<string>("");
 
+  const formatSubCategory = (slug: string) => {
+    switch (slug) {
+      case "account":
+        return "Tài khoản và đăng nhập";
+      case "comment":
+        return "Bình luận và tương tác";
+      case "posting":
+        return "Đăng truyện và tác quyền";
+      case "general":
+        return "Điều khoản chung";
+      default:
+        return slug;
+    }
+  };
+
   useEffect(() => {
+    if (!mainTypeUpper) return;
+
     const fetchPolicies = async () => {
       try {
-        const res = await axios.get(`http://localhost:3333/api/policies?mainType=${mainType}`);
+        const res = await axios.get(`${API_BASE}/api/policies`, {
+          params: { mainType: mainTypeUpper },
+        });
         const data: Policy[] = res.data || [];
 
-        // ✅ Nhóm theo subCategory (để làm mục 1, 2, 3 lớn)
+        // ✅ Nhóm theo subCategory
         const grouped: Record<string, Policy[]> = {};
         data.forEach((item) => {
           if (!grouped[item.subCategory]) grouped[item.subCategory] = [];
           grouped[item.subCategory].push(item);
         });
 
-        // ✅ Tạo danh sách mục lục
+        // ✅ Tạo TOC
         const toc: Heading[] = [];
         Object.keys(grouped).forEach((sub, i) => {
           toc.push({
@@ -69,23 +98,18 @@ export default function PolicyPage({ params }: { params: { mainType: string } })
     };
 
     fetchPolicies();
-  }, [mainType]);
+  }, [mainTypeUpper]);
 
-  const formatSubCategory = (slug: string) => {
-    switch (slug) {
-      case "account":
-        return "Tài khoản và đăng nhập";
-      case "comment":
-        return "Bình luận và tương tác";
-      case "posting":
-        return "Đăng truyện và tác quyền";
-      case "general":
-        return "Điều khoản chung";
-      default:
-        return slug;
-    }
-  };
+  // ✅ Đặt useMemo TRƯỚC mọi early return để giữ thứ tự hook ổn định
+  const groupedPolicies = useMemo(() => {
+    return policies.reduce((acc, p) => {
+      if (!acc[p.subCategory]) acc[p.subCategory] = [];
+      acc[p.subCategory].push(p);
+      return acc;
+    }, {} as Record<string, Policy[]>);
+  }, [policies]);
 
+  // (Có thể vẫn return sớm, nhưng hook đã được gọi ổn định trước đó)
   if (!policies.length)
     return (
       <div className="min-h-screen flex items-center justify-center text-gray-500">
@@ -94,7 +118,7 @@ export default function PolicyPage({ params }: { params: { mainType: string } })
     );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen bg-linear-to-b from-gray-50 to-white">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
@@ -114,7 +138,7 @@ export default function PolicyPage({ params }: { params: { mainType: string } })
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* === Sidebar: Table of Contents === */}
+          {/* Sidebar TOC */}
           <aside className="lg:col-span-1">
             <div className="sticky top-24 space-y-4">
               <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -132,9 +156,7 @@ export default function PolicyPage({ params }: { params: { mainType: string } })
                           ? "bg-blue-50 text-blue-600 font-medium"
                           : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                       }`}
-                      style={{
-                        paddingLeft: h.type === "title" ? "28px" : "12px",
-                      }}
+                      style={{ paddingLeft: h.type === "title" ? "28px" : "12px" }}
                     >
                       {h.text}
                     </button>
@@ -142,7 +164,7 @@ export default function PolicyPage({ params }: { params: { mainType: string } })
                 </nav>
               </div>
 
-              {/* === Support Card === */}
+              {/* Support Card */}
               <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
                 <h4 className="font-semibold text-gray-900 mb-2 text-sm">Cần giúp đỡ?</h4>
                 <p className="text-sm text-gray-600 mb-3">
@@ -159,21 +181,14 @@ export default function PolicyPage({ params }: { params: { mainType: string } })
             </div>
           </aside>
 
-          {/* === Main Content === */}
+          {/* Main */}
           <main className="lg:col-span-3">
             <article className="bg-white rounded-lg border border-gray-200 p-8 sm:p-12">
               <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-8">
-                {mainType === "TERM" ? "Điều khoản sử dụng" : "Chính sách bảo mật"}
+                {mainTypeUpper === "TERM" ? "Điều khoản sử dụng" : "Chính sách bảo mật"}
               </h1>
 
-              {/* Render grouped content */}
-              {Object.entries(
-                policies.reduce((acc, p) => {
-                  if (!acc[p.subCategory]) acc[p.subCategory] = [];
-                  acc[p.subCategory].push(p);
-                  return acc;
-                }, {} as Record<string, Policy[]>)
-              ).map(([sub, items], i) => (
+              {Object.entries(groupedPolicies).map(([sub, items], i) => (
                 <section key={sub} id={`section-${sub}`} className="mb-10">
                   <h2 className="text-2xl font-bold text-blue-700 mb-4">
                     {i + 1}. {formatSubCategory(sub)}
@@ -184,8 +199,8 @@ export default function PolicyPage({ params }: { params: { mainType: string } })
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">
                         {i + 1}.{j + 1} {p.title}
                       </h3>
-                      <p className="text-sm text-gray-500 mb-2">{p.description}</p>
-                      <p className="text-gray-700 leading-relaxed">{p.content}</p>
+                      {p.description && <p className="text-sm text-gray-500 mb-2">{p.description}</p>}
+                      <p className="text-gray-700 leading-relaxed whitespace-pre-line">{p.content}</p>
                     </div>
                   ))}
                 </section>

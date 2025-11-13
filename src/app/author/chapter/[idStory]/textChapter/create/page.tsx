@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import NativeRichEditor from "@/components/NativeRichEditor";
 
-
 // ---- Axios instance (trỏ tới NestJS)
 const api = axios.create({
   baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api`,
@@ -44,6 +43,81 @@ function countWords(text: string) {
   if (!cleaned) return 0;
   return cleaned.split(" ").length;
 }
+
+// ========== Moderation helpers (local, không tạo file mới) ==========
+type ModerationStatus = "AI_PENDING" | "AI_PASSED" | "AI_WARN" | "AI_BLOCK";
+
+function stripHtml(html: string) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+async function sha256(text: string) {
+  const enc = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", enc);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// Stub AI — bạn thay bằng call thật tới provider của bạn
+async function fakeAiModerate(inputHtml: string): Promise<{
+  status: ModerationStatus;
+  risk: number;
+  labels: string[];
+  findings: Array<{ section: string; score: number; note?: string }>;
+}> {
+  const plain = stripHtml(inputHtml);
+  const wc = plain.split(" ").filter(Boolean).length;
+  // ví dụ nhỏ: quá ngắn => WARN, có chữ "cấm" => BLOCK, còn lại PASSED
+  if (/cấm|bạo lực|18\+/.test(plain.toLowerCase())) {
+    return {
+      status: "AI_BLOCK",
+      risk: 92,
+      labels: ["policy_violation"],
+      findings: [{ section: "content", score: 0.92, note: "Từ khóa nhạy cảm" }],
+    };
+  }
+  if (wc < 30) {
+    return {
+      status: "AI_WARN",
+      risk: 35,
+      labels: ["low_quality"],
+      findings: [{ section: "length", score: 0.35, note: "Nội dung quá ngắn" }],
+    };
+  }
+  return {
+    status: "AI_PASSED",
+    risk: 5,
+    labels: [],
+    findings: [],
+  };
+}
+
+async function submitForAi(chapterId: string, policyVersion: string, contentHash: string) {
+  return api.post("/moderation/submit", {
+    chapterId,
+    policyVersion,
+    contentHash,
+  });
+}
+async function pushAiResult(params: {
+  chapterId: string;
+  status: ModerationStatus;
+  risk_score: number;
+  labels: string[];
+  ai_model?: string;
+  policy_version: string;
+  content_hash: string;
+  ai_findings?: Array<{ section: string; score: number; note?: string }>;
+  force_unpublish_if_block?: boolean;
+}) {
+  return api.post("/moderation/ai-result", params);
+}
+// ================================================================
 
 // ---- Page
 export default function CreateChapterPage({
@@ -225,6 +299,12 @@ export default function CreateChapterPage({
       console.error("Lỗi xoá chương", err);
       alert("Lỗi xoá chương");
     }
+  }
+
+  // === Nút Kiểm tra Policy (AI) — yêu cầu chapterId có sẵn ===
+  async function handleAiCheckForCreate() {
+    // Tại trang tạo chương: chưa có chapterId → yêu cầu lưu/tạo trước
+    alert("Vui lòng Lưu bản nháp hoặc Tạo chương trước, rồi vào trang Sửa để chạy kiểm tra Policy (AI).");
   }
 
   return (
@@ -539,11 +619,19 @@ export default function CreateChapterPage({
                     <div className="text-[11px] text-slate-500">
                       {liveWordCount} từ
                     </div>
+                    {/* Nút AI check (Create) */}
+                    <button
+                      onClick={handleAiCheckForCreate}
+                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs hover:bg-slate-50"
+                      title="Chạy kiểm tra Policy (AI)"
+                    >
+                      Kiểm tra Policy (AI)
+                    </button>
                   </div>
                 </div>
                 <div className="p-5 text-black">
                   <NativeRichEditor
-                    value={content} 
+                    value={content}
                     onChange={(html) => {
                       setContent(html);
                       setDirty(true);
