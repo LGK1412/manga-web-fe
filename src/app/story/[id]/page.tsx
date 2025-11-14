@@ -71,7 +71,6 @@ interface UserLite {
   avatar?: string;
 }
 
-
 interface RatingItem {
   _id: string;
   rating: number; // 0.5 - 5
@@ -95,7 +94,6 @@ export default function MangaDetailPage() {
   const [manga, setManga] = useState<MangaDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
 
   // const { theme } = useTheme(); // không dùng -> giữ comment nếu sau này dùng
   const [mounted, setMounted] = useState(false);
@@ -122,32 +120,28 @@ export default function MangaDetailPage() {
     Record<string, { count: number; liked: boolean }>
   >({});
   const [lastRead, setLastRead] = useState<LastReadPayload | null>(null);
-  
 
   const [donationOpen, setDonationOpen] = useState(false);
+  const [userId, setUserId] = useState(null);
 
-  // Lấy userId từ cookie "user_normal_info"
-  const getUserIdFromCookie = () => {
-    const cookie = document.cookie
-      .split("; ")
-      .find((r) => r.startsWith("user_normal_info="));
-    if (!cookie) return null;
-  
-    try {
-      const data = JSON.parse(decodeURIComponent(cookie.split("=")[1]));
-      return data.user_id;
-    } catch (err) {
-      console.error("Cookie parse error:", err);
-      return null;
-    }
-  };
-  
-  const [userId, setUserId] = useState(getUserIdFromCookie());
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
+          { withCredentials: true }
+        );
+        setUserId(res.data.user_id);
+      } catch (err) {
+        console.error("Chưa đăng nhập hoặc token hết hạn", err);
+        setUserId(null);
+      }
+    };
 
-  
-  
+    fetchCurrentUser();
+  }, []);
 
-  // Lịch sử đọc
+  // Lịch sử đọc - Thêm dependency userId để re-fetch khi userId thay đổi
   useEffect(() => {
     if (!mangaId || !userId) return;
     axios
@@ -162,7 +156,7 @@ export default function MangaDetailPage() {
         }
       })
       .catch(() => setLastRead(null));
-  }, [mangaId, userId]);
+  }, [mangaId, userId]); // Thay [mangaId, userId] thay vì [mangaId, userId] cũ (đã có)
 
   // Fetch chi tiết manga + fav + follow
   useEffect(() => {
@@ -485,7 +479,10 @@ export default function MangaDetailPage() {
                           <BookOpen className="w-10 h-10" />
                         </div>
                       )}
-                      <Badge className="absolute top-2 right-2" variant="secondary">
+                      <Badge
+                        className="absolute top-2 right-2"
+                        variant="secondary"
+                      >
                         Manga
                       </Badge>
                     </div>
@@ -507,29 +504,25 @@ export default function MangaDetailPage() {
                           alt={manga.author.username}
                         />
                         <AvatarFallback>
-                          {manga.author.username.charAt(0)} 
+                          {manga.author.username.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                          {
-                            userId === manga.author._id ? (
-                              <Link
-                              href={`/profile/${manga.author._id}`}
-                              className="font-medium hover:underline"
-                            >
-                              {manga.author.username}
-                            </Link>
-                            ) : (
-                              <Link
-                              href={`/profile/user?id=${manga.author._id}`}
-                              className="font-medium hover:underline"
-                            >
-                              {manga.author.username}
-                            </Link>
-                            )
-                          }
-                         
-                
+                        {userId === manga.author._id ? (
+                          <Link
+                            href={`/profile/${manga.author._id}`}
+                            className="font-medium hover:underline"
+                          >
+                            {manga.author.username}
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`/profile/user?id=${manga.author._id}`}
+                            className="font-medium hover:underline"
+                          >
+                            {manga.author.username}
+                          </Link>
+                        )}
                       </div>
 
                       {/* Follow + Donate (ẩn khi là chính tác giả) */}
@@ -545,7 +538,7 @@ export default function MangaDetailPage() {
                           </Button>
 
                           <Button
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
                             onClick={() => setDonationOpen(true)}
                           >
@@ -603,9 +596,12 @@ export default function MangaDetailPage() {
 
                           {lastRead?.last_read_chapter && (
                             <Button size="lg" variant="secondary" asChild>
-                              <Link href={`/chapter/${lastRead.last_read_chapter._id}`}>
+                              <Link
+                                href={`/chapter/${lastRead.last_read_chapter._id}`}
+                              >
                                 <ArrowRight className="w-4 h-4 mr-2" />
-                                Tiếp tục đọc chương {lastRead.last_read_chapter.order}
+                                Tiếp tục đọc chương{" "}
+                                {lastRead.last_read_chapter.order}
                               </Link>
                             </Button>
                           )}
@@ -694,12 +690,19 @@ export default function MangaDetailPage() {
                   />
                 </div>
                 <DialogFooter>
-                  <Button onClick={() => setRatingDialogOpen(false)} variant="outline">
+                  <Button
+                    onClick={() => setRatingDialogOpen(false)}
+                    variant="outline"
+                  >
                     Hủy
                   </Button>
                   <Button
                     onClick={submitRating}
-                    disabled={!ratingInput || !ratingComment.trim() || isSubmittingRating}
+                    disabled={
+                      !ratingInput ||
+                      !ratingComment.trim() ||
+                      isSubmittingRating
+                    }
                   >
                     {isSubmittingRating ? "Đang gửi..." : "Gửi"}
                   </Button>
@@ -719,7 +722,9 @@ export default function MangaDetailPage() {
 
                 <div className="grid gap-4 py-4">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Lý do</label>
+                    <label className="text-sm font-medium mb-2 block">
+                      Lý do
+                    </label>
                     <select
                       className="w-full border rounded-md px-3 py-2 text-sm"
                       value={reportReason}
@@ -727,14 +732,18 @@ export default function MangaDetailPage() {
                     >
                       <option value="Spam">Spam</option>
                       <option value="Copyright">Vi phạm bản quyền</option>
-                      <option value="Inappropriate">Nội dung không phù hợp</option>
+                      <option value="Inappropriate">
+                        Nội dung không phù hợp
+                      </option>
                       <option value="Harassment">Quấy rối / xúc phạm</option>
                       <option value="Other">Khác</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Mô tả chi tiết</label>
+                    <label className="text-sm font-medium mb-2 block">
+                      Mô tả chi tiết
+                    </label>
                     <Textarea
                       placeholder="Mô tả vấn đề bạn gặp phải..."
                       value={reportDescription}
@@ -744,7 +753,10 @@ export default function MangaDetailPage() {
                 </div>
 
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setReportDialogOpen(false)}
+                  >
                     Hủy
                   </Button>
                   <Button
@@ -781,7 +793,8 @@ export default function MangaDetailPage() {
                         toast({
                           title: "Lỗi khi gửi báo cáo",
                           description:
-                            err.response?.data?.message || "Vui lòng thử lại sau.",
+                            err.response?.data?.message ||
+                            "Vui lòng thử lại sau.",
                           variant: "destructive",
                         });
                       } finally {
@@ -832,24 +845,22 @@ export default function MangaDetailPage() {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          {
-                            userId === r.user?._id ? (
-                              <Link
+                          {userId === r.user?._id ? (
+                            <Link
                               href={`/profile/${r.user?._id}`}
                               className="text-sm font-medium hover:underline"
                             >
                               {r.user?.username || "Người dùng"}
                             </Link>
-                            ) : (
-                              <Link
-                            href={`/profile/user?id=${r.user?._id}`}
-                            className="text-sm font-medium hover:underline"
-                          >
-                            {r.user?.username || "Người dùng"}
-                          </Link>
-                            )
-                          } 
-                          
+                          ) : (
+                            <Link
+                              href={`/profile/user?id=${r.user?._id}`}
+                              className="text-sm font-medium hover:underline"
+                            >
+                              {r.user?.username || "Người dùng"}
+                            </Link>
+                          )}
+
                           <span className="text-xs text-muted-foreground">
                             {r.createdAt
                               ? new Date(r.createdAt).toLocaleDateString()
