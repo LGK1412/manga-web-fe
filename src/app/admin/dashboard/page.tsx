@@ -49,7 +49,13 @@ import type { QueueItem } from "@/lib/typesLogs";
 // ===== Types
 type UserSummary = { total: number; deltaPctMoM: number };
 type UsersWeeklyPoint = { week: string; new: number };
-type RecentUserRow = { id: string; name: string; email: string; role: string; joinDate: string };
+type RecentUserRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  joinDate: string;
+};
 
 type MangaSummary = {
   total: number;
@@ -58,9 +64,18 @@ type MangaSummary = {
   byStatus: Record<string, number>;
 };
 type MangaGrowthPoint = { month: string; stories: number };
-type TopStory = { id: string; title: string; views: number; author: string; status: string };
+type TopStory = {
+  id: string;
+  title: string;
+  views: number;
+  author: string;
+  status: string;
+};
 
 type ReportSummary = { open: number; new7d: number };
+
+// 🔔 Notification stats từ BE
+type NotiStats = { total: number; unread: number; read: number };
 
 // 👇 Moderation chart type
 type ModerationWeekPoint = { week: string; chapters: number; avgRisk: number };
@@ -74,7 +89,7 @@ function getWeekLabel(dateStr: string): string {
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // về thứ 2
   const monday = new Date(d.setDate(diff));
 
-  // format YYYY-MM-DD cho dễ nhìn (locale en-CA -> 2025-11-10)
+  // format YYYY-MM-DD
   return monday.toLocaleDateString("en-CA");
 }
 
@@ -87,12 +102,17 @@ export default function AdminDashboard() {
   const [recentUsers, setRecentUsers] = useState<RecentUserRow[]>([]);
 
   // ===== Report state
-  const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
+  const [reportSummary, setReportSummary] = useState<ReportSummary | null>(
+    null
+  );
 
   // ===== MANGA states
   const [mangaSummary, setMangaSummary] = useState<MangaSummary | null>(null);
   const [mangaGrowth, setMangaGrowth] = useState<MangaGrowthPoint[]>([]);
   const [topStories, setTopStories] = useState<TopStory[]>([]);
+
+  // 🔔 Notification stats
+  const [notiStats, setNotiStats] = useState<NotiStats | null>(null);
 
   // ===== Moderation (queue -> weekly chart)
   const [modWeekly, setModWeekly] = useState<ModerationWeekPoint[]>([]);
@@ -105,6 +125,7 @@ export default function AdminDashboard() {
     mangaSummary: true,
     mangaGrowth: true,
     topStories: true,
+    notiStats: true,
     modWeekly: true,
   });
 
@@ -116,6 +137,7 @@ export default function AdminDashboard() {
     mangaSummary?: string;
     mangaGrowth?: string;
     topStories?: string;
+    notiStats?: string;
     modWeekly?: string;
   }>({});
 
@@ -125,12 +147,16 @@ export default function AdminDashboard() {
     // ====== Users
     const fetchSummary = async () => {
       try {
-        const res = await axios.get<UserSummary>(`${API}/api/user/admin/summary`, {
-          withCredentials: true,
-        });
+        const res = await axios.get<UserSummary>(
+          `${API}/api/user/admin/summary`,
+          {
+            withCredentials: true,
+          }
+        );
         if (mounted) setSummary(res.data);
       } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, summary: e?.message || "Error" }));
+        if (mounted)
+          setError((s) => ({ ...s, summary: e?.message || "Error" }));
       } finally {
         if (mounted) setLoading((s) => ({ ...s, summary: false }));
       }
@@ -144,7 +170,8 @@ export default function AdminDashboard() {
         );
         if (mounted) setWeeklyNew(res.data || []);
       } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, weekly: e?.message || "Error" }));
+        if (mounted)
+          setError((s) => ({ ...s, weekly: e?.message || "Error" }));
       } finally {
         if (mounted) setLoading((s) => ({ ...s, weekly: false }));
       }
@@ -158,7 +185,8 @@ export default function AdminDashboard() {
         );
         if (mounted) setRecentUsers(res.data || []);
       } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, recent: e?.message || "Error" }));
+        if (mounted)
+          setError((s) => ({ ...s, recent: e?.message || "Error" }));
       } finally {
         if (mounted) setLoading((s) => ({ ...s, recent: false }));
       }
@@ -173,13 +201,14 @@ export default function AdminDashboard() {
         );
         if (mounted) setReportSummary(res.data);
       } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, report: e?.message || "Error" }));
+        if (mounted)
+          setError((s) => ({ ...s, report: e?.message || "Error" }));
       } finally {
         if (mounted) setLoading((s) => ({ ...s, report: false }));
       }
     };
 
-    // ====== MANGA – 3 API
+    // ====== MANGA
     const fetchMangaSummary = async () => {
       try {
         const res = await axios.get<MangaSummary>(
@@ -189,10 +218,12 @@ export default function AdminDashboard() {
         if (mounted) setMangaSummary(res.data);
       } catch (e: any) {
         if (mounted)
-          setError((s) => ({ ...s, mangaSummary: e?.message || "Error" }));
+          setError((s) => ({
+            ...s,
+            mangaSummary: e?.message || "Error",
+          }));
       } finally {
-        if (mounted)
-          setLoading((s) => ({ ...s, mangaSummary: false }));
+        if (mounted) setLoading((s) => ({ ...s, mangaSummary: false }));
       }
     };
 
@@ -207,8 +238,7 @@ export default function AdminDashboard() {
         if (mounted)
           setError((s) => ({ ...s, mangaGrowth: e?.message || "Error" }));
       } finally {
-        if (mounted)
-          setLoading((s) => ({ ...s, mangaGrowth: false }));
+        if (mounted) setLoading((s) => ({ ...s, mangaGrowth: false }));
       }
     };
 
@@ -223,20 +253,37 @@ export default function AdminDashboard() {
         if (mounted)
           setError((s) => ({ ...s, topStories: e?.message || "Error" }));
       } finally {
+        if (mounted) setLoading((s) => ({ ...s, topStories: false }));
+      }
+    };
+
+    // 🔔 Notifications stats
+    const fetchNotiStats = async () => {
+      try {
+        const res = await axios.get<NotiStats>(
+          `${API}/api/admin/notifications/stats`,
+          { withCredentials: true }
+        );
+        if (mounted) setNotiStats(res.data);
+      } catch (e: any) {
         if (mounted)
-          setLoading((s) => ({ ...s, topStories: false }));
+          setError((s) => ({ ...s, notiStats: e?.message || "Error" }));
+      } finally {
+        if (mounted) setLoading((s) => ({ ...s, notiStats: false }));
       }
     };
 
     // ====== Moderation weekly (từ queue)
     const fetchModWeekly = async () => {
       try {
-        // lấy tối đa 200 record queue mới nhất
         const rows: QueueItem[] = await fetchQueue({ limit: 200 });
 
         if (!mounted) return;
 
-        const buckets: Record<string, { totalRisk: number; count: number }> = {};
+        const buckets: Record<
+          string,
+          { totalRisk: number; count: number }
+        > = {};
 
         rows.forEach((item) => {
           const key = getWeekLabel(item.updatedAt);
@@ -260,8 +307,7 @@ export default function AdminDashboard() {
         if (mounted)
           setError((s) => ({ ...s, modWeekly: e?.message || "Error" }));
       } finally {
-        if (mounted)
-          setLoading((s) => ({ ...s, modWeekly: false }));
+        if (mounted) setLoading((s) => ({ ...s, modWeekly: false }));
       }
     };
 
@@ -273,6 +319,7 @@ export default function AdminDashboard() {
     fetchMangaSummary();
     fetchMangaGrowth();
     fetchTopStories();
+    fetchNotiStats();
     fetchModWeekly();
 
     return () => {
@@ -316,6 +363,17 @@ export default function AdminDashboard() {
   const newReports7d = loading.report
     ? "…"
     : (reportSummary?.new7d ?? 0).toString();
+
+  // 🔔 derive noti numbers
+  const totalNotifications = loading.notiStats
+    ? "…"
+    : (notiStats?.total ?? 0).toString();
+  const unreadNotifications = loading.notiStats
+    ? "…"
+    : (notiStats?.unread ?? 0).toString();
+  const readNotifications = loading.notiStats
+    ? "…"
+    : (notiStats?.read ?? 0).toString();
 
   return (
     <AdminLayout>
@@ -414,7 +472,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Notifications (giữ cứng) */}
+          {/* 🔔 Notifications (link BE) */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -423,10 +481,30 @@ export default function AdminDashboard() {
               <Bell className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">5</div>
+              <div className="text-2xl font-bold">
+                {totalNotifications}
+              </div>
               <p className="text-xs text-muted-foreground">
-                Đang được gửi đến users
+                {loading.notiStats ? (
+                  "Đang tải thống kê..."
+                ) : (
+                  <>
+                    <span className="font-semibold text-blue-600">
+                      {unreadNotifications}
+                    </span>{" "}
+                    chưa đọc ·{" "}
+                    <span className="font-semibold text-gray-600">
+                      {readNotifications}
+                    </span>{" "}
+                    đã đọc
+                  </>
+                )}
               </p>
+              {!loading.notiStats && error.notiStats && (
+                <p className="text-xs text-red-600 mt-1">
+                  Lỗi: {error.notiStats}
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
