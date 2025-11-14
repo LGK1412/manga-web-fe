@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   ListTodo,
   PanelRight,
+  Banknote,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -54,16 +55,83 @@ type MenuItem = LinkItem | GroupItem;
 
 /** ===== Data ===== */
 const menuItems: MenuItem[] = [
-  { kind: "link", id: "dashboard", label: "Dashboard", icon: BarChart3, href: "/admin/dashboard" },
-  { kind: "link", id: "users", label: "User", icon: Users, href: "/admin/user" },
-  { kind: "link", id: "genres", label: "Genre", icon: Tags, href: "/admin/genre" },
-  { kind: "link", id: "styles", label: "Style", icon: Palette, href: "/admin/style" },
-  { kind: "link", id: "reports", label: "Report", icon: FileWarning, href: "/admin/report" },
-  { kind: "link", id: "comments", label: "Comment", icon: MessageSquare, href: "/admin/comments" },
-  { kind: "link", id: "emoji-pack", label: "Emoji Packs", icon: Smile, href: "/admin/emoji-pack" },
-  { kind: "link", id: "announcements", label: "Notification", icon: Megaphone, href: "/admin/notifications" },
-  { kind: "link", id: "policies", label: "Policies", icon: BookOpen, href: "/admin/policies" },
-  { kind: "link", id: "logs", label: "Logs", icon: LogSquare, href: "/admin/logs" },
+  {
+    kind: "link",
+    id: "dashboard",
+    label: "Dashboard",
+    icon: BarChart3,
+    href: "/admin/dashboard",
+  },
+  {
+    kind: "link",
+    id: "users",
+    label: "User",
+    icon: Users,
+    href: "/admin/user",
+  },
+  {
+    kind: "link",
+    id: "genres",
+    label: "Genre",
+    icon: Tags,
+    href: "/admin/genre",
+  },
+  {
+    kind: "link",
+    id: "styles",
+    label: "Style",
+    icon: Palette,
+    href: "/admin/style",
+  },
+  {
+    kind: "link",
+    id: "reports",
+    label: "Report",
+    icon: FileWarning,
+    href: "/admin/report",
+  },
+  {
+    kind: "link",
+    id: "comments",
+    label: "Comment",
+    icon: MessageSquare,
+    href: "/admin/comments",
+  },
+  {
+    kind: "link",
+    id: "withdraw",
+    label: "Withdraw",
+    icon: Banknote,
+    href: "/admin/withdraw",
+  },
+  {
+    kind: "link",
+    id: "emoji-pack",
+    label: "Emoji Packs",
+    icon: Smile,
+    href: "/admin/emoji-pack",
+  },
+  {
+    kind: "link",
+    id: "announcements",
+    label: "Notification",
+    icon: Megaphone,
+    href: "/admin/notifications",
+  },
+  {
+    kind: "link",
+    id: "policies",
+    label: "Policies",
+    icon: BookOpen,
+    href: "/admin/policies",
+  },
+  {
+    kind: "link",
+    id: "logs",
+    label: "Logs",
+    icon: LogSquare,
+    href: "/admin/logs",
+  },
   {
     kind: "group",
     id: "moderation",
@@ -71,13 +139,21 @@ const menuItems: MenuItem[] = [
     icon: CheckCircle2,
     submenu: [
       { label: "Queue", href: "/admin/moderation/queue", icon: ListTodo },
-      { label: "Workspace", href: "/admin/moderation/workspace", icon: PanelRight },
+      {
+        label: "Workspace",
+        href: "/admin/moderation/workspace",
+        icon: PanelRight,
+      },
     ],
   },
   // { kind: "link", id: "settings", label: "Setting", icon: Settings, href: "/admin/settings" },
 ];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [open, setOpen] = useState(true);
   const pathname = usePathname();
 
@@ -124,7 +200,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       } py-2 rounded-lg text-sm font-medium`}
                       title={!open ? item.label : ""}
                     >
-                      <Icon className={`${open ? "h-5 w-5" : "h-6 w-6"} shrink-0`} />
+                      <Icon
+                        className={`${open ? "h-5 w-5" : "h-6 w-6"} shrink-0`}
+                      />
                       {open && <span>{item.label}</span>}
                     </div>
 
@@ -138,10 +216,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                               key={s.href}
                               href={s.href}
                               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
-                                active ? "bg-blue-50 text-blue-700" : "hover:bg-gray-100"
+                                active
+                                  ? "bg-blue-50 text-blue-700"
+                                  : "hover:bg-gray-100"
                               }`}
                             >
-                              {SubIcon && <SubIcon className="h-4 w-4 shrink-0" />}
+                              {SubIcon && (
+                                <SubIcon className="h-4 w-4 shrink-0" />
+                              )}
                               <span>{s.label}</span>
                             </Link>
                           );
@@ -165,7 +247,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   }`}
                   title={!open ? item.label : ""}
                 >
-                  <Icon className={`${open ? "h-5 w-5" : "h-6 w-6"} shrink-0`} />
+                  <Icon
+                    className={`${open ? "h-5 w-5" : "h-6 w-6"} shrink-0`}
+                  />
                   {open && <span>{item.label}</span>}
                 </Link>
               );

@@ -173,22 +173,24 @@ export function Navbar() {
                 Game
               </Link>
 
-              <Link
-                href="/achievement"
-                className="py-2 text-sm flex items-center gap-2"
-              >
-                <Trophy className="h-4 w-4" />
-                Thành tựu
-              </Link>
+              {user && user.role !== "admin" && (
+                <>
+                  <Link
+                    href="/achievement"
+                    className="py-2 text-sm flex items-center gap-2"
+                  >
+                    <Trophy className="h-4 w-4" />
+                    Thành tựu
+                  </Link>
 
-              {user && (
-                <button
-                  onClick={() => setShowCheckinModal(true)}
-                  className="text-sm font-medium hover:text-primary flex items-center gap-1 ml-4"
-                >
-                  <Gift className="h-4 w-4" />
-                  Điểm danh
-                </button>
+                  <button
+                    onClick={() => setShowCheckinModal(true)}
+                    className="text-sm font-medium hover:text-primary flex items-center gap-1 ml-4"
+                  >
+                    <Gift className="h-4 w-4" />
+                    Điểm danh
+                  </button>
+                </>
               )}
 
               {/* Modal */}

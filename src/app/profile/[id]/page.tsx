@@ -54,6 +54,7 @@ export default function ProfileByIdPage({
       return {
         id: parsed.user_id,
         name: parsed.username || "User",
+        role: parsed.role,
         email: parsed.email || "",
         avatar: parsed.avatar || "",
         isAuthor: (parsed.role || "").trim() === "author",
@@ -441,9 +442,15 @@ export default function ProfileByIdPage({
               </CardContent>
             </Card>
             <ReadingHistory />
-            <DonationSentList />
-            {isAuthorRole && <DonationReceivedList />}
-            <PurchaseHistory />
+            {user && user.role !== "admin" && (
+              <>
+                <DonationSentList />
+
+                {isAuthorRole && <DonationReceivedList />}
+
+                <PurchaseHistory />
+              </>
+            )}
           </div>
         </div>
       </div>
