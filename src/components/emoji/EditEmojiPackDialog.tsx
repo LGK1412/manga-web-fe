@@ -12,9 +12,13 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
     const [pack, setPack] = useState(emojiPack);
     const [deletedEmojis, setDeletedEmojis] = useState<any[]>([]);
     const [newFiles, setNewFiles] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false); // ⬅ ADD
     const { toast } = useToast();
 
     const handleSave = async () => {
+        if (isLoading) return; // chặn spam
+        setIsLoading(true);
+
         try {
             const formData = new FormData();
             newFiles.forEach((file) => formData.append("newEmojis", file));
@@ -35,6 +39,8 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
             setDeletedEmojis([]);
         } catch {
             toast({ title: "Lỗi khi lưu", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -43,18 +49,21 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
         const [emojis, setEmojis] = useState(pack.emojis || []);
 
         const handleAddFiles = (e: any) => {
+            if (isLoading) return; // chặn interaction
             const selectedFiles = Array.from(e.target.files).slice(0, 30 - newFiles.length);
             const validFiles = selectedFiles.filter((f: any) => f.size < 3 * 1024 * 1024);
             setNewFiles([...newFiles, ...validFiles]);
         };
 
         const handleRemoveFile = (idx: number) => {
+            if (isLoading) return;
             const filesCopy = [...newFiles];
             filesCopy.splice(idx, 1);
             setNewFiles(filesCopy);
         };
 
         const handleDeleteEmoji = (i: number) => {
+            if (isLoading) return;
             const removed = emojis[i]._id;
             setDeletedEmojis([...deletedEmojis, removed]);
             const newEmojis = emojis.filter((_: any, idx: number) => idx !== i);
@@ -76,6 +85,7 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
                                     <Button
                                         variant="destructive"
                                         size="icon"
+                                        disabled={isLoading} // ⬅ DISABLE XÓA
                                         onClick={() => handleDeleteEmoji(i)}
                                     >
                                         <Trash2 className="h-4 w-4" />
@@ -85,11 +95,9 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
                                     {emoji.skins?.map((skin: any, idx: number) => (
                                         <img
                                             key={idx}
-                                            src={
-                                                skin.src.startsWith("http")
-                                                    ? skin.src
-                                                    : `${process.env.NEXT_PUBLIC_API_URL}${skin.src}`
-                                            }
+                                            src={skin.src.startsWith("http")
+                                                ? skin.src
+                                                : `${process.env.NEXT_PUBLIC_API_URL}${skin.src}`}
                                             className="w-12 h-12 rounded object-cover border"
                                         />
                                     ))}
@@ -104,6 +112,7 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
                     <Input
                         type="file"
                         multiple
+                        disabled={isLoading} // ⬅ DISABLE UPLOAD
                         accept="image/png, image/jpeg, image/webp, image/gif"
                         onChange={handleAddFiles}
                     />
@@ -111,7 +120,7 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
 
                 {newFiles.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
-                        {newFiles.map((file: Blob | MediaSource, idx: number) => (
+                        {newFiles.map((file: any, idx: number) => (
                             <div
                                 key={idx}
                                 className="relative w-10 h-10 border rounded-md overflow-hidden"
@@ -120,13 +129,15 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
                                     src={URL.createObjectURL(file)}
                                     className="object-cover w-full h-full"
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveFile(idx)}
-                                    className="absolute top-0 right-0 bg-red-500 text-white px-1 rounded-bl-md text-xs"
-                                >
-                                    ✕
-                                </button>
+                                {!isLoading && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveFile(idx)}
+                                        className="absolute top-0 right-0 bg-red-500 text-white px-1 rounded-bl-md text-xs"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -142,21 +153,37 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
                 <DialogHeader>
                     <DialogTitle>Chỉnh sửa Emoji Pack</DialogTitle>
                 </DialogHeader>
+
                 <div className="space-y-4">
                     <div>
                         <Label>Tên</Label>
-                        <Input value={pack.name} onChange={(e) => setPack({ ...pack, name: e.target.value })} />
+                        <Input
+                            value={pack.name}
+                            disabled={isLoading} // ⬅ DISABLE INPUT
+                            onChange={(e) => setPack({ ...pack, name: e.target.value })}
+                        />
                     </div>
                     <div>
                         <Label>Giá</Label>
-                        <Input type="number" value={pack.price} onChange={(e) => setPack({ ...pack, price: +e.target.value })} />
+                        <Input
+                            type="number"
+                            value={pack.price}
+                            disabled={isLoading}
+                            onChange={(e) => setPack({ ...pack, price: +e.target.value })}
+                        />
                     </div>
 
                     <EmojiEditor />
                 </div>
+
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-                    <Button onClick={handleSave}>Lưu</Button>
+                    <Button variant="outline" disabled={isLoading} onClick={() => onOpenChange(false)}>
+                        Hủy
+                    </Button>
+
+                    <Button disabled={isLoading} onClick={handleSave}>
+                        {isLoading ? "Đang lưu..." : "Lưu"}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

@@ -33,6 +33,8 @@ import {
   Shuffle,
   Loader2,
   Gift,
+  Package,
+  Smile,
 } from "lucide-react";
 import Cookies from "js-cookie";
 import { removeCookie } from "@/lib/cookie-func";
@@ -293,6 +295,32 @@ export function Navbar() {
                         Hồ sơ cá nhân
                       </Link>
                     </DropdownMenuItem>
+                    {user?.role?.trim() !== "admin"  && user &&  (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          href={
+                            user?.user_id ? `/inventory/${user.user_id}` : "/login"
+                          }
+                          className="flex items-center"
+                        >
+                          <Package className="mr-2 h-4 w-4" />
+                          Kho đồ
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {user?.role?.trim() !== "admin" && user && (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          href={
+                            user?.user_id ? `/emoji-pack-shop` : "/login"
+                          }
+                          className="flex items-center"
+                        >
+                          <Smile className="mr-2 h-4 w-4" />
+                          Emoji Pack
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={logout}
@@ -368,7 +396,7 @@ export function Navbar() {
                         setIsMenuOpen(false);
                       }}
                       disabled={loadingRandom}
-                      className="block py-2 text-sm hover:underline flex items-center gap-2 w-full text-left disabled:opacity-50"
+                      className="py-2 text-sm hover:underline flex items-center gap-2 w-full text-left disabled:opacity-50"
                     >
                       {loadingRandom ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
