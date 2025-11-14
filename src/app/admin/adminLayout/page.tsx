@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Menu,
   BookOpen,
   Users,
   Megaphone,
   FileWarning,
-  Settings,
   BarChart3,
   X,
   Tags,
@@ -27,6 +26,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { useTheme } from "next-themes";
 
 /** ===== Types ===== */
 type BaseItem = {
@@ -43,7 +43,7 @@ type LinkItem = BaseItem & {
 type SubmenuItem = {
   label: string;
   href: string;
-  icon?: LucideIcon; // <-- cho phép icon cho submenu
+  icon?: LucideIcon;
 };
 
 type GroupItem = BaseItem & {
@@ -146,7 +146,6 @@ const menuItems: MenuItem[] = [
       },
     ],
   },
-  // { kind: "link", id: "settings", label: "Setting", icon: Settings, href: "/admin/settings" },
 ];
 
 export default function AdminLayout({
@@ -155,7 +154,18 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(true);
+  const { theme } = useTheme();
   const pathname = usePathname();
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // safe hover class (no mismatch)
+  const hoverClass = mounted
+    ? theme === "dark"
+      ? "hover:bg-gray-100 hover:text-black"
+      : "hover:bg-gray-300"
+    : "hover:bg-gray-300"; // stable SSR fallback
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -164,9 +174,8 @@ export default function AdminLayout({
       <div className="flex flex-1 pt-16">
         {/* Sidebar */}
         <aside
-          className={`shadow-lg border-r transition-all duration-300 ${
-            open ? "w-64" : "w-16"
-          } flex flex-col`}
+          className={`shadow-lg border-r transition-all duration-300 ${open ? "w-64" : "w-16"
+            } flex flex-col`}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b">
@@ -195,9 +204,8 @@ export default function AdminLayout({
                 return (
                   <div key={item.id} className="space-y-1">
                     <div
-                      className={`flex items-center ${
-                        open ? "gap-3 px-3 justify-start" : "justify-center"
-                      } py-2 rounded-lg text-sm font-medium`}
+                      className={`flex items-center ${open ? "gap-3 px-3 justify-start" : "justify-center"
+                        } py-2 rounded-lg text-sm font-medium`}
                       title={!open ? item.label : ""}
                     >
                       <Icon
@@ -211,15 +219,16 @@ export default function AdminLayout({
                         {item.submenu.map((s) => {
                           const active = pathname === s.href;
                           const SubIcon = s.icon;
+
                           return (
                             <Link
                               key={s.href}
                               href={s.href}
-                              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
-                                active
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm 
+                                ${active
                                   ? "bg-blue-50 text-blue-700"
-                                  : "hover:bg-gray-100"
-                              }`}
+                                  : hoverClass
+                                }`}
                             >
                               {SubIcon && (
                                 <SubIcon className="h-4 w-4 shrink-0" />
@@ -234,17 +243,16 @@ export default function AdminLayout({
                 );
               }
 
-              // kind === "link"
+              // link item
               const active = pathname === item.href;
+
               return (
                 <Link
                   key={item.id}
                   href={item.href}
-                  className={`flex items-center ${
-                    open ? "gap-3 px-3 justify-start" : "justify-center"
-                  } py-2 rounded-lg text-sm font-medium transition-colors ${
-                    active ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"
-                  }`}
+                  className={`flex items-center ${open ? "gap-3 px-3 justify-start" : "justify-center"
+                    } py-2 rounded-lg text-sm font-medium transition-colors
+                    ${active ? "bg-blue-100 text-blue-700" : hoverClass}`}
                   title={!open ? item.label : ""}
                 >
                   <Icon
@@ -257,7 +265,7 @@ export default function AdminLayout({
           </nav>
         </aside>
 
-        {/* Main Content */}
+        {/* Main */}
         <main className="flex-1 p-6 overflow-y-auto">{children}</main>
       </div>
 

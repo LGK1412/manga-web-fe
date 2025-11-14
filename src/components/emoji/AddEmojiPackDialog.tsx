@@ -8,7 +8,7 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+    import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -21,12 +21,15 @@ export default function AddEmojiPackDialog({
     const [name, setName] = useState("");
     const [price, setPrice] = useState(0);
     const [files, setFiles] = useState<File[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
     const { toast } = useToast();
 
     const handleFileChange = (e: any) => {
+        if (isLoading) return; // chặn luôn
+
         const selected = Array.from(e.target.files) as File[];
 
-        // lọc file hợp lệ
         const validFiles = selected.filter((file) => {
             const isValidType = [
                 "image/png",
@@ -34,7 +37,7 @@ export default function AddEmojiPackDialog({
                 "image/webp",
                 "image/gif",
             ].includes(file.type);
-            const isValidSize = file.size <= 3 * 1024 * 1024; // 3MB
+            const isValidSize = file.size <= 3 * 1024 * 1024;
             return isValidType && isValidSize;
         });
 
@@ -59,20 +62,29 @@ export default function AddEmojiPackDialog({
     };
 
     const handleRemoveFile = (index: number) => {
+        if (isLoading) return; // đang load thì không cho xoá
         const newFiles = [...files];
         newFiles.splice(index, 1);
         setFiles(newFiles);
     };
 
     const handleSubmit = async () => {
-        if (!name) return toast({ title: "Nhập tên pack", variant: "destructive" });
+        if (isLoading) return;
+        setIsLoading(true);
 
-        if (files.length === 0)
+        if (!name) {
+            setIsLoading(false);
+            return toast({ title: "Nhập tên pack", variant: "destructive" });
+        }
+
+        if (files.length === 0) {
+            setIsLoading(false);
             return toast({
                 title: "Chưa có emoji nào",
-                description: "Cần tải lên ít nhất 1 emoji cho pack.",
+                description: "Cần tải lên ít nhất 1 emoji.",
                 variant: "destructive",
             });
+        }
 
         try {
             const formData = new FormData();
@@ -80,7 +92,7 @@ export default function AddEmojiPackDialog({
             formData.append("price", price.toString());
             files.forEach((file) => formData.append("emojis", file));
 
-            const res = await axios.post(
+            await axios.post(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/emoji-pack/create-emoji-pack`,
                 formData,
                 {
@@ -89,8 +101,6 @@ export default function AddEmojiPackDialog({
                 }
             );
 
-            // console.log(res);
-
             toast({ title: "Tạo emoji pack thành công" });
             setName("");
             setPrice(0);
@@ -98,10 +108,13 @@ export default function AddEmojiPackDialog({
             onOpenChange(false);
             onSuccess();
         } catch (err: any) {
-            // console.error(err);
             toast({
-                title: "Lỗi khi thêm", description: err?.response?.data?.message || err?.message || "Có lỗi xảy ra", variant: "destructive"
+                title: "Lỗi khi thêm",
+                description: err?.response?.data?.message || err?.message || "Có lỗi xảy ra",
+                variant: "destructive",
             });
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -118,6 +131,7 @@ export default function AddEmojiPackDialog({
                         <Input
                             value={name}
                             onChange={(e) => setName(e.target.value)}
+                            disabled={isLoading}
                             placeholder="Tên pack..."
                         />
                     </div>
@@ -128,6 +142,7 @@ export default function AddEmojiPackDialog({
                             type="number"
                             value={price}
                             onChange={(e) => setPrice(+e.target.value)}
+                            disabled={isLoading}
                         />
                     </div>
 
@@ -138,6 +153,7 @@ export default function AddEmojiPackDialog({
                             multiple
                             accept="image/png, image/jpeg, image/webp, image/gif"
                             onChange={handleFileChange}
+                            disabled={isLoading}
                         />
                     </div>
 
@@ -152,13 +168,15 @@ export default function AddEmojiPackDialog({
                                         src={URL.createObjectURL(file)}
                                         className="object-cover w-full h-full"
                                     />
-                                    <button
-                                        type="button"
-                                        onClick={() => handleRemoveFile(idx)}
-                                        className="absolute top-0 right-0 bg-red-500 text-white px-1 rounded-bl-md text-xs"
-                                    >
-                                        ✕
-                                    </button>
+                                    {!isLoading && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveFile(idx)}
+                                            className="absolute top-0 right-0 bg-red-500 text-white px-1 rounded-bl-md text-xs"
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -166,10 +184,12 @@ export default function AddEmojiPackDialog({
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
                         Hủy
                     </Button>
-                    <Button onClick={handleSubmit}>Thêm</Button>
+                    <Button onClick={handleSubmit} disabled={isLoading}>
+                        {isLoading ? "Đang thêm..." : "Thêm"}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
