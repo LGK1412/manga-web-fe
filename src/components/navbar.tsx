@@ -32,6 +32,7 @@ import {
   Trophy,
   Shuffle,
   Loader2,
+  Gift,
 } from "lucide-react";
 import Cookies from "js-cookie";
 import { removeCookie } from "@/lib/cookie-func";
@@ -40,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter } from "next/navigation";
 import { PointBadge } from "./PointBadge";
 import NotificationComponent from "./firebase/NotificationComponent";
+import DailyCheckinPanel from "./DailyCheckinPanel";
 
 export function Navbar() {
   const { isLogin, setLoginStatus } = useAuth();
@@ -56,6 +58,7 @@ export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mobileSearch, setMobileSearch] = useState("");
   const [loadingRandom, setLoadingRandom] = useState(false);
+  const [showCheckinModal, setShowCheckinModal] = useState(false);
 
   const submitSearch = (q: string) => {
     const query = q.trim();
@@ -146,7 +149,7 @@ export function Navbar() {
               <span className="font-bold text-xl">Manga World</span>
             </Link>
 
-            <div className="hidden md:flex items-center">
+            <div className="items-center flex gap-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -169,6 +172,33 @@ export function Navbar() {
                 <Gamepad2 className="h-4 w-4" />
                 Game
               </Link>
+
+              <Link
+                href="/achievement"
+                className="py-2 text-sm flex items-center gap-2"
+              >
+                <Trophy className="h-4 w-4" />
+                Thành tựu
+              </Link>
+
+              {user && (
+                <button
+                  onClick={() => setShowCheckinModal(true)}
+                  className="text-sm font-medium hover:text-primary flex items-center gap-1 ml-4"
+                >
+                  <Gift className="h-4 w-4" />
+                  Điểm danh
+                </button>
+              )}
+
+              {/* Modal */}
+              {user && (
+                <DailyCheckinPanel
+                  role={user.role ?? "user"} // nếu role undefined thì default "user"
+                  open={showCheckinModal}
+                  onClose={() => setShowCheckinModal(false)}
+                />
+              )}
             </div>
           </div>
 
@@ -191,13 +221,6 @@ export function Navbar() {
 
           {/* Desktop: right actions */}
           <div className="hidden md:flex items-center gap-4">
-            <Link
-              href="/achievement"
-              className="py-2 text-sm hover:underline flex items-center gap-2"
-            >
-              <Trophy className="h-4 w-4" />
-              Thành tựu
-            </Link>
             {user && <PointBadge />}
             <Button
               variant="ghost"

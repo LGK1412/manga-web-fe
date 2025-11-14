@@ -1,33 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import axios from "axios";
+import { Button } from "@/components/ui/button";
+import { useUserPoint } from "@/contexts/UserPointContext";
 
 export function PointBadge() {
-  const [point, setPoint] = useState(0);
-  const [authorPoint, setAuthorPoint] = useState(0);
-  const [role, setRole] = useState("");
-
-  useEffect(() => {
-    async function fetchPoint() {
-      try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/user/point`,
-          { withCredentials: true }
-        );
-        setPoint(res.data.point ?? 0);
-        setAuthorPoint(res.data.author_point ?? 0);
-        setRole(res.data.role);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    fetchPoint();
-  }, []);
+  const { point, authorPoint, role } = useUserPoint();
 
   if (role === "admin") return null; // Admin không hiện gì cả
 
