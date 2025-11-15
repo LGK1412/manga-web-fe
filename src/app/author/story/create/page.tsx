@@ -186,7 +186,7 @@ export default function CreateStoryPage() {
 
     try {
       await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/manga/${authorId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/manga/author/${authorId}`,
         fd,
         {
           withCredentials: true,
