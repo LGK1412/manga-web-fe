@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Trophy, Zap, CheckCircle2, Clock, Coins, Gift } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { useToast } from "@/hooks/use-toast";
+import { useUserPoint } from "@/contexts/UserPointContext";
 
 export default function AchievementsPage() {
   const { toast } = useToast();
   const [achievements, setAchievements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState<string | null>(null);
+  const { point, authorPoint, setPointsDirectly, refreshPoints } =
+    useUserPoint();
 
   useEffect(() => {
     fetchAchievements();
@@ -38,11 +41,21 @@ export default function AchievementsPage() {
   const handleClaim = async (id: string) => {
     try {
       setClaiming(id);
-      await axios.post(
+
+      const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/achievements/${id}/claim`,
         {},
         { withCredentials: true }
       );
+
+      const reward = res.data.reward;
+
+      if (reward) {
+        setPointsDirectly(
+          point + (reward.point ?? 0),
+          authorPoint + (reward.author_point ?? 0)
+        );
+      }
 
       toast({
         title: "Thành công",
@@ -216,7 +229,9 @@ export default function AchievementsPage() {
         ) : (
           <div className="text-center py-12">
             <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-muted-foreground text-lg">Chưa có thành tựu nào.</p>
+            <p className="text-muted-foreground text-lg">
+              Chưa có thành tựu nào.
+            </p>
           </div>
         )}
       </div>
