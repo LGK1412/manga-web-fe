@@ -64,7 +64,7 @@ const menuItems: MenuItem[] = [
   { kind: "link", id: "emoji-pack", label: "Emoji Packs", icon: Smile, href: "/admin/emoji-pack" },
   { kind: "link", id: "announcements", label: "Notification", icon: Megaphone, href: "/admin/notifications" },
   { kind: "link", id: "policies", label: "Policies", icon: BookOpen, href: "/admin/policies" },
-  { kind: "link", id: "logs", label: "Logs", icon: LogSquare, href: "/admin/logs" },
+  // { kind: "link", id: "logs", label: "Logs", icon: LogSquare, href: "/admin/logs" },
   {
     kind: "link",
     id: "withdraw",
