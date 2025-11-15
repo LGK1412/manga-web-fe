@@ -54,7 +54,7 @@ export default function AuthorDashboard() {
       const payload = decodeToken()
       if (!payload) return
       try {
-        const { data } = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/manga/${payload.user_id}`, {
+        const { data } = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/manga/author/${payload.user_id}`, {
           withCredentials: true,
         })
 
