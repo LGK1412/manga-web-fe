@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   ListTodo,
   PanelRight,
+  Banknote,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -64,6 +65,13 @@ const menuItems: MenuItem[] = [
   { kind: "link", id: "announcements", label: "Notification", icon: Megaphone, href: "/admin/notifications" },
   { kind: "link", id: "policies", label: "Policies", icon: BookOpen, href: "/admin/policies" },
   { kind: "link", id: "logs", label: "Logs", icon: LogSquare, href: "/admin/logs" },
+  {
+    kind: "link",
+    id: "withdraw",
+    label: "Withdraw",
+    icon: Banknote,
+    href: "/admin/withdraw",
+  },
   {
     kind: "group",
     id: "moderation",
