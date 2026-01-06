@@ -44,7 +44,7 @@ export default function StoryRecomment() {
   const { theme, setTheme } = useTheme();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  // ✅ Lấy userId từ cookie
+  // Get userId from cookie
   useLayoutEffect(() => {
     const raw = Cookies.get("user_normal_info");
     if (raw) {
@@ -58,7 +58,7 @@ export default function StoryRecomment() {
     }
   }, []);
 
-  // ✅ Fetch danh sách gợi ý khi có userId
+  // Fetch recommendation list when userId is available
   useEffect(() => {
     if (userId) {
       const fetchRecommendations = async () => {
@@ -94,10 +94,10 @@ export default function StoryRecomment() {
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 1) return "Hôm qua";
-    if (diffDays < 7) return `${diffDays} ngày trước`;
-    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} tuần trước`;
-    return `${Math.ceil(diffDays / 30)} tháng trước`;
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
+    return `${Math.ceil(diffDays / 30)} months ago`;
   };
 
   if (loading) {
@@ -107,7 +107,7 @@ export default function StoryRecomment() {
           <div className="flex items-center justify-center">
             <div className="flex items-center space-x-3">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="text-gray-600 font-medium">Đang tải gợi ý truyện dành cho bạn...</span>
+              <span className="text-gray-600 font-medium">Loading personalized story recommendations for you...</span>
             </div>
           </div>
 
@@ -148,10 +148,10 @@ export default function StoryRecomment() {
         >
           <div className="flex items-center justify-center mb-4">
             <TrendingUp className="h-8 w-8 text-blue-500 dark:text-blue-400 mr-3" />
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Truyện gợi ý dành cho bạn</h2>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Recommendation</h2>
           </div>
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Khám phá những tác phẩm tuyệt vời được chọn riêng cho sở thích của bạn
+            Discover amazing titles selected specifically for your reading taste.
           </p>
           <div className="mt-4 h-1 w-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mx-auto"></div>
         </motion.div>
@@ -185,7 +185,7 @@ export default function StoryRecomment() {
                   ${manga.status === 'Đang cập nhật'
                       ? (theme === "dark" ? 'bg-green-700 text-green-200' : 'bg-green-100 text-green-800')
                       : (theme === "dark" ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-800')}`}>
-                    {manga.status}
+                    {manga.status === 'Đang cập nhật' ? 'Ongoing' : manga.status}
                   </span>
                 </div>
 
@@ -225,7 +225,7 @@ export default function StoryRecomment() {
                   </div>
                   <div className="flex items-center space-x-1">
                     <BookOpen className="h-4 w-4" />
-                    <span>{manga.chapters_count} chương</span>
+                    <span>{manga.chapters_count} chapters</span>
                   </div>
                 </div>
 

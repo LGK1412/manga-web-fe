@@ -54,15 +54,15 @@ export default function ReplySection({
                 { withCredentials: true }
             );
             toast({
-                title: "Thành công",
-                description: res.data?.message || "Upvote thành công",
+                title: "Success",
+                description: res.data?.message || "Upvote successful",
                 variant: "success",
             });
             fetchReplies(comment._id)
         } catch (err: any) {
             toast({
-                title: "Lỗi",
-                description: err.response?.data?.message || "Không thể upvote reply",
+                title: "Error",
+                description: err.response?.data?.message || "Unable to upvote reply",
                 variant: "destructive",
             });
         }
@@ -76,15 +76,15 @@ export default function ReplySection({
                 { withCredentials: true }
             );
             toast({
-                title: "Thành công",
-                description: res.data?.message || "Downvote thành công",
+                title: "Success",
+                description: res.data?.message || "Downvote successful",
                 variant: "success",
             });
             fetchReplies(comment._id)
         } catch (err: any) {
             toast({
-                title: "Lỗi",
-                description: err.response?.data?.message || "Không thể downvote reply",
+                title: "Error",
+                description: err.response?.data?.message || "Unable to downvote reply",
                 variant: "destructive",
             });
         }
@@ -128,8 +128,8 @@ export default function ReplySection({
                                 onUpvote={() => {
                                     if (!user) return;
                                     toast({
-                                        title: "Cần đăng nhập",
-                                        description: "Bạn phải đăng nhập để vote.",
+                                        title: "Login required",
+                                        description: "You must log in to vote.",
                                         variant: "destructive",
                                     });
                                     handleUpvoteReply(r._id);
@@ -137,8 +137,8 @@ export default function ReplySection({
                                 onDownvote={() => {
                                     if (!user) return;
                                     toast({
-                                        title: "Cần đăng nhập",
-                                        description: "Bạn phải đăng nhập để vote.",
+                                        title: "Login required",
+                                        description: "You must log in to vote.",
                                         variant: "destructive",
                                     });
                                     handleDownvoteReply(r._id);
@@ -148,7 +148,7 @@ export default function ReplySection({
                     </div >
                 ))
             ) : (
-                <p className="text-xs text-gray-500 italic">Không có phản hồi.</p>
+                <p className="text-xs text-gray-500 italic">No replies.</p>
             )
             }
 
@@ -179,7 +179,7 @@ export default function ReplySection({
                             ) : (
                                 <Send className="h-3 w-3" />
                             )}
-                            Gửi
+                            Send
                         </button>
                     </div>
                 ) : (null)

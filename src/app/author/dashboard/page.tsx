@@ -75,8 +75,8 @@ export default function AuthorDashboard() {
     const story = allStories.find((s) => s._id === storyId)
     const isCurrentlyDeleted = story?.isDeleted || false
 
-    const action = isCurrentlyDeleted ? "khôi phục" : "xóa"
-    if (!confirm(`Bạn có chắc chắn muốn ${action} truyện "${story?.title}" không?`)) {
+    const action = isCurrentlyDeleted ? "restore" : "delete"
+    if (!confirm(`Are you sure you want to ${action} the story "${story?.title}"?`)) {
       return
     }
 
@@ -93,15 +93,15 @@ export default function AuthorDashboard() {
       setImageStories((prev) => prev.map((s) => (s._id === storyId ? { ...s, isDeleted: !s.isDeleted } : s)))
 
       toast({
-        title: "Thành công",
-        description: `Đã ${action} truyện thành công`,
+        title: "Success",
+        description: `Story ${action}d successfully`,
         variant: "success",
       })
     } catch (error) {
       console.error("Lỗi khi toggle delete:", error)
       toast({
-        title: "Lỗi",
-        description: "Có lỗi xảy ra",
+        title: "Error",
+        description: "An error occurred",
         variant: "destructive",
       })
     } finally {
@@ -114,7 +114,7 @@ export default function AuthorDashboard() {
       return (
         <div className="text-center py-16">
           <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-muted-foreground opacity-50" />
-          <p className="text-gray-500 dark:text-muted-foreground text-lg">Không có truyện</p>
+          <p className="text-gray-500 dark:text-muted-foreground text-lg">No stories</p>
         </div>
       )
 
@@ -151,7 +151,7 @@ export default function AuthorDashboard() {
                   )}
                   {story.isDeleted && (
                     <Badge variant="destructive" className="text-xs">
-                      Đã xóa
+                      Deleted
                     </Badge>
                   )}
                 </div>
@@ -196,7 +196,7 @@ export default function AuthorDashboard() {
                   <Link href={`/author/story/edit/${story._id}`} className="flex-1">
                     <Button variant="outline" size="sm" className="w-full gap-1 text-xs bg-transparent">
                       <Edit className="w-3.5 h-3.5" />
-                      Sửa
+                      Edit
                     </Button>
                   </Link>
                   <Link href={`/author/chapter/${story._id}/${chapterPath}`} className="flex-1">
@@ -215,12 +215,12 @@ export default function AuthorDashboard() {
                     {story.isDeleted ? (
                       <>
                         <Undo className="w-3.5 h-3.5" />
-                        Hoàn tác
+                        Undo
                       </>
                     ) : (
                       <>
                         <Trash2 className="w-3.5 h-3.5" />
-                        Xóa
+                        Delete
                       </>
                     )}
                   </Button>
@@ -242,14 +242,14 @@ export default function AuthorDashboard() {
           <div className="mb-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-foreground">Quản lý truyện</h1>
-                <p className="text-gray-600 dark:text-muted-foreground mt-1 text-sm">Tổng: {textStories.length + imageStories.length} truyện</p>
+                <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-foreground">Manage Stories</h1>
+                <p className="text-gray-600 dark:text-muted-foreground mt-1 text-sm">Total: {textStories.length + imageStories.length} stories</p>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
                 <Link href="/author/story/create" className="flex-1 sm:flex-none">
                   <Button className="w-full sm:w-auto gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold">
                     <Plus className="w-4 h-4" />
-                    Tạo truyện
+                    Create Story
                   </Button>
                 </Link>
                 <Link href="/author/static" className="flex-1 sm:flex-none">
@@ -258,7 +258,7 @@ export default function AuthorDashboard() {
                     className="w-full sm:w-auto gap-2 border-gray-300 dark:border-input hover:bg-gray-100 dark:hover:bg-accent bg-transparent dark:bg-transparent"
                   >
                     <BarChart className="w-4 h-4" />
-                    Thống kê
+                    Statistics
                   </Button>
                 </Link>
               </div>
@@ -268,8 +268,8 @@ export default function AuthorDashboard() {
           <div className="mb-8">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "text" | "image")} className="w-full">
               <TabsList className="grid w-full grid-cols-2 sm:w-auto bg-gray-200 dark:bg-muted">
-                <TabsTrigger value="text">Truyện chữ</TabsTrigger>
-                <TabsTrigger value="image">Truyện tranh</TabsTrigger>
+                <TabsTrigger value="text">Text Stories</TabsTrigger>
+                <TabsTrigger value="image">Manga Stories</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>

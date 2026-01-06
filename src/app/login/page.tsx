@@ -27,12 +27,42 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<{
+    email?: string
+    password?: string
+  }>({})
   const { toast } = useToast();
   const router = useRouter();
   const { setLoginStatus } = useAuth();
+
+  const validateForm = () => {
+    const newErrors: typeof errors = {}
+
+    if (!email) {
+      newErrors.email = "Email is required"
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = "Invalid email format"
+    }
+
+    if (!password) {
+      newErrors.password = "Password is required"
+    } else if (password.length < 6 || password.length > 20) {
+      newErrors.password = "Password must be between 6 and 20 characters"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!validateForm()) {
+      return
+    }
+
     setIsLoading(true);
 
     try {
@@ -48,8 +78,8 @@ export default function LoginPage() {
       await setCookie(res.data.tokenPayload);
 
       toast({
-        title: "Chào mừng trở lại!",
-        description: "Bạn đã đăng nhập thành công",
+        title: "Welcome back!",
+        description: "You have successfully logged in",
         variant: "success"
       });
       setLoginStatus(true);
@@ -58,43 +88,63 @@ export default function LoginPage() {
       if (axios.isAxiosError(error)) {
         if (
           error.response?.data.message.includes(
-            "Tài khoản này chưa được xác minh"
+            "This account has not been verified"
+          ) || error.response?.data.message.includes(
+            "This account has not been verified"
           )
         ) {
-          // Gửi verify nếu chưa khi login
-          const resSend = await axios.post(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/auth/send-verify-email`,
-            {
-              email: email,
-            },
-            { withCredentials: true }
-          );
+          setIsSendingEmail(true);
+          try {
+            const resSend = await axios.post(
+              `${process.env.NEXT_PUBLIC_API_URL}/api/auth/send-verify-email`,
+              {
+                email: email,
+              },
+              { withCredentials: true }
+            );
 
-          if (resSend.data.success) {
-            toast({
-              title: "Gửi link xác thực thành công!",
-              description:
-                "Vui lòng kiểm tra email để xác minh tài khoản của bạn để có thể đăng nhập.",
-              variant: "default"
-            });
-          } else {
-            toast({
-              title: "Gửi link xác thực không thành công!",
-              description: "Vui lòng đăng nhập để thử lại.",
-              variant: "destructive",
-            });
+            if (resSend.data.success) {
+              toast({
+                title: "Verification email sent successfully!",
+                description:
+                  "Please check your email to verify your account before logging in.",
+                variant: "success"
+              });
+            } else {
+              toast({
+                title: "Failed to send verification email!",
+                description: "Please try again later.",
+                variant: "destructive",
+              });
+            }
+          } catch (emailError) {
+            if (axios.isAxiosError(emailError)) {
+              toast({
+                title: "Failed to send verification email!",
+                description: emailError.response?.data?.message || "An error occurred while sending email",
+                variant: "destructive",
+              });
+            } else {
+              toast({
+                title: "Failed to send verification email!",
+                description: "Unexpected error while sending email",
+                variant: "destructive",
+              });
+            }
+          } finally {
+            setIsSendingEmail(false);
           }
         } else {
           toast({
-            title: "Đăng nhập thất bại!",
-            description: error.response?.data.message || "Lỗi server",
+            title: "Login failed!",
+            description: error.response?.data.message || "Server error",
             variant: "destructive",
           });
         }
       } else {
         toast({
-          title: "Đăng nhập không thành công",
-          description: `Lỗi không mong muốn: ${error}`,
+          title: "Login failed",
+          description: `Unexpected error: ${error}`,
           variant: "destructive",
         });
       }
@@ -110,9 +160,9 @@ export default function LoginPage() {
           <div className="flex justify-center mb-4">
             <BookOpen className="h-8 w-8" />
           </div>
-          <CardTitle className="text-2xl">Chào mừng trở lại</CardTitle>
+          <CardTitle className="text-2xl">Welcome back</CardTitle>
           <CardDescription>
-            Đăng nhập vào tài khoản Manga World của bạn
+            Sign in to your Manga World account
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -122,23 +172,37 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="Nhập email của bạn"
+                placeholder="Enter your email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  if (errors.email) {
+                    setErrors({ ...errors, email: undefined })
+                  }
+                }}
                 required
+                className={errors.email ? "border-red-500" : ""}
               />
+              {errors.email && (
+                <p className="text-sm text-red-500">{errors.email}</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Mật khẩu</Label>
+              <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Nhập mật khẩu của bạn"
+                  placeholder="Enter your password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    if (errors.password) {
+                      setErrors({ ...errors, password: undefined })
+                    }
+                  }}
                   required
-                  className="pr-10"
+                  className={`pr-10 ${errors.password ? "border-red-500" : ""}`}
                 />
                 <button
                   type="button"
@@ -152,9 +216,16 @@ export default function LoginPage() {
                   )}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-sm text-red-500">{errors.password}</p>
+              )}
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
+            <Button type="submit" className="w-full" disabled={isLoading || isSendingEmail}>
+              {isLoading 
+                ? "Logging in..." 
+                : isSendingEmail 
+                ? "Sending verification email..." 
+                : "Login"}
             </Button>
           </form>
 
@@ -163,7 +234,7 @@ export default function LoginPage() {
               href="/forgot-password"
               className="text-sm text-primary hover:underline"
             >
-              Quên mật khẩu?
+              Forgot password?
             </Link>
           </div>
 
@@ -174,9 +245,9 @@ export default function LoginPage() {
           </div>
 
           <div className="text-center text-sm">
-            {"Bạn chưa có tài khoản? "}
+            {"Don't have an account? "}
             <Link href="/register" className="text-primary hover:underline">
-              Đăng ký
+              Sign up
             </Link>
           </div>
         </CardContent>

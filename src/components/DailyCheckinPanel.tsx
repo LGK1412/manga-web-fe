@@ -82,7 +82,7 @@ export default function DailyCheckinPanel({
         }
       }
     } catch (err) {
-      console.error("Lỗi khi điểm danh:", err);
+      // Error handling - silently fail
     } finally {
       setLoading(false);
     }
@@ -101,10 +101,10 @@ export default function DailyCheckinPanel({
         </button>
 
         {!status ? (
-          <p>Đang tải...</p>
+          <p>Loading...</p>
         ) : (
           <>
-            <h2 className="text-xl font-bold mb-4">🎁 Điểm danh 7 ngày</h2>
+            <h2 className="text-xl font-bold mb-4">🎁 7-Day Check-in</h2>
             <div className="grid grid-cols-7 gap-3">
               {rewards.map((r) => {
                 const dayIndex = r.day;
@@ -115,7 +115,7 @@ export default function DailyCheckinPanel({
 
                 if (checked) {
                   bgColor = "bg-green-200 border-green-400";
-                  statusText = "Đã nhận";
+                  statusText = "Claimed";
                 }
 
                 return (
@@ -123,9 +123,9 @@ export default function DailyCheckinPanel({
                     key={dayIndex}
                     className={`p-3 rounded-md text-center border flex flex-col items-center ${bgColor}`}
                   >
-                    <div className="font-bold text-sm">Ngày {dayIndex}</div>
+                    <div className="font-bold text-sm">Day {dayIndex}</div>
                     <div className="text-xs mt-1 text-gray-700">
-                      {r.points ? `+${r.points} điểm` : `+${r.authorPoints} AP`}
+                      {r.points ? `+${r.points} points` : `+${r.authorPoints} AP`}
                     </div>
                     {statusText && (
                       <div className="mt-2 text-xs font-semibold text-yellow-600">
@@ -138,7 +138,7 @@ export default function DailyCheckinPanel({
                         <div className="mt-2 text-xs font-semibold text-yellow-600">
                           🎉 +
                           {status.reward.points ?? status.reward.authorPoints}{" "}
-                          nhận!
+                          claimed!
                         </div>
                       )}
                   </div>
@@ -155,7 +155,7 @@ export default function DailyCheckinPanel({
                   : "bg-gray-400 cursor-not-allowed"
               }`}
             >
-              {status.canCheckin ? "Điểm danh hôm nay" : "Đã điểm danh hôm nay"}
+              {status.canCheckin ? "Check in today" : "Already checked in today"}
             </button>
           </>
         )}

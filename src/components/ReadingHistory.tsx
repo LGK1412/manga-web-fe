@@ -56,7 +56,7 @@ export default function ReadingHistory() {
   const handleDelete = async (storyId: string) => {
     if (!user?.id) return;
     const confirm = window.confirm(
-      "Bạn có chắc muốn xoá lịch sử đọc truyện này?"
+      "Are you sure you want to delete this reading history?"
     );
     if (!confirm) return;
 
@@ -72,8 +72,8 @@ export default function ReadingHistory() {
         prev.filter((item) => item.story_id !== storyId)
       );
     } catch (err) {
-      console.error("Xóa lịch sử đọc thất bại:", err);
-      alert("Không thể xoá lịch sử đọc. Vui lòng thử lại!");
+      console.error("Failed to delete reading history:", err);
+      alert("Unable to delete reading history. Please try again!");
     } finally {
       setDeletingId(null);
     }
@@ -84,18 +84,18 @@ export default function ReadingHistory() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <History className="w-5 h-5" /> Lịch sử đọc
+          <History className="w-5 h-5" /> Reading History
         </CardTitle>
       </CardHeader>
 
       <CardContent className="p-0">
         {!historyLoaded ? (
           <div className="text-center py-6 text-muted-foreground">
-            Đang tải lịch sử đọc...
+            Loading reading history...
           </div>
         ) : readingHistory.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground">
-            Bạn chưa đọc truyện nào
+            You haven't read any stories
           </div>
         ) : (
           <div className="max-h-96 overflow-y-auto">
@@ -134,14 +134,14 @@ export default function ReadingHistory() {
                       {manga?.title}
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      Chương cuối đọc: {chapter?.title} (#{chapter?.order})
+                      Last read chapter: {chapter?.title} (#{chapter?.order})
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Tiến độ: {item.overall_progress ?? 0}%
+                      Progress: {item.overall_progress ?? 0}%
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Cập nhật lần cuối:{" "}
-                      {new Date(item.last_read_at).toLocaleString("vi-VN")}
+                      Last updated:{" "}
+                      {new Date(item.last_read_at).toLocaleString("en-US")}
                     </p>
                   </div>
 
@@ -150,7 +150,7 @@ export default function ReadingHistory() {
                     onClick={() => handleDelete(item.story_id)}
                     disabled={deletingId === item.story_id}
                     className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-red-600 disabled:opacity-50"
-                    title="Xoá khỏi lịch sử"
+                    title="Remove from history"
                   >
                     {deletingId === item.story_id ? (
                       <span className="text-xs animate-pulse">...</span>

@@ -100,41 +100,41 @@ export default function WithdrawPage() {
   async function handleWithdraw() {
     if (!authorId) {
       toast({
-        title: "Lỗi",
+        title: "Error",
         description:
-          "Không tìm thấy thông tin tác giả, vui lòng đăng nhập lại.",
+          "Author information not found, please log in again.",
         variant: "destructive",
       });
       return;
     }
     if (withdraw_point < 50) {
       toast({
-        title: "Lỗi",
-        description: "Số điểm rút tối thiểu là 50 điểm!",
+        title: "Error",
+        description: "Minimum withdrawal amount is 50 points!",
         variant: "destructive",
       });
       return;
     }
     if (!bankCode) {
       toast({
-        title: "Lỗi",
-        description: "Vui lòng chọn ngân hàng.",
+        title: "Error",
+        description: "Please select a bank.",
         variant: "destructive",
       });
       return;
     }
     if (!bankAccount.trim()) {
       toast({
-        title: "Lỗi",
-        description: "Vui lòng nhập số tài khoản.",
+        title: "Error",
+        description: "Please enter account number.",
         variant: "destructive",
       });
       return;
     }
     if (!accountHolder.trim()) {
       toast({
-        title: "Lỗi",
-        description: "Vui lòng nhập tên chủ tài khoản.",
+        title: "Error",
+        description: "Please enter account holder name.",
         variant: "destructive",
       });
       return;
@@ -156,8 +156,8 @@ export default function WithdrawPage() {
       );
 
       toast({
-        title: "Thành công",
-        description: "Tạo yêu cầu rút thành công!",
+        title: "Success",
+        description: "Withdrawal request created successfully!",
       });
       setPoints(0);
       setBankCode("");
@@ -172,8 +172,8 @@ export default function WithdrawPage() {
       setCurrentPoints(res.data.author_point);
     } catch (err: any) {
       toast({
-        title: "Lỗi",
-        description: err.response?.data?.message || "Có lỗi xảy ra!",
+        title: "Error",
+        description: err.response?.data?.message || "An error occurred!",
         variant: "destructive",
       });
     } finally {
@@ -187,32 +187,32 @@ export default function WithdrawPage() {
       <div className="max-w-4xl mx-auto pt-24 px-4 pb-10 space-y-10">
         {/* Form rút tiền */}
         <div className="bg-white dark:bg-card p-6 rounded-lg shadow border border-input">
-          <h1 className="text-xl font-bold mb-6 text-foreground">Yêu cầu rút tiền</h1>
+          <h1 className="text-xl font-bold mb-6 text-foreground">Withdrawal Request</h1>
           <p className="mb-4 text-sm text-muted-foreground">
-            Điểm hiện tại: <span className="font-semibold text-foreground">{currentPoints}</span>
+            Current points: <span className="font-semibold text-foreground">{currentPoints}</span>
           </p>
 
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1 text-foreground">
-              Số điểm muốn rút
+              Points to withdraw
             </label>
             <Input
               type="number"
               value={withdraw_point}
               onChange={(e) => setPoints(Number(e.target.value) || 0)}
-              placeholder="Nhập số điểm (tối thiểu 50)"
+              placeholder="Enter points (minimum 50)"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-foreground">Ngân hàng</label>
+            <label className="block text-sm font-medium mb-1 text-foreground">Bank</label>
             <select
               value={bankCode}
               onChange={(e) => setBankCode(e.target.value)}
               className="w-full border border-input dark:bg-input/30 rounded px-3 py-2 text-foreground bg-transparent"
             >
-              <option value="">-- Chọn ngân hàng --</option>
+              <option value="">-- Select bank --</option>
               {bankList.map((bank) => (
                 <option key={bank.code} value={bank.code}>
                   {bank.name}
@@ -223,23 +223,23 @@ export default function WithdrawPage() {
 
           <div>
             <label className="block text-sm font-medium mb-1 text-foreground">
-              Số tài khoản
+              Account Number
             </label>
             <Input
               value={bankAccount}
               onChange={(e) => setBankAccount(e.target.value)}
-              placeholder="VD: 0123456789"
+              placeholder="e.g., 0123456789"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1 text-foreground">
-              Chủ tài khoản
+              Account Holder Name
             </label>
             <Input
               value={accountHolder}
               onChange={(e) => setAccountHolder(e.target.value)}
-              placeholder="Tên đầy đủ"
+              placeholder="Full name"
             />
           </div>
 
@@ -248,16 +248,16 @@ export default function WithdrawPage() {
             disabled={loading}
             className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            {loading ? "Đang xử lý..." : "Xác nhận rút tiền"}
+            {loading ? "Processing..." : "Confirm Withdrawal"}
           </Button>
         </div>
       </div>
 
         {/* Lịch sử rút tiền */}
         <div className="bg-white dark:bg-card p-6 rounded-lg shadow border border-input">
-          <h2 className="text-lg font-bold mb-6 text-foreground">Lịch sử rút tiền</h2>
+          <h2 className="text-lg font-bold mb-6 text-foreground">Withdrawal History</h2>
           {withdrawList.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Chưa có yêu cầu nào.</p>
+            <p className="text-sm text-muted-foreground">No requests yet.</p>
         ) : (
           <div className="space-y-4">
             {withdrawList.map((w) => (
@@ -267,7 +267,7 @@ export default function WithdrawPage() {
               >
                 <div>
                   <p className="font-medium text-foreground">
-                    {w.withdraw_point} điểm → {w.amount.toLocaleString()} VND
+                    {w.withdraw_point} points → {w.amount.toLocaleString()} VND
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {w.bankAccount} ({w.accountHolder}) - {w.bankCode}
@@ -300,17 +300,17 @@ export default function WithdrawPage() {
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               variant="outline"
             >
-              Trang trước
+              Previous page
             </Button>
             <span className="text-sm text-muted-foreground">
-              Trang {page} / {Math.ceil(total / pageSize)}
+              Page {page} / {Math.ceil(total / pageSize)}
             </span>
             <Button
               disabled={page >= Math.ceil(total / pageSize)}
               onClick={() => setPage((p) => p + 1)}
               variant="outline"
             >
-              Trang sau
+              Next page
             </Button>
           </div>
         )}

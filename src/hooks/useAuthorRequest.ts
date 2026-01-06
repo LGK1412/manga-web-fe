@@ -53,7 +53,7 @@ export function useAuthorRequest(enabled: boolean): UseAuthorRequestReturn {
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? err.response?.data?.message || err.message
-        : "Không thể tải trạng thái yêu cầu tác giả";
+        : "Unable to load author request status";
       setError(message);
     } finally {
       setLoading(false);
@@ -85,7 +85,7 @@ export function useAuthorRequest(enabled: boolean): UseAuthorRequestReturn {
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? err.response?.data?.message || err.message
-        : "Gửi yêu cầu thất bại";
+        : "Failed to send request";
       setError(message);
       throw err;
     } finally {

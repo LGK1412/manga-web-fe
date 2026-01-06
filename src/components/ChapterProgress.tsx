@@ -19,7 +19,7 @@ export default function ChapterProgress() {
         const parsed = JSON.parse(decoded);
         setUserId(parsed.user_id);
       } catch (e) {
-        console.error("Invalid cookie data");
+        // Silently fail - invalid cookie data
       }
     }
   }, []);
@@ -59,7 +59,9 @@ export default function ChapterProgress() {
           .post(
             `${process.env.NEXT_PUBLIC_API_URL}/api/Chapter/progress/${userId}/${id}/${progress}`
           )
-          .catch(console.error);
+          .catch(() => {
+            // Silently fail - progress save is not critical
+          });
       }
     };
     window.addEventListener("beforeunload", handleUnload);
@@ -76,8 +78,9 @@ export default function ChapterProgress() {
         .patch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/manga/view/${id}/increase`
         )
-        .catch(console.error);
-      console.log(`Đã tăng view cho chapter ${id}`);
+        .catch(() => {
+          // Silently fail - view counter is not critical
+        });
     }
   }, [id]);
 

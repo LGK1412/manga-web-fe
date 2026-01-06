@@ -31,17 +31,17 @@ export default function DonationSentList() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Gift className="w-5 h-5" /> Lịch sử quà đã tặng
+          <Gift className="w-5 h-5" /> Gifts Sent History
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         {loading ? (
           <div className="text-center py-6 text-muted-foreground">
-            Đang tải danh sách quà...
+            Loading gift list...
           </div>
         ) : sentGifts.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground">
-            Bạn chưa tặng quà nào
+            You haven't sent any gifts
           </div>
         ) : (
           <div className="max-h-96 overflow-y-auto">
@@ -65,7 +65,7 @@ export default function DonationSentList() {
 
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm">
-                    Gửi cho{" "}
+                    Sent to{" "}
                     <span className="text-blue-500">
                       {gift.receiver?.username}
                     </span>
@@ -74,7 +74,7 @@ export default function DonationSentList() {
                     {gift.item?.name} × {gift.quantity}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Tổng: {gift.totalPrice.toLocaleString()} điểm
+                    Total: {gift.totalPrice.toLocaleString()} points
                   </p>
                   {gift.message && (
                     <p className="text-xs italic text-muted-foreground mt-1">
@@ -84,7 +84,7 @@ export default function DonationSentList() {
                 </div>
 
                 <div className="text-xs text-right text-muted-foreground">
-                  {new Date(gift.sendAt).toLocaleString("vi-VN")}
+                  {new Date(gift.sendAt).toLocaleString("en-US")}
                 </div>
               </div>
             ))}

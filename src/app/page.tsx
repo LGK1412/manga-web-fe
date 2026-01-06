@@ -77,16 +77,16 @@ function timeAgo(inputMs?: number) {
   if (!inputMs) return undefined;
   const diff = Math.max(0, Date.now() - inputMs);
   const s = Math.floor(diff / 1000);
-  if (s < 60) return `${s}s trước`;
+  if (s < 60) return `${s}s ago`;
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m} phút trước`;
+  if (m < 60) return `${m} minutes ago`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h} giờ trước`;
+  if (h < 24) return `${h} hours ago`;
   const d = Math.floor(h / 24);
-  if (d < 30) return `${d} ngày trước`;
+  if (d < 30) return `${d} days ago`;
   const mo = Math.floor(d / 30);
-  if (mo < 12) return `${mo} tháng trước`;
-  return `${Math.floor(mo / 12)} năm trước`;
+  if (mo < 12) return `${mo} months ago`;
+  return `${Math.floor(mo / 12)} years ago`;
 }
 function fmtViews(n?: number) {
   const v = n ?? 0;
@@ -105,7 +105,7 @@ function mapToCard(x: MangaRaw): Card {
   return {
     key: getKey(x),
     href: getHref(x),
-    title: x.title || "Không rõ tiêu đề",
+    title: x.title || "Unknown title",
     coverUrl: buildCoverUrl(x.coverImage),
     published: !!x.isPublish,
     status: x.status,
@@ -328,7 +328,7 @@ export default function HomePage() {
         setLatestTotalPages(latest.totalPages);
       })
       .catch((e) =>
-        setErr(e?.response?.data?.message || e?.message || "Tải trang lỗi")
+        setErr(e?.response?.data?.message || e?.message || "Error loading page")
       )
       .finally(() => setLoading(false));
     return () => controller.abort();
@@ -350,7 +350,7 @@ export default function HomePage() {
         else window.scrollTo({ top: 0, behavior: "smooth" });
       })
       .catch((e) =>
-        setErr(e?.response?.data?.message || e?.message || "Tải trang lỗi")
+        setErr(e?.response?.data?.message || e?.message || "Error loading page")
       )
       .finally(() => setLoadingPage(false));
   };
@@ -431,12 +431,12 @@ export default function HomePage() {
         {!loading && featured.length > 0 && (
           <section>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Nổi bật</h2>
+              <h2 className="text-lg font-semibold text-foreground">Featured</h2>
               <Link
                 href="/stories"
                 className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
-                Xem thêm
+                View more
               </Link>
             </div>
             <div className="no-scrollbar flex snap-x gap-3 overflow-x-auto">
@@ -454,12 +454,12 @@ export default function HomePage() {
           {/* Latest (paged) */}
           <div className="lg:col-span-9" id="latest">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Mới cập nhật</h2>
+              <h2 className="text-lg font-semibold text-foreground">Recently updated</h2>
               <Link
                 href="/stories"
                 className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
-                Xem thêm
+                View more
               </Link>
             </div>
 
@@ -489,7 +489,7 @@ export default function HomePage() {
                 {/* Pagination */}
                 <div className="flex items-center justify-between pt-4">
                   <div className="text-sm text-gray-600 dark:text-muted-foreground">
-                    Trang {latestPage} / {latestTotalPages}
+                    Page {latestPage} / {latestTotalPages}
                   </div>
                   <NumberPager
                     page={latestPage}
@@ -500,7 +500,7 @@ export default function HomePage() {
 
                 {loadingPage && (
                   <div className="mt-3 text-sm text-gray-500 dark:text-muted-foreground">
-                    Đang tải trang…
+                    Loading page…
                   </div>
                 )}
               </>
@@ -510,7 +510,7 @@ export default function HomePage() {
           {/* Rankings (from summaryItems) */}
           <aside className="lg:col-span-3">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Bảng xếp hạng</h2>
+              <h2 className="text-lg font-semibold text-foreground">Ranking</h2>
               <div className="flex gap-1 rounded-full border border-gray-300 dark:border-input p-1 bg-background">
                 {(["day", "week", "month"] as RankTab[]).map((k) => (
                   <button
@@ -521,7 +521,7 @@ export default function HomePage() {
                       : "bg-white dark:bg-card text-gray-800 dark:text-foreground"
                       }`}
                   >
-                    {k === "day" ? "Ngày" : k === "week" ? "Tuần" : "Tháng"}
+                    {k === "day" ? "Day" : k === "week" ? "Week" : "Month"}
                   </button>
                 ))}
               </div>
@@ -554,7 +554,7 @@ export default function HomePage() {
                     </div>
                     <div className="mt-0.5 flex items-center justify-between text-xs text-gray-600 dark:text-muted-foreground">
                       <span className="flex items-center gap-1">
-                        <BookOpen className="h-3.5 w-3.5" /> {m.chapters} chương
+                        <BookOpen className="h-3.5 w-3.5" /> {m.chapters} chapters
                       </span>
                       <span className="flex items-center gap-1">
                         <Eye className="h-3.5 w-3.5" /> {fmtViews(m.views)}
@@ -566,7 +566,7 @@ export default function HomePage() {
             </div>
 
             <div className="mt-6">
-              <h3 className="mb-2 text-sm font-semibold text-foreground">Rating cao</h3>
+              <h3 className="mb-2 text-sm font-semibold text-foreground">Top rated</h3>
               <div className="space-y-2">
                 {topFollows.map((m) => (
                   <Link

@@ -17,12 +17,31 @@ export default function ForgotPasswordPage() {
     const [email, setEmail] = useState("")
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
+    const [emailError, setEmailError] = useState("")
     const router = useRouter()
     const { toast } = useToast()
+
+    const validateEmail = () => {
+        if (!email) {
+            setEmailError("Email is required")
+            return false
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setEmailError("Invalid email format")
+            return false
+        }
+        setEmailError("")
+        return true
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError("")
+        
+        if (!validateEmail()) {
+            return
+        }
+
         setIsLoading(true)
 
         try {
@@ -30,15 +49,29 @@ export default function ForgotPasswordPage() {
 
             if (response.data.success) {
                 toast({
-                    title: "Link đổi mật khẩu đã được gửi!",
-                    description: "Vui lòng kiểm tra email của bạn.",
+                    title: "Password reset link sent!",
+                    description: "Please check your email.",
+                    variant: "success",
                 })
             } else {
                 throw new Error(response.data.message || "Failed to send reset code")
             }
         } catch (error: any) {
-            console.error("Send reset code error:", error)
-            setError(error.response?.data?.message || error.message || "Không thể gửi mã xác nhận. Vui lòng thử lại.")
+            let errorMessage = "Unable to send verification code. Please try again."
+            
+            if (axios.isAxiosError(error)) {
+                if (error.response?.data?.message) {
+                    errorMessage = error.response.data.message
+                } else if (error.response?.status === 400) {
+                    errorMessage = "Invalid data"
+                } else if (error.response?.status === 500) {
+                    errorMessage = "Server error, please try again later"
+                } else if (error.message === "Network Error") {
+                    errorMessage = "Unable to connect to server"
+                }
+            }
+            
+            setError(errorMessage)
         } finally {
             setIsLoading(false)
         }
@@ -54,9 +87,9 @@ export default function ForgotPasswordPage() {
                                 <Mail className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                             </div>
                         </div>
-                        <CardTitle className="text-2xl font-bold text-center">Quên mật khẩu?</CardTitle>
+                        <CardTitle className="text-2xl font-bold text-center">Forgot password?</CardTitle>
                         <CardDescription className="text-center">
-                            Nhập địa chỉ email của bạn và chúng tôi sẽ gửi mã xác nhận để đặt lại mật khẩu
+                            Enter your email address and we'll send you a verification code to reset your password
                         </CardDescription>
                     </CardHeader>
 
@@ -64,18 +97,26 @@ export default function ForgotPasswordPage() {
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="email" className="text-sm font-medium">
-                                    Địa chỉ email
+                                    Email address
                                 </Label>
                                 <Input
                                     id="email"
                                     type="email"
                                     placeholder="example@email.com"
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="h-11"
+                                    onChange={(e) => {
+                                        setEmail(e.target.value)
+                                        if (emailError) {
+                                            setEmailError("")
+                                        }
+                                    }}
+                                    className={`h-11 ${emailError ? "border-red-500" : ""}`}
                                     disabled={isLoading}
                                     required
                                 />
+                                {emailError && (
+                                    <p className="text-sm text-red-500">{emailError}</p>
+                                )}
                             </div>
 
                             {error && (
@@ -88,10 +129,10 @@ export default function ForgotPasswordPage() {
                                 {isLoading ? (
                                     <>
                                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                        Đang gửi mã...
+                                        Sending code...
                                     </>
                                 ) : (
-                                    "Gửi mã xác nhận"
+                                    "Send verification code"
                                 )}
                             </Button>
                         </form>
@@ -99,15 +140,15 @@ export default function ForgotPasswordPage() {
                         <div className="text-center pt-4">
                             <Link href="/login" className="inline-flex items-center text-sm text-primary hover:underline">
                                 <ArrowLeft className="h-4 w-4 mr-1" />
-                                Quay lại đăng nhập
+                                Back to login
                             </Link>
                         </div>
 
                         <div className="text-center pt-2">
                             <p className="text-sm text-muted-foreground">
-                                Chưa có tài khoản?{" "}
+                                Don't have an account?{" "}
                                 <Link href="/register" className="text-primary hover:underline">
-                                    Đăng ký ngay
+                                    Sign up now
                                 </Link>
                             </p>
                         </div>

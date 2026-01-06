@@ -137,7 +137,7 @@ export default function DonationReceivedList() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Gift className="w-5 h-5" /> Quà bạn được tặng
+            <Gift className="w-5 h-5" /> Gifts Received
           </CardTitle>
 
           <Button
@@ -146,17 +146,17 @@ export default function DonationReceivedList() {
             onClick={handleMarkAllAsRead}
             disabled={processingAll || receivedGifts.every((g) => g.isRead)}
           >
-            {processingAll ? "Đang xử lý..." : "Nhận tất cả"}
+            {processingAll ? "Processing..." : "Claim All"}
           </Button>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
             <div className="text-center py-6 text-muted-foreground">
-              Đang tải danh sách quà...
+              Loading gift list...
             </div>
           ) : receivedGifts.length === 0 ? (
             <div className="text-center py-6 text-muted-foreground">
-              Bạn chưa được tặng quà nào
+              You haven't received any gifts
             </div>
           ) : (
             <div className="max-h-96 overflow-y-auto">
@@ -182,7 +182,7 @@ export default function DonationReceivedList() {
 
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm">
-                      Từ{" "}
+                      From{" "}
                       <span className="text-blue-500">
                         {gift.sender?.username}
                       </span>
@@ -196,7 +196,7 @@ export default function DonationReceivedList() {
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(gift.sendAt).toLocaleString("vi-VN")}
+                      {new Date(gift.sendAt).toLocaleString("en-US")}
                     </p>
                   </div>
 
@@ -208,7 +208,7 @@ export default function DonationReceivedList() {
                       className="bg-blue-500 hover:bg-blue-600 text-white"
                       onClick={() => handleMarkAsRead(gift)}
                     >
-                      Nhận
+                      Claim
                     </Button>
                   )}
                 </div>

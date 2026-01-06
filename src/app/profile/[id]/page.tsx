@@ -96,34 +96,32 @@ export default function ProfileByIdPage({
           setFavouriteStories(res.data.favourites || []);
           setFavouritesLoaded(true);
         } catch (err) {
-          console.error("Failed to fetch favourites", err);
           if (axios.isAxiosError(err)) {
             if (err.response?.status === 401) {
               toast({
-                title: "Phiên đăng nhập hết hạn",
-                description: "Vui lòng đăng nhập lại",
+                title: "Session expired",
+                description: "Please log in again",
                 variant: "destructive",
               });
               router.push("/login");
             } else if (err.response?.status === 400) {
-              console.log("400 error details:", err.response?.data);
               toast({
-                title: "Lỗi dữ liệu",
+                title: "Data error",
                 description:
                   err.response?.data?.message ||
-                  "Không thể tải danh sách yêu thích",
+                  "Unable to load favorites list",
                 variant: "destructive",
               });
             } else {
               toast({
-                title: "Không thể tải danh sách yêu thích",
-                description: err.response?.data?.message || "Lỗi server",
+                title: "Unable to load favorites list",
+                description: err.response?.data?.message || "Server error",
                 variant: "destructive",
               });
             }
           } else {
             toast({
-              title: "Không thể tải danh sách yêu thích",
+              title: "Unable to load favorites list",
               variant: "destructive",
             });
           }
@@ -145,7 +143,6 @@ export default function ProfileByIdPage({
           setFollowingAuthors(res.data.following || []);
           setFollowingLoaded(true);
         } catch (err) {
-          console.error("Failed to fetch following authors", err);
           setFollowingLoaded(true);
         }
       };
@@ -191,18 +188,18 @@ export default function ProfileByIdPage({
       if (result?.success) {
         toast({
           title: result.autoApproved
-            ? "Chúc mừng! Bạn đã trở thành tác giả"
-            : "Đã gửi yêu cầu",
+            ? "Congratulations! You are now an author"
+            : "Request sent",
           description: result.message,
         });
       }
     } catch (error) {
       const message = axios.isAxiosError(error)
         ? error.response?.data?.message
-        : "Không thể gửi yêu cầu";
+        : "Unable to send request";
       toast({
-        title: "Lỗi",
-        description: message ?? "Không thể gửi yêu cầu",
+        title: "Error",
+        description: message ?? "Unable to send request",
         variant: "destructive",
       });
     }
@@ -221,7 +218,7 @@ export default function ProfileByIdPage({
       <Navbar />
 
       <div className="container mx-auto px-4 py-8 pt-20">
-        <h1 className="text-3xl font-bold mb-8">Trang cá nhân</h1>
+        <h1 className="text-3xl font-bold mb-8">Profile</h1>
         <div className="grid lg:grid-cols-3 gap-8">
           <Card className="lg:col-span-1">
             <CardContent className="p-6 flex flex-col items-center text-center">
@@ -240,17 +237,19 @@ export default function ProfileByIdPage({
               </Avatar>
               <h2 className="text-2xl font-bold mb-1">{user.name}</h2>
               <p className="text-muted-foreground mb-4">{user.email}</p>
-              <p className="text-muted-foreground mb-4">{user.bio}</p>
+              <p className="text-muted-foreground mb-4 max-w-sm break-words whitespace-pre-wrap">
+                {user.bio}
+              </p>
 
               <div className="flex items-center gap-2 mb-4">
                 <Badge variant="secondary">
                   {isAuthorRole ? (
                     <>
-                      <PenTool className="w-3 h-3 mr-1" /> Tác giả
+                      <PenTool className="w-3 h-3 mr-1" /> Author
                     </>
                   ) : (
                     <>
-                      <UserIcon className="w-3 h-3 mr-1" /> Độc giả
+                      <UserIcon className="w-3 h-3 mr-1" /> Reader
                     </>
                   )}
                 </Badge>
@@ -260,24 +259,24 @@ export default function ProfileByIdPage({
                 <div>
                   <p className="text-lg font-semibold">{followersCount}</p>
                   <p className="text-sm text-muted-foreground">
-                    Người theo dõi
+                    Followers
                   </p>
                 </div>
                 <div>
                   <p className="text-lg font-semibold">{followingCount}</p>
-                  <p className="text-sm text-muted-foreground">Đang theo dõi</p>
+                  <p className="text-sm text-muted-foreground">Following</p>
                 </div>
               </div>
 
               <Button className="w-full mb-4" asChild>
-                <Link href="/profile/edit">Chỉnh sửa</Link>
+                <Link href="/profile/edit">Edit</Link>
               </Button>
 
               <Separator className="w-full mb-4" />
 
               {isAuthorRole ? (
                 <Button variant="secondary" className="w-full mb-4" asChild>
-                  <Link href="/author/dashboard">Tới trang tác giả</Link>
+                  <Link href="/author/dashboard">Go to Author Dashboard</Link>
                 </Button>
               ) : (
                 <div className="w-full space-y-2 mb-4">
@@ -286,12 +285,12 @@ export default function ProfileByIdPage({
                     className="w-full"
                     onClick={() => setAuthorModalOpen(true)}
                   >
-                    Trở thành tác giả
+                    Become an Author
                   </Button>
                   <p className="text-xs text-muted-foreground text-left">
                     {authorRequest?.status === "pending"
-                      ? "Yêu cầu của bạn đang được xét duyệt. Khi đủ điều kiện, hệ thống sẽ tự động phê duyệt."
-                      : "Hệ thống sẽ kiểm tra số chương, người theo dõi và hoạt động gần đây để phê duyệt yêu cầu của bạn."}
+                      ? "Your request is being reviewed. The system will automatically approve when you meet the requirements."
+                      : "The system will check chapters, followers, and recent activity to approve your request."}
                   </p>
                 </div>
               )}
@@ -300,7 +299,7 @@ export default function ProfileByIdPage({
                 href="/change-password"
                 className="text-sm font-medium underline text-left w-full decoration-red-400 decoration-2 underline-offset-2 text-red-600 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200 transition-colors"
               >
-                Đổi mật khẩu
+                Change password
               </Link>
             </CardContent>
           </Card>
@@ -309,17 +308,17 @@ export default function ProfileByIdPage({
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <UserIcon className="w-5 h-5" /> Tác giả đang theo dõi
+                  <UserIcon className="w-5 h-5" /> Following Authors
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {!followingLoaded ? (
                   <div className="text-center py-6 text-muted-foreground">
-                    Đang tải danh sách
+                    Loading list...
                   </div>
                 ) : followingAuthors.length === 0 ? (
                   <div className="text-center py-6 text-muted-foreground">
-                    Bạn chưa theo dõi tác giả nào
+                    You are not following any authors yet
                   </div>
                 ) : (
                   <div className="max-h-96 overflow-y-auto">
@@ -357,17 +356,17 @@ export default function ProfileByIdPage({
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Heart className="w-5 h-5" /> Truyện yêu thích
+                  <Heart className="w-5 h-5" /> Favorite Stories
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {!favouritesLoaded ? (
                   <div className="text-center py-6 text-muted-foreground">
-                    Đang tải danh sách
+                    Loading list...
                   </div>
                 ) : favouriteStories.length === 0 ? (
                   <div className="text-center py-6 text-muted-foreground">
-                    Không có truyện yêu thích
+                    No favorite stories
                   </div>
                 ) : (
                   <div className="max-h-96 overflow-y-auto">
@@ -418,7 +417,7 @@ export default function ProfileByIdPage({
                           </div>
                           {story.author && (
                             <p className="text-xs text-muted-foreground mb-1">
-                              Tác giả: {story.author.username}
+                              Author: {story.author.username}
                             </p>
                           )}
                           {story.summary && (
@@ -451,7 +450,7 @@ export default function ProfileByIdPage({
       <Dialog open={isAuthorModalOpen} onOpenChange={setAuthorModalOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Đăng ký trở thành tác giả</DialogTitle>
+            <DialogTitle>Register to Become an Author</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {authorError && (
@@ -459,7 +458,7 @@ export default function ProfileByIdPage({
             )}
             {authorLoading && (
               <p className="text-sm text-muted-foreground">
-                Đang tải dữ liệu đánh giá...
+                Loading evaluation data...
               </p>
             )}
             {!authorLoading && authorRequest && (
@@ -477,7 +476,7 @@ export default function ProfileByIdPage({
           </div>
           <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={() => setAuthorModalOpen(false)}>
-              Đóng
+              Close
             </Button>
             {!isAuthorRole && (
               <Button
@@ -490,7 +489,7 @@ export default function ProfileByIdPage({
                   authorRequest?.canRequest === false
                 }
               >
-                {authorSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
+                {authorSubmitting ? "Sending..." : "Send Request"}
               </Button>
             )}
           </DialogFooter>

@@ -208,7 +208,7 @@ export default function MangaDetailPage() {
       })
       .catch((err) => {
         console.error("Lỗi khi fetch manga:", err);
-        setError(err.response?.data?.message || "Không thể tải dữ liệu");
+        setError(err.response?.data?.message || "Unable to load data");
       })
       .finally(() => setLoading(false));
   }, [mangaId]);
@@ -298,9 +298,9 @@ export default function MangaDetailPage() {
     } catch (err: any) {
       console.error("Lỗi khi thêm/trừ khỏi yêu thích:", err);
       toast({
-        title: "Không thể cập nhật yêu thích",
+        title: "Unable to update favorites",
         description:
-          err.response?.data?.message || "Vui lòng đăng nhập hoặc thử lại.",
+          err.response?.data?.message || "Please log in or try again.",
         variant: "destructive",
       });
     }
@@ -317,9 +317,9 @@ export default function MangaDetailPage() {
     } catch (err: any) {
       console.error("Lỗi khi theo dõi/bỏ theo dõi:", err);
       toast({
-        title: "Không thể cập nhật theo dõi",
+        title: "Unable to update follow status",
         description:
-          err.response?.data?.message || "Vui lòng đăng nhập hoặc thử lại.",
+          err.response?.data?.message || "Please log in or try again.",
         variant: "destructive",
       });
     }
@@ -398,8 +398,8 @@ export default function MangaDetailPage() {
       );
 
       toast({
-        title: "Thành công 🎉",
-        description: `Bạn đã mua chapter với giá ${price} điểm!`,
+        title: "Success 🎉",
+        description: `You purchased the chapter for ${price} points!`,
       });
 
       setManga((prev) =>
@@ -414,9 +414,9 @@ export default function MangaDetailPage() {
       );
     } catch (err: any) {
       toast({
-        title: "Lỗi mua chapter",
+        title: "Error purchasing chapter",
         description:
-          err.response?.data?.message || "Có lỗi xảy ra, vui lòng thử lại!",
+          err.response?.data?.message || "An error occurred, please try again!",
         variant: "destructive",
       });
     }
@@ -433,7 +433,7 @@ export default function MangaDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-center mt-10">Đang tải dữ liệu...</p>
+        <p className="text-center mt-10">Loading data...</p>
       </div>
     );
   }
@@ -449,7 +449,7 @@ export default function MangaDetailPage() {
   if (!manga) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-center mt-10">Không tìm thấy truyện.</p>
+        <p className="text-center mt-10">Story not found.</p>
       </div>
     );
   }
@@ -534,7 +534,7 @@ export default function MangaDetailPage() {
                             onClick={handleToggleFollow}
                           >
                             <UserPlus className="w-4 h-4 mr-2" />
-                            {isFollowing ? "Đang theo dõi" : "Theo dõi"}
+                            {isFollowing ? "Following" : "Follow"}
                           </Button>
 
                           <Button
@@ -543,7 +543,7 @@ export default function MangaDetailPage() {
                             onClick={() => setDonationOpen(true)}
                           >
                             <Gift className="w-4 h-4 mr-2" />
-                            <span>Tặng quà</span>
+                            <span>Donate</span>
                           </Button>
 
                           <DonationModal
@@ -590,7 +590,7 @@ export default function MangaDetailPage() {
                           <Button size="lg" asChild>
                             <Link href={`/chapter/${manga.chapters[0]._id}`}>
                               <BookOpen className="w-4 h-4 mr-2" />
-                              Đọc ngay
+                              Read now
                             </Link>
                           </Button>
 
@@ -600,7 +600,7 @@ export default function MangaDetailPage() {
                                 href={`/chapter/${lastRead.last_read_chapter._id}`}
                               >
                                 <ArrowRight className="w-4 h-4 mr-2" />
-                                Tiếp tục đọc chương{" "}
+                                Continue reading chapter{" "}
                                 {lastRead.last_read_chapter.order}
                               </Link>
                             </Button>
@@ -620,7 +620,7 @@ export default function MangaDetailPage() {
                             isFavourite ? "fill-red-500 text-red-500" : ""
                           }`}
                         />
-                        {isFavourite ? "Đã yêu thích" : "Thêm vào yêu thích"}
+                        {isFavourite ? "Favorited" : "Add to favorites"}
                       </Button>
 
                       <Button
@@ -642,9 +642,9 @@ export default function MangaDetailPage() {
             <Dialog open={ratingDialogOpen} onOpenChange={setRatingDialogOpen}>
               <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
-                  <DialogTitle>Đánh giá truyện</DialogTitle>
+                  <DialogTitle>Rate Story</DialogTitle>
                   <DialogDescription>
-                    Chọn số sao và nhập nhận xét (bắt buộc).
+                    Select stars and enter your comment (required).
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -684,7 +684,7 @@ export default function MangaDetailPage() {
                     </span>
                   </div>
                   <Textarea
-                    placeholder="Nhập nhận xét của bạn..."
+                    placeholder="Enter your comment..."
                     value={ratingComment}
                     onChange={(e) => setRatingComment(e.target.value)}
                   />
@@ -694,7 +694,7 @@ export default function MangaDetailPage() {
                     onClick={() => setRatingDialogOpen(false)}
                     variant="outline"
                   >
-                    Hủy
+                    Cancel
                   </Button>
                   <Button
                     onClick={submitRating}
@@ -704,7 +704,7 @@ export default function MangaDetailPage() {
                       isSubmittingRating
                     }
                   >
-                    {isSubmittingRating ? "Đang gửi..." : "Gửi"}
+                    {isSubmittingRating ? "Submitting..." : "Submit"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -714,16 +714,16 @@ export default function MangaDetailPage() {
             <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
               <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
-                  <DialogTitle>Báo cáo nội dung</DialogTitle>
+                  <DialogTitle>Report Content</DialogTitle>
                   <DialogDescription>
-                    Vui lòng chọn lý do báo cáo và mô tả chi tiết (nếu có).
+                    Please select a reason and provide detailed description (if any).
                   </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-4 py-4">
                   <div>
                     <label className="text-sm font-medium mb-2 block">
-                      Lý do
+                      Reason
                     </label>
                     <select
                       className="w-full border rounded-md px-3 py-2 text-sm"
@@ -742,10 +742,10 @@ export default function MangaDetailPage() {
 
                   <div>
                     <label className="text-sm font-medium mb-2 block">
-                      Mô tả chi tiết
+                      Detailed Description
                     </label>
                     <Textarea
-                      placeholder="Mô tả vấn đề bạn gặp phải..."
+                      placeholder="Describe the issue you encountered..."
                       value={reportDescription}
                       onChange={(e) => setReportDescription(e.target.value)}
                     />
@@ -757,14 +757,14 @@ export default function MangaDetailPage() {
                     variant="outline"
                     onClick={() => setReportDialogOpen(false)}
                   >
-                    Hủy
+                    Cancel
                   </Button>
                   <Button
                     onClick={async () => {
                       if (!userId) {
                         toast({
-                          title: "Chưa đăng nhập",
-                          description: "Vui lòng đăng nhập để gửi báo cáo.",
+                          title: "Not logged in",
+                          description: "Please log in to submit a report.",
                           variant: "destructive",
                         });
                         return;
@@ -783,18 +783,18 @@ export default function MangaDetailPage() {
                           { withCredentials: true }
                         );
                         toast({
-                          title: "Gửi báo cáo thành công ✅",
-                          description: "Cảm ơn bạn đã gửi phản hồi.",
+                          title: "Report sent successfully ✅",
+                          description: "Thank you for your feedback.",
                         });
                         setReportDialogOpen(false);
                         setReportDescription("");
                         setReportReason("Spam");
                       } catch (err: any) {
                         toast({
-                          title: "Lỗi khi gửi báo cáo",
+                          title: "Error sending report",
                           description:
                             err.response?.data?.message ||
-                            "Vui lòng thử lại sau.",
+                            "Please try again later.",
                           variant: "destructive",
                         });
                       } finally {
@@ -803,7 +803,7 @@ export default function MangaDetailPage() {
                     }}
                     disabled={isSubmittingReport}
                   >
-                    {isSubmittingReport ? "Đang gửi..." : "Gửi báo cáo"}
+                    {isSubmittingReport ? "Submitting..." : "Submit Report"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -813,10 +813,10 @@ export default function MangaDetailPage() {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-2xl">Đánh giá truyện</CardTitle>
+                  <CardTitle className="text-2xl">Story Ratings</CardTitle>
                   {ratingSummary && (
                     <span className="text-sm text-muted-foreground">
-                      {ratingSummary.count || 0} đánh giá
+                      {ratingSummary.count || 0} ratings
                     </span>
                   )}
                 </div>
@@ -850,14 +850,14 @@ export default function MangaDetailPage() {
                               href={`/profile/${r.user?._id}`}
                               className="text-sm font-medium hover:underline"
                             >
-                              {r.user?.username || "Người dùng"}
+                              {r.user?.username || "User"}
                             </Link>
                           ) : (
                             <Link
                               href={`/profile/user?id=${r.user?._id}`}
                               className="text-sm font-medium hover:underline"
                             >
-                              {r.user?.username || "Người dùng"}
+                              {r.user?.username || "User"}
                             </Link>
                           )}
 
@@ -910,7 +910,7 @@ export default function MangaDetailPage() {
                   ))}
                   {allRatings.length === 0 && (
                     <div className="text-sm text-muted-foreground">
-                      Chưa có đánh giá nào.
+                      No ratings yet.
                     </div>
                   )}
                 </div>
@@ -925,10 +925,10 @@ export default function MangaDetailPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BookOpen className="w-5 h-5" />
-                  Danh sách chương
+                  Chapter List
                 </CardTitle>
                 <CardDescription>
-                  {manga.chapters.length} chương hiện có
+                  {manga.chapters.length} chapters available
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -949,7 +949,7 @@ export default function MangaDetailPage() {
                             {chapter.locked ? (
                               <>
                                 <Badge variant="secondary">
-                                  {chapter.price} điểm
+                                  {chapter.price} points
                                 </Badge>
                                 <Button
                                   size="sm"
@@ -957,7 +957,7 @@ export default function MangaDetailPage() {
                                     handleBuyChapter(chapter._id, chapter.price)
                                   }
                                 >
-                                  Mua
+                                  Buy
                                 </Button>
                               </>
                             ) : (
@@ -970,7 +970,7 @@ export default function MangaDetailPage() {
                             href={`/chapter/${chapter._id}`}
                             className="block mt-2 text-sm text-blue-600 hover:underline"
                           >
-                            Đọc ngay
+                            Read
                           </Link>
                         )}
                       </div>
@@ -978,7 +978,7 @@ export default function MangaDetailPage() {
                   </div>
                 ) : (
                   <div className="text-center py-6 text-muted-foreground">
-                    Chưa có chương nào.
+                    No chapters available yet.
                   </div>
                 )}
               </CardContent>

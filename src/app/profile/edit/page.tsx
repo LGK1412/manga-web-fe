@@ -65,24 +65,34 @@ export default function EditProfilePage() {
     }
   };
 
+  const MAX_BIO_CHARS = 200;
+
+  const handleBioChange = (value: string) => {
+    if (value.length <= MAX_BIO_CHARS) {
+      setBio(value);
+    } else {
+      setBio(value.slice(0, MAX_BIO_CHARS));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
   // --- Validation ---
   if (name.length < 3 || name.length > 30) {
     toast({
-      title: "Tên không hợp lệ",
-      description: "Tên phải có từ 3 đến 30 ký tự",
+      title: "Invalid name",
+      description: "Name must be between 3 and 30 characters",
       variant: "destructive",
     });
     return; // dừng, không gọi API
   }
 
-  const bioWordCount = bio.trim().split(/\s+/).filter(Boolean).length;
-  if (bioWordCount > 50) {
+  const bioCharCount = bio.length;
+  if (bioCharCount > MAX_BIO_CHARS) {
     toast({
-      title: "Mô tả quá dài",
-      description: "Mô tả chỉ được tối đa 50 từ",
+      title: "Description too long",
+      description: `Description must not exceed ${MAX_BIO_CHARS} characters`,
       variant: "destructive",
     });
     return; // dừng, không gọi API
@@ -129,8 +139,8 @@ export default function EditProfilePage() {
     }
 
     toast({
-      title: "Cập nhật hồ sơ thành công",
-      description: "Đã cập nhật hồ sơ thành công",
+      title: "Profile updated successfully",
+      description: "Your profile has been updated successfully",
       variant: "success",
     });
 
@@ -141,37 +151,36 @@ export default function EditProfilePage() {
       router.push("/login");
     }
   } catch (error) {
-    console.error("Profile update error:", error);
+    let errorMessage = "Unable to update profile. Please try again.";
+
     if (axios.isAxiosError(error)) {
       if (error.response?.status === 401) {
+        errorMessage = "Session expired. Please log in again";
         toast({
-          title: "Phiên đăng nhập hết hạn",
-          description: "Vui lòng đăng nhập lại",
+          title: "Session expired",
+          description: errorMessage,
           variant: "destructive",
         });
         router.push("/login");
+        return;
       } else if (error.response?.status === 400) {
-        console.log("400 error details:", error.response?.data);
-        toast({
-          title: "Lỗi cập nhật hồ sơ",
-          description:
-            error.response?.data?.message || "Dữ liệu không hợp lệ",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Lỗi cập nhật hồ sơ",
-          description: error.response?.data?.message || "Lỗi server",
-          variant: "destructive",
-        });
+        errorMessage = error.response?.data?.message || "Invalid data";
+      } else if (error.response?.status === 413) {
+        errorMessage = "Image file too large. Please choose a file smaller than 5MB";
+      } else if (error.response?.status === 500) {
+        errorMessage = "Server error, please try again later";
+      } else if (error.message === "Network Error") {
+        errorMessage = "Unable to connect to server";
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
       }
-    } else {
-      toast({
-        title: "Lỗi cập nhật hồ sơ",
-        description: "Lỗi không xác định",
-        variant: "destructive",
-      });
     }
+
+    toast({
+      title: "Error updating profile",
+      description: errorMessage,
+      variant: "destructive",
+    });
   } finally {
     setIsSaving(false);
   }
@@ -185,10 +194,10 @@ export default function EditProfilePage() {
       <Navbar />
 
       <div className="container mx-auto px-4 py-8 pt-20">
-        <h1 className="text-3xl font-bold mb-8">Chỉnh sửa thông tin</h1>
+        <h1 className="text-3xl font-bold mb-8">Edit Profile</h1>
         <Card className="max-w-2xl mx-auto">
           <CardHeader>
-            <CardTitle>Cập nhật thông tin</CardTitle>
+            <CardTitle>Update Information</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -221,18 +230,18 @@ export default function EditProfilePage() {
                   />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Nhấn vào để chỉnh sửa ảnh đại diện
+                  Click to edit avatar
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="name">Tên</Label>
+                <Label htmlFor="name">Name</Label>
                 <div className="relative">
                   <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="name"
                     type="text"
-                    placeholder="Điền tên đăng nhập"
+                    placeholder="Enter username"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
@@ -258,22 +267,25 @@ export default function EditProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="bio">Mô tả</Label>
+                <Label htmlFor="bio">Bio</Label>
                 <div className="relative">
-                  <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <FileText className="absolute left-3 top-3 transform h-4 w-4 text-muted-foreground" />
+                  <textarea
                     id="bio"
-                    type="text"
-                    placeholder="Điền mô tả"
+                    placeholder={`Enter bio (max ${MAX_BIO_CHARS} characters)`}
                     value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    className="pl-10"
+                    onChange={(e) => handleBioChange(e.target.value)}
+                    maxLength={MAX_BIO_CHARS}
+                    className="pl-10 pr-3 py-2 min-h-[80px] w-full rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   />
                 </div>
+                <p className="text-xs text-muted-foreground text-right">
+                  {bio.length}/{MAX_BIO_CHARS} characters
+                </p>
               </div>
 
               <Button type="submit" className="w-full" disabled={isSaving}>
-                {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
+                {isSaving ? "Saving..." : "Save changes"}
               </Button>
             </form>
           </CardContent>

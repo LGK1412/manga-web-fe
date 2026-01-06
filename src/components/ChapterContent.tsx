@@ -95,9 +95,9 @@ export default function ChapterContent() {
         const msg =
           err?.response?.data?.message ||
           err?.message ||
-          "Không tải được nội dung chương";
+          "Unable to load chapter content";
         toast({
-          title: "Lỗi",
+          title: "Error",
           description: msg,
           variant: "destructive",
         });
@@ -123,11 +123,11 @@ export default function ChapterContent() {
       if (typeof result === "string") {
         setFinalContent(result);
       } else {
-        setTranslateError("Lỗi: Kết quả dịch không hợp lệ.");
+        setTranslateError("Error: Invalid translation result.");
       }
     } catch (err: any) {
       console.error("Translate error:", err);
-      setTranslateError(err?.message ?? "Đã xảy ra lỗi khi dịch");
+      setTranslateError(err?.message ?? "An error occurred while translating");
     } finally {
       setTranslating(false);
     }
@@ -142,16 +142,16 @@ export default function ChapterContent() {
   const handleSubmitReport = async () => {
     if (!user) {
       toast({
-        title: "Chưa đăng nhập",
-        description: "Vui lòng đăng nhập để gửi báo cáo.",
+        title: "Not logged in",
+        description: "Please log in to submit a report.",
         variant: "destructive",
       });
       return;
     }
     if (!chapterInfo?._id) {
       toast({
-        title: "Thiếu thông tin chương",
-        description: "Không tìm thấy chương cần báo cáo.",
+        title: "Missing chapter information",
+        description: "Chapter to report not found.",
         variant: "destructive",
       });
       return;
@@ -172,16 +172,16 @@ export default function ChapterContent() {
       );
 
       toast({
-        title: "Gửi báo cáo thành công ✅",
-        description: "Cảm ơn bạn đã gửi phản hồi.",
+        title: "Report sent successfully ✅",
+        description: "Thank you for your feedback.",
       });
       setReportDialogOpen(false);
       setReportDescription("");
       setReportReason("Spam");
     } catch (err: any) {
       toast({
-        title: "Lỗi khi gửi báo cáo",
-        description: err?.response?.data?.message || "Vui lòng thử lại sau.",
+        title: "Error sending report",
+        description: err?.response?.data?.message || "Please try again later.",
         variant: "destructive",
       });
     } finally {
@@ -189,7 +189,7 @@ export default function ChapterContent() {
     }
   };
 
-  if (!chapterInfo) return <p className="text-center mt-10">Đang tải chương...</p>;
+  if (!chapterInfo) return <p className="text-center mt-10">Loading chapter...</p>;
   const createdAtText =
     chapterInfo.createdAt ? new Date(chapterInfo.createdAt).toLocaleString() : undefined;
 
@@ -212,7 +212,7 @@ export default function ChapterContent() {
           type="button"
           className="shrink-0"
           onClick={openReportDialog}
-          title="Báo cáo chương này"
+          title="Report this chapter"
         >
           <Flag className="w-4 h-4 mr-1" />
           
@@ -236,7 +236,7 @@ export default function ChapterContent() {
                 className="flex-1 px-3 py-2 border rounded"
               />
               <Button onClick={handleTranslate} disabled={translating || !targetLang}>
-                {translating ? "Đang dịch..." : "Dịch"}
+                {translating ? "Translating..." : "Translate"}
               </Button>
             </div>
 
@@ -248,7 +248,7 @@ export default function ChapterContent() {
                 onClick={() => setFinalContent(originalContent)}
                 className="mt-1"
               >
-                Xem lại nội dung gốc
+                View original content
               </Button>
             )}
           </div>
@@ -266,7 +266,7 @@ export default function ChapterContent() {
             <figure key={i} className="relative overflow-hidden rounded-xl shadow-md">
               <img
                 src={`${API_BASE}${img}`}
-                alt={`Trang ${i + 1}`}
+                alt={`Page ${i + 1}`}
                 className="w-full max-w-[900px] rounded-xl object-contain"
                 loading="lazy"
               />
@@ -275,7 +275,7 @@ export default function ChapterContent() {
         </div>
       ) : (
         <p className="text-center text-gray-500 dark:text-gray-400">
-          Không có nội dung hiển thị.
+          No content to display.
         </p>
       )}
 
@@ -283,31 +283,31 @@ export default function ChapterContent() {
       <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>Báo cáo chương</DialogTitle>
+            <DialogTitle>Report Chapter</DialogTitle>
             <DialogDescription>
-              Vui lòng chọn lý do và mô tả chi tiết (nếu có).
+              Please select a reason and provide detailed description (if any).
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Lý do</label>
+              <label className="text-sm font-medium mb-2 block">Reason</label>
               <select
                 className="w-full border rounded-md px-3 py-2 text-sm"
                 value={reportReason}
                 onChange={(e) => setReportReason(e.target.value)}
               >
                 <option value="Spam">Spam</option>
-                <option value="Inappropriate">Nội dung không phù hợp</option>
-                <option value="Harassment">Quấy rối / xúc phạm</option>
-                <option value="Other">Khác</option>
+                <option value="Inappropriate">Inappropriate content</option>
+                <option value="Harassment">Harassment / Offensive</option>
+                <option value="Other">Other</option>
               </select>
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">Mô tả chi tiết</label>
+              <label className="text-sm font-medium mb-2 block">Detailed Description</label>
               <Textarea
-                placeholder="Mô tả vấn đề bạn gặp phải..."
+                placeholder="Describe the issue you encountered..."
                 value={reportDescription}
                 onChange={(e) => setReportDescription(e.target.value)}
               />
@@ -316,10 +316,10 @@ export default function ChapterContent() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
-              Hủy
+              Cancel
             </Button>
             <Button onClick={handleSubmitReport} disabled={isSubmittingReport}>
-              {isSubmittingReport ? "Đang gửi..." : "Gửi báo cáo"}
+              {isSubmittingReport ? "Submitting..." : "Submit Report"}
             </Button>
           </DialogFooter>
         </DialogContent>
