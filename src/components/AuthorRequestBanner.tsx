@@ -19,16 +19,16 @@ export function AuthorRequestBanner({
   autoApproved,
 }: AuthorRequestBannerProps) {
   let variant: "default" | "destructive" | "success" | "warning" = "default";
-  let title = "Thông tin yêu cầu";
+  let title = "Request Information";
   let icon = <Sparkles className="h-4 w-4" />;
 
   if (status === "pending") {
     variant = "warning";
-    title = "Yêu cầu đang chờ phê duyệt";
+    title = "Request Pending Approval";
     icon = <Clock3 className="h-4 w-4" />;
   } else if (status === "approved") {
     variant = "success";
-    title = "Bạn đã trở thành tác giả";
+    title = "You are now an author";
     icon = <Sparkles className="h-4 w-4" />;
   }
 
@@ -42,10 +42,10 @@ export function AuthorRequestBanner({
           className="ml-2"
         >
           {status === "approved"
-            ? "Đã duyệt"
+            ? "Approved"
             : status === "pending"
-            ? "Đang chờ"
-            : "Chưa gửi yêu cầu"}
+            ? "Pending"
+            : "Not requested"}
         </Badge>
       </div>
       <AlertDescription className="space-y-2 text-sm">
@@ -53,16 +53,16 @@ export function AuthorRequestBanner({
         {requestedAt && (
           <p className="flex items-center gap-2 text-muted-foreground text-xs">
             <Clock3 className="h-3 w-3" />
-            Đã gửi: {new Date(requestedAt).toLocaleString()}
+            Sent: {new Date(requestedAt).toLocaleString()}
           </p>
         )}
         {approvedAt && (
           <p className="flex items-center gap-2 text-muted-foreground text-xs">
             <CalendarCheck2 className="h-3 w-3" />
-            Phê duyệt: {new Date(approvedAt).toLocaleString()}
+            Approved: {new Date(approvedAt).toLocaleString()}
             {autoApproved && (
               <Badge variant="outline" className="ml-2">
-                Tự động duyệt
+                Auto-approved
               </Badge>
             )}
           </p>

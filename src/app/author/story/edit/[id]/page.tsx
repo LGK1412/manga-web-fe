@@ -78,7 +78,7 @@ export default function EditStoryPage() {
 
                 try {
                     const { data } = await axios.get(
-                        `${process.env.NEXT_PUBLIC_API_URL}/api/manga/${authorId}`,
+                        `${process.env.NEXT_PUBLIC_API_URL}/api/manga/author/${authorId}`,
                         { withCredentials: true }
                     );
                     const allStories = Array.isArray(data) ? data : [...(data?.published || []), ...(data?.drafts || [])];
@@ -221,7 +221,7 @@ export default function EditStoryPage() {
         }
 
         try {
-            await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/manga/${params.id}`, formData, {
+            await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/manga/update/${params.id}`, formData, {
                 withCredentials: true,
                 headers: { "Content-Type": "multipart/form-data" }
             });

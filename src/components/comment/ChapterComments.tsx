@@ -134,10 +134,10 @@ export default function ChapterComments() {
       setComments(data);
       setError(null);
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || "Không tải được bình luận";
+      const msg = err.response?.data?.message || err.message || "Unable to load comments";
       setError(msg);
       toast({
-        title: "Lỗi",
+        title: "Error",
         description: msg,
         variant: "destructive",
       });
@@ -153,8 +153,8 @@ export default function ChapterComments() {
       setReplies((prev) => ({ ...prev, [commentId]: res.data }));
     } catch (err: any) {
       toast({
-        title: "Lỗi",
-        description: err.response?.data?.message || "Không tải được phản hồi",
+        title: "Error",
+        description: err.response?.data?.message || "Unable to load replies",
         variant: "destructive",
       });
     }
@@ -165,8 +165,8 @@ export default function ChapterComments() {
 
     if (length > MAX_COMMENT_LENGTH) {
       toast({
-        title: "Bình luận quá dài!",
-        description: `Hiện tại: ${length.toLocaleString()} / ${MAX_COMMENT_LENGTH.toLocaleString()} ký tự. Hãy xoá bớt emoji tùy chỉnh hoặc rút gọn nội dung.`,
+        title: "Comment too long!",
+        description: `Current: ${length.toLocaleString()} / ${MAX_COMMENT_LENGTH.toLocaleString()} characters. Please remove some custom emojis or shorten the content.`,
         variant: "destructive",
       });
       return;
@@ -190,8 +190,8 @@ export default function ChapterComments() {
       }
     } catch (err: any) {
       toast({
-        title: "Lỗi",
-        description: err.response?.data?.message || "Gửi comment thất bại",
+        title: "Error",
+        description: err.response?.data?.message || "Failed to send comment",
         variant: "destructive",
       });
     } finally {
@@ -223,8 +223,8 @@ export default function ChapterComments() {
       fetchReplies(parentId);
     } catch (err: any) {
       toast({
-        title: "Lỗi",
-        description: err.response?.data?.message || "Gửi phản hồi thất bại",
+        title: "Error",
+        description: err.response?.data?.message || "Failed to send reply",
         variant: "destructive",
       });
     } finally {
@@ -240,16 +240,16 @@ export default function ChapterComments() {
         { withCredentials: true }
       );
       toast({
-        title: "Thành công",
-        description: res.data?.message || "Hành động thành công",
+        title: "Success",
+        description: res.data?.message || "Action successful",
         variant: "success",
       });
       fetchComments();
     } catch (err: any) {
       const message =
-        err?.response?.data?.message || err?.message || "Không thể upvote";
-      toast({
-        title: "Lỗi",
+        err?.response?.data?.message || err?.message || "Unable to upvote";
+        toast({
+          title: "Error",
         description: message,
         variant: "destructive",
       });
@@ -264,16 +264,16 @@ export default function ChapterComments() {
         { withCredentials: true }
       );
       toast({
-        title: "Thành công",
-        description: res.data?.message || "Hành động thành công",
+        title: "Success",
+        description: res.data?.message || "Action successful",
         variant: "success",
       });
       fetchComments();
     } catch (err: any) {
       const message =
-        err?.response?.data?.message || err?.message || "Không thể downvote";
-      toast({
-        title: "Lỗi",
+        err?.response?.data?.message || err?.message || "Unable to downvote";
+        toast({
+          title: "Error",
         description: message,
         variant: "destructive",
       });
@@ -294,14 +294,14 @@ export default function ChapterComments() {
   return (
     <>
       <div className="rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4 max-w-3xl mx-auto mb-20 mt-10">
-        <h2 className="text-sm font-semibold">Bình luận</h2>
+        <h2 className="text-sm font-semibold">Comments</h2>
 
         <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scroll">
-          {comments.length === 0 && <p className="text-sm">Chưa có bình luận nào.</p>}
+          {comments.length === 0 && <p className="text-sm">No comments yet.</p>}
 
           {comments.map((c) => {
             const username =
-              c?.user?.username || c?.user_id?.username || "Ẩn danh";
+              c?.user?.username || c?.user_id?.username || "Anonymous";
 
             return (
               <div
@@ -345,8 +345,8 @@ export default function ChapterComments() {
                     onUpvote={() => {
                       if (!user) {
                         toast({
-                          title: "Cần đăng nhập",
-                          description: "Bạn phải đăng nhập để vote.",
+                          title: "Login required",
+                          description: "You must log in to vote.",
                           variant: "destructive",
                         });
                         return;
@@ -356,8 +356,8 @@ export default function ChapterComments() {
                     onDownvote={() => {
                       if (!user) {
                         toast({
-                          title: "Cần đăng nhập",
-                          description: "Bạn phải đăng nhập để vote.",
+                          title: "Login required",
+                          description: "You must log in to vote.",
                           variant: "destructive",
                         });
                         return;
@@ -417,25 +417,25 @@ export default function ChapterComments() {
             />
 
             <div className="flex justify-between items-center text-xs text-slate-500">
-              <span>{newComment.length}/{MAX_COMMENT_LENGTH} ký tự</span>
+              <span>{newComment.length}/{MAX_COMMENT_LENGTH} characters</span>
               <button
                 className="inline-flex items-center gap-1 px-3 py-1.5 bg-black text-white text-sm rounded-lg hover:bg-gray-700 disabled:bg-gray-400 border border-amber-100"
                 onClick={handleSubmit}
                 disabled={loading}
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Gửi
+                Send
               </button>
             </div>
           </div>
         ) : (
           <p className="text-sm">
-            <a href="/login" className="text-blue-500 hover:underline">Đăng nhập</a>{" "}
+            <a href="/login" className="text-blue-500 hover:underline">Log in</a>{" "}
             /{" "}
             <a href="/register" className="text-blue-500 hover:underline ml-1">
-              Đăng ký
+              Sign up
             </a>{" "}
-            để bình luận.
+            to comment.
           </p>
         )}
 
@@ -487,8 +487,8 @@ export default function ChapterComments() {
                 onClick={async () => {
                   if (!user) {
                     toast({
-                      title: "Chưa đăng nhập",
-                      description: "Vui lòng đăng nhập để gửi báo cáo.",
+                      title: "Not logged in",
+                      description: "Please log in to submit a report.",
                       variant: "destructive",
                     });
                     return;

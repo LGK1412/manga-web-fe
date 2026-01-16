@@ -77,11 +77,11 @@ export default function AuthorStatisticsPage() {
 
       <main className="pt-24 container mx-auto px-4 py-12">
         <div className="mb-12">
-          <h1 className="text-4xl font-bold mb-2">Thống kê</h1>
-          <p className="text-muted-foreground text-base">Theo dõi hiệu suất của tác phẩm của bạn</p>
+          <h1 className="text-4xl font-bold mb-2">Statistics</h1>
+          <p className="text-muted-foreground text-base">Track the performance of your works</p>
           <div className="mt-8 flex justify-end">
             <Button variant="outline" onClick={() => router.push("/author/dashboard")}>
-              Quay lại Dashboard
+              Back to Dashboard
             </Button>
           </div>
         </div>
@@ -98,45 +98,45 @@ export default function AuthorStatisticsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle className="text-sm font-medium">Tổng Truyện</CardTitle>
+                  <CardTitle className="text-sm font-medium">Total Stories</CardTitle>
                   <BookOpen className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">{stats.totalStories}</div>
-                  <p className="text-xs text-muted-foreground mt-2">Tổng số truyện đã tạo</p>
+                  <p className="text-xs text-muted-foreground mt-2">Total number of stories created</p>
                 </CardContent>
               </Card>
 
               <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle className="text-sm font-medium">Đã Publish</CardTitle>
+                  <CardTitle className="text-sm font-medium">Published</CardTitle>
                   <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">{stats.publishedStories}</div>
-                  <p className="text-xs text-muted-foreground mt-2">Truyện đã xuất bản</p>
+                  <p className="text-xs text-muted-foreground mt-2">Stories published</p>
                 </CardContent>
               </Card>
 
               <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle className="text-sm font-medium">Tổng Lượt Xem</CardTitle>
+                  <CardTitle className="text-sm font-medium">Total Views</CardTitle>
                   <Eye className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">{stats.totalViews.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground mt-2">Tất cả truyện</p>
+                  <p className="text-xs text-muted-foreground mt-2">All stories</p>
                 </CardContent>
               </Card>
 
               <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle className="text-sm font-medium">Tổng Chapters</CardTitle>
+                  <CardTitle className="text-sm font-medium">Total Chapters</CardTitle>
                   <FileText className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">{stats.totalChapters}</div>
-                  <p className="text-xs text-muted-foreground mt-2">Đã publish</p>
+                  <p className="text-xs text-muted-foreground mt-2">Published</p>
                 </CardContent>
               </Card>
             </div>
@@ -144,42 +144,42 @@ export default function AuthorStatisticsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
               <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle className="text-sm font-medium">Đang Cập Nhật</CardTitle>
+                  <CardTitle className="text-sm font-medium">Updating</CardTitle>
                   <Clock className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">{stats.statusBreakdown.ongoing}</div>
-                  <p className="text-xs text-muted-foreground mt-2">Truyện ongoing</p>
+                  <p className="text-xs text-muted-foreground mt-2">Ongoing stories</p>
                 </CardContent>
               </Card>
 
               <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle className="text-sm font-medium">Hoàn Thành</CardTitle>
+                  <CardTitle className="text-sm font-medium">Completed</CardTitle>
                   <CheckCircle className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">{stats.statusBreakdown.completed}</div>
-                  <p className="text-xs text-muted-foreground mt-2">Truyện hoàn thành</p>
+                  <p className="text-xs text-muted-foreground mt-2">Completed stories</p>
                 </CardContent>
               </Card>
 
               <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle className="text-sm font-medium">Tạm Ngưng</CardTitle>
+                  <CardTitle className="text-sm font-medium">On Hold</CardTitle>
                   <Pause className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">{stats.statusBreakdown.hiatus}</div>
-                  <p className="text-xs text-muted-foreground mt-2">Truyện hiatus</p>
+                  <p className="text-xs text-muted-foreground mt-2">Hiatus stories</p>
                 </CardContent>
               </Card>
             </div>
 
             <Card className="hover:shadow-md transition-shadow">
               <CardHeader>
-                <CardTitle className="text-xl">Trung bình lượt xem</CardTitle>
-                <CardDescription>Số lượt xem trung bình mỗi truyện đã publish</CardDescription>
+                <CardTitle className="text-xl">Average Views</CardTitle>
+                <CardDescription>Average number of views per published story</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="text-5xl font-bold">{stats.avgViewsPerStory.toLocaleString()}</div>
@@ -188,7 +188,7 @@ export default function AuthorStatisticsPage() {
           </>
         ) : (
           <div className="flex items-center justify-center py-24">
-            <p className="text-muted-foreground text-lg">Không có dữ liệu thống kê</p>
+            <p className="text-muted-foreground text-lg">No statistics available</p>
           </div>
         )}
       </main>

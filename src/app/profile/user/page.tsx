@@ -5,17 +5,21 @@ import { Navbar } from "@/components/navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen,
   Gift,
   PenTool,
   User as UserIcon,
   UserPlus,
+  AlertCircle,
 } from "lucide-react";
 import axios from "axios";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import DonationModal from "@/components/DonationModal";
 
 interface PublicUser {
@@ -46,11 +50,16 @@ export default function PublicUserProfile({
   const [error, setError] = useState<string | null>(null);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
-  const [isFollowing, setIsFollowing] = useState(false); // Thêm state cho follow
+  const [isFollowing, setIsFollowing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [donationOpen, setDonationOpen] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [loadingStories, setLoadingStories] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [storiesError, setStoriesError] = useState<string | null>(null);
 
-  const { toast } = useToast(); // Thêm toast cho error handling
+  const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -70,7 +79,20 @@ export default function PublicUserProfile({
   }, []);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setError("Invalid user ID");
+      setLoading(false);
+      return;
+    }
+
+    // Validate userId format (MongoDB ObjectId)
+    const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+    if (!objectIdRegex.test(userId)) {
+      setError("Invalid user ID");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -82,13 +104,22 @@ export default function PublicUserProfile({
         const u = userRes.data;
         setUser(u);
 
+        setLoadingStats(true);
+        setStatsError(null);
         try {
           const statsRes = await axios.get(
             `${process.env.NEXT_PUBLIC_API_URL}/api/user/public-follow-stats/${userId}`
           );
           setFollowersCount(statsRes.data?.followersCount || 0);
           setFollowingCount(statsRes.data?.followingCount || 0);
-        } catch {}
+        } catch (err: any) {
+          console.error("Lỗi khi lấy thống kê theo dõi:", err);
+          setStatsError("Unable to load follow statistics");
+          setFollowersCount(0);
+          setFollowingCount(0);
+        } finally {
+          setLoadingStats(false);
+        }
 
         // Fetch follow status nếu user đã login (áp dụng cho cả author và reader)
         if (currentUserId && u?._id !== currentUserId) {
@@ -108,6 +139,8 @@ export default function PublicUserProfile({
         }
 
         if (u?.role === "author") {
+          setLoadingStories(true);
+          setStoriesError(null);
           try {
             const storiesRes = await axios.get(
               `${process.env.NEXT_PUBLIC_API_URL}/api/manga/author/${userId}`,
@@ -118,22 +151,52 @@ export default function PublicUserProfile({
               ? storiesRes.data
               : storiesRes.data?.data || [];
             setStories(dataFromAuthorEndpoint);
-          } catch (err) {
-            console.error("Lỗi khi lấy truyện của tác giả:", err);
+          } catch (err: any) {
+            console.error("Error loading stories of the author:", err);
+            let errorMessage = "Unable to load stories list";
+            if (axios.isAxiosError(err)) {
+              if (err.response?.status === 404) {
+                errorMessage = "No stories found";
+              } else if (err.response?.status === 500) {
+                errorMessage = "Server error loading stories";
+              }
+            }
+            setStoriesError(errorMessage);
             setStories([]);
+          } finally {
+            setLoadingStories(false);
           }
         } else {
           setStories([]);
         }
       } catch (e: any) {
-        setError(
-          e?.response?.data?.message || "Không thể tải hồ sơ người dùng"
-        );
+        let errorMessage = "Unable to load user profile";
+        
+        if (axios.isAxiosError(e)) {
+          if (e.response?.status === 404) {
+            errorMessage = "User not found";
+          } else if (e.response?.status === 400) {
+            errorMessage = e.response?.data?.message || "Dữ liệu không hợp lệ";
+          } else if (e.response?.status === 500) {
+            errorMessage = "Lỗi máy chủ, vui lòng thử lại sau";
+          } else if (e.message === "Network Error") {
+            errorMessage = "Không thể kết nối đến máy chủ";
+          } else if (e.response?.data?.message) {
+            errorMessage = e.response.data.message;
+          }
+        }
+        
+        setError(errorMessage);
+        toast({
+          title: "Lỗi",
+          description: errorMessage,
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     })();
-  }, [userId, currentUserId]);
+  }, [userId, currentUserId, toast]);
 
   // Toggle follow function (giống MangaDetailPage, áp dụng cho cả author/reader)
   const handleToggleFollow = async () => {
@@ -146,28 +209,97 @@ export default function PublicUserProfile({
       );
       setIsFollowing(res.data.isFollowing);
       toast({
-        title: res.data.isFollowing ? "Đã theo dõi!" : "Đã bỏ theo dõi",
-        description: "Cập nhật thành công.",
+        title: res.data.isFollowing ? "Following!" : "Unfollowed",
+        description: "Update successful.",
       });
     } catch (err: any) {
       console.error("Lỗi khi theo dõi/bỏ theo dõi:", err);
       toast({
-        title: "Không thể cập nhật theo dõi",
+        title: "Unable to update follow status",
         description: err.response?.data?.message || "Vui lòng thử lại.",
         variant: "destructive",
       });
     }
   };
 
+  // Loading skeleton
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8 pt-20">
+          <div className="grid lg:grid-cols-3 gap-8">
+            <Card className="lg:col-span-1">
+              <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
+                <Skeleton className="w-24 h-24 rounded-full" />
+                <Skeleton className="h-8 w-32" />
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-6 w-20 rounded-full" />
+                <div className="flex gap-6 mt-4 w-full justify-center">
+                  <div className="text-center">
+                    <Skeleton className="h-6 w-8 mb-2" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  <div className="text-center">
+                    <Skeleton className="h-6 w-8 mb-2" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <div className="lg:col-span-2 space-y-8">
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-6 w-32" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-4">
+                        <Skeleton className="w-16 h-20" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8 pt-20">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Error:</strong> {error}
+            </AlertDescription>
+          </Alert>
+          <div className="mt-4">
+            <Button onClick={() => router.back()} variant="outline">
+              Go back
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8 pt-20">
-        {loading && <p className="text-center">Đang tải...</p>}
-        {!loading && error && (
-          <p className="text-center text-red-600">{error}</p>
-        )}
-        {!loading && !error && user && (
+        {user && (
           <div className="grid lg:grid-cols-3 gap-8 mt-15">
             <Card className="lg:col-span-1">
               <CardContent className="p-6 flex flex-col items-center text-center">
@@ -186,18 +318,18 @@ export default function PublicUserProfile({
                 </Avatar>
                 <h2 className="text-2xl font-bold mb-1">{user.username}</h2>
                 {user.bio && (
-                  <p className="text-muted-foreground mb-4 max-w-sm">
+                  <p className="text-muted-foreground mb-4 max-w-sm break-words whitespace-pre-wrap">
                     {user.bio}
                   </p>
                 )}
                 <Badge variant="secondary">
                   {user.role === "author" ? (
                     <>
-                      <PenTool className="w-3 h-3 mr-1" /> Tác giả
+                      <PenTool className="w-3 h-3 mr-1" /> Author
                     </>
                   ) : (
                     <>
-                      <UserIcon className="w-3 h-3 mr-1" /> Độc giả
+                      <UserIcon className="w-3 h-3 mr-1" /> Reader
                     </>
                   )}
                 </Badge>
@@ -238,13 +370,24 @@ export default function PublicUserProfile({
 
                 <div className="flex gap-6 mt-4">
                   <div>
-                    <p className="text-lg font-semibold">{followersCount}</p>
+                    {loadingStats ? (
+                      <Skeleton className="h-7 w-8 mb-1" />
+                    ) : (
+                      <p className="text-lg font-semibold">{followersCount}</p>
+                    )}
                     <p className="text-sm text-muted-foreground">
                       Người theo dõi
                     </p>
+                    {statsError && (
+                      <p className="text-xs text-red-500 mt-1">{statsError}</p>
+                    )}
                   </div>
                   <div>
-                    <p className="text-lg font-semibold">{followingCount}</p>
+                    {loadingStats ? (
+                      <Skeleton className="h-7 w-8 mb-1" />
+                    ) : (
+                      <p className="text-lg font-semibold">{followingCount}</p>
+                    )}
                     <p className="text-sm text-muted-foreground">
                       Đang theo dõi
                     </p>
@@ -258,13 +401,32 @@ export default function PublicUserProfile({
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <BookOpen className="w-5 h-5" /> Truyện đã viết
+                      <BookOpen className="w-5 h-5" /> Written Stories
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
-                    {stories.length === 0 ? (
+                    {loadingStories ? (
+                      <div className="p-4 space-y-4">
+                        {[...Array(3)].map((_, i) => (
+                          <div key={i} className="flex items-center gap-4">
+                            <Skeleton className="w-16 h-20" />
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="h-4 w-3/4" />
+                              <Skeleton className="h-3 w-1/2" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : storiesError ? (
+                      <div className="text-center py-6">
+                        <Alert variant="destructive" className="mx-4">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>{storiesError}</AlertDescription>
+                        </Alert>
+                      </div>
+                    ) : stories.length === 0 ? (
                       <div className="text-center py-6 text-muted-foreground">
-                        Chưa có truyện
+                        No stories yet
                       </div>
                     ) : (
                       <div className="max-h-96 overflow-y-auto">
@@ -306,11 +468,11 @@ export default function PublicUserProfile({
               ) : (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Thông tin người dùng</CardTitle>
+                    <CardTitle>User Information</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-sm text-muted-foreground">
-                      Người dùng chưa phải tác giả. Không có danh sách truyện.
+                      User is not an author yet. No stories list available.
                     </div>
                   </CardContent>
                 </Card>

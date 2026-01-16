@@ -105,41 +105,41 @@ export default function WithdrawPage() {
   async function handleWithdraw() {
     if (!authorId) {
       toast({
-        title: "Lỗi",
+        title: "Error",
         description:
-          "Không tìm thấy thông tin tác giả, vui lòng đăng nhập lại.",
+          "Author information not found, please log in again.",
         variant: "destructive",
       });
       return;
     }
     if (withdraw_point < 50) {
       toast({
-        title: "Lỗi",
-        description: "Số điểm rút tối thiểu là 50 điểm!",
+        title: "Error",
+        description: "Minimum withdrawal amount is 50 points!",
         variant: "destructive",
       });
       return;
     }
     if (!bankCode) {
       toast({
-        title: "Lỗi",
-        description: "Vui lòng chọn ngân hàng.",
+        title: "Error",
+        description: "Please select a bank.",
         variant: "destructive",
       });
       return;
     }
     if (!bankAccount.trim()) {
       toast({
-        title: "Lỗi",
-        description: "Vui lòng nhập số tài khoản.",
+        title: "Error",
+        description: "Please enter account number.",
         variant: "destructive",
       });
       return;
     }
     if (!accountHolder.trim()) {
       toast({
-        title: "Lỗi",
-        description: "Vui lòng nhập tên chủ tài khoản.",
+        title: "Error",
+        description: "Please enter account holder name.",
         variant: "destructive",
       });
       return;
@@ -161,8 +161,8 @@ export default function WithdrawPage() {
       );
 
       toast({
-        title: "Thành công",
-        description: "Tạo yêu cầu rút thành công!",
+        title: "Success",
+        description: "Withdrawal request created successfully!",
       });
       setPoints(0);
       setBankCode("");
@@ -177,8 +177,8 @@ export default function WithdrawPage() {
       setCurrentPoints(res.data.author_point);
     } catch (err: any) {
       toast({
-        title: "Lỗi",
-        description: err.response?.data?.message || "Có lỗi xảy ra!",
+        title: "Error",
+        description: err.response?.data?.message || "An error occurred!",
         variant: "destructive",
       });
     } finally {

@@ -20,16 +20,16 @@ function timeAgo(inputMs?: number) {
   if (!inputMs) return undefined;
   const diff = Math.max(0, Date.now() - inputMs);
   const s = Math.floor(diff / 1000);
-  if (s < 60) return `${s}s trước`;
+  if (s < 60) return `${s}s ago`;
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m} phút trước`;
+  if (m < 60) return `${m} minutes ago`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h} giờ trước`;
+  if (h < 24) return `${h} hours ago`;
   const d = Math.floor(h / 24);
-  if (d < 30) return `${d} ngày trước`;
+  if (d < 30) return `${d} days ago`;
   const mo = Math.floor(d / 30);
-  if (mo < 12) return `${mo} tháng trước`;
-  return `${Math.floor(mo / 12)} năm trước`;
+  if (mo < 12) return `${mo} months ago`;
+  return `${Math.floor(mo / 12)} years ago`;
 }
 
 function fmtViews(n?: number) {
@@ -74,7 +74,7 @@ export function MangaCard({
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-100 dark:from-muted to-slate-200 dark:to-muted text-slate-500 dark:text-muted-foreground">
-            Không có ảnh
+            No image
           </div>
         )}
 
@@ -97,7 +97,7 @@ export function MangaCard({
           {!item.published && (
             <span className="inline-flex items-center gap-1 rounded bg-amber-600 px-2 py-0.5 text-[11px] font-medium text-white shadow">
               <Pencil className="h-3 w-3" />
-              Nháp
+              Draft
             </span>
           )}
         </div>
@@ -119,7 +119,7 @@ export function MangaCard({
           <div className="mt-1 flex items-center justify-between text-[11px] opacity-95">
             <span className="inline-flex items-center gap-1">
               <BookOpen className="h-3.5 w-3.5" />
-              {item.chapters || 0} chương
+              {item.chapters || 0} chapters
             </span>
             {updated && <span className="truncate">{updated}</span>}
           </div>
@@ -146,7 +146,7 @@ export function MangaCard({
           </span>
           <span className="inline-flex items-center gap-1">
             <Eye className="h-3.5 w-3.5" />
-            {fmtViews(item.views)} lượt xem
+            {fmtViews(item.views)} views
           </span>
         </div>
       </div>

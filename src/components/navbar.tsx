@@ -61,6 +61,7 @@ export function Navbar() {
   const [mobileSearch, setMobileSearch] = useState("");
   const [loadingRandom, setLoadingRandom] = useState(false);
   const [showCheckinModal, setShowCheckinModal] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const submitSearch = (q: string) => {
     const query = q.trim();
@@ -101,21 +102,33 @@ export function Navbar() {
   }, []);
 
   async function logout() {
-    const res = await axios.get(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`,
-      { withCredentials: true }
-    );
+    setIsLoggingOut(true);
+    try {
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`,
+        {},
+        { withCredentials: true }
+      );
 
-    if (res.data.success) {
-      await removeCookie();
-      setLoginStatus(false);
-      router.push("/login");
-    } else {
+      if (res.data.success) {
+        await removeCookie();
+        setLoginStatus(false);
+        router.push("/login");
+      } else {
+        toast({
+          title: "Logout failed",
+          description: `Unexpected error`,
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
       toast({
-        title: "Đăng xuất không thành công",
-        description: `Lỗi không mong muốn`,
+        title: "Logout failed",
+        description: error.response?.data?.message || "Unexpected error",
         variant: "destructive",
       });
+    } finally {
+      setIsLoggingOut(false);
     }
   }
 
@@ -131,8 +144,8 @@ export function Navbar() {
       }
     } catch (error) {
       toast({
-        title: "Lỗi",
-        description: "Không thể tải truyện ngẫu nhiên. Vui lòng thử lại.",
+        title: "Error",
+        description: "Unable to load random story. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -180,7 +193,7 @@ export function Navbar() {
                 className="py-2 text-sm flex items-center gap-2"
               >
                 <Trophy className="h-4 w-4" />
-                Thành tựu
+                Achievements
               </Link>
 
               {user && (
@@ -189,7 +202,7 @@ export function Navbar() {
                   className="text-sm font-medium hover:text-primary flex items-center gap-1 ml-4"
                 >
                   <Gift className="h-4 w-4" />
-                  Điểm danh
+                  Daily Check-in
                 </button>
               )}
 
@@ -213,7 +226,7 @@ export function Navbar() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Tìm kiếm..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -292,7 +305,7 @@ export function Navbar() {
                         className="flex items-center"
                       >
                         <User className="mr-2 h-4 w-4" />
-                        Hồ sơ cá nhân
+                        Profile
                       </Link>
                     </DropdownMenuItem>
                     {user?.role?.trim() !== "admin"  && user &&  (
@@ -304,7 +317,7 @@ export function Navbar() {
                           className="flex items-center"
                         >
                           <Package className="mr-2 h-4 w-4" />
-                          Kho đồ
+                          Inventory
                         </Link>
                       </DropdownMenuItem>
                     )}
@@ -325,9 +338,19 @@ export function Navbar() {
                     <DropdownMenuItem
                       onClick={logout}
                       className="flex items-center"
+                      disabled={isLoggingOut}
                     >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Đăng xuất
+                      {isLoggingOut ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Logging out...
+                        </>
+                      ) : (
+                        <>
+                          <LogOut className="mr-2 h-4 w-4" />
+                          Logout
+                        </>
+                      )}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -420,7 +443,7 @@ export function Navbar() {
                       className="py-2 text-sm hover:underline flex items-center gap-2"
                     >
                       <Trophy className="h-4 w-4" />
-                      Thành tựu
+                      Achievements
                     </Link>
                   </div>
 
@@ -499,7 +522,7 @@ export function Navbar() {
                         onClick={() => setIsMenuOpen(false)}
                         className="block py-2 text-sm"
                       >
-                        Hồ sơ cá nhân
+                        Profile
                       </Link>
                       <button
                         onClick={() => {
@@ -509,7 +532,7 @@ export function Navbar() {
                         className="block py-2 text-left text-sm w-full"
                         type="button"
                       >
-                        Đăng xuất
+                        Logout
                       </button>
                     </div>
                   )}

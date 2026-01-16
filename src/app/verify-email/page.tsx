@@ -20,8 +20,8 @@ export default function VerifyEmailPage() {
     if (!token) {
       setStatus("error")
       toast({
-        title: "Liên kết không hợp lệ",
-        description: "Liên kết xác minh bị thiếu hoặc không hợp lệ.",
+        title: "Invalid link",
+        description: "Verification link is missing or invalid.",
         variant: "destructive",
       })
       return
@@ -36,22 +36,23 @@ export default function VerifyEmailPage() {
         if (res.data.success) {
           setStatus("success")
           toast({
-            title: "Email đã được xác minh!",
-            description: "Tài khoản của bạn đã được xác minh thành công. Bây giờ bạn có thể đăng nhập.",
+            title: "Email verified!",
+            description: "Your account has been verified successfully. You can now log in.",
+            variant: "success",
           })
           router.push("/login")
         } else {
           toast({
-            title: "Xác minh không thành công",
-            description: "Có thể liên kết đã hết hạn.",
+            title: "Verification failed",
+            description: "The link may have expired.",
             variant: "destructive",
           })
         }
       } catch (err: any) {
         setStatus("error")
         toast({
-          title: "Xác minh không thành công",
-          description: err.response?.data?.message || err.message || "Có thể liên kết đã hết hạn.",
+          title: "Verification failed",
+          description: err.response?.data?.message || err.message || "The link may have expired.",
           variant: "destructive",
         })
       }
@@ -67,11 +68,11 @@ export default function VerifyEmailPage() {
           <div className="flex justify-center mb-4">
             <Mail className="h-8 w-8" />
           </div>
-          <CardTitle className="text-2xl">Xác minh email</CardTitle>
+          <CardTitle className="text-2xl">Verify Email</CardTitle>
           <CardDescription>
-            {status === "loading" && "Đang xác minh email của bạn, vui lòng đợi..."}
-            {status === "success" && "Email của bạn đã được xác minh! Đang chuyển hướng đến trang đăng nhập..."}
-            {status === "error" && "Xác minh không thành công. Vui lòng thử lại hoặc yêu cầu liên kết mới."}
+            {status === "loading" && "Verifying your email, please wait..."}
+            {status === "success" && "Your email has been verified! Redirecting to login page..."}
+            {status === "error" && "Verification failed. Please try again or request a new link."}
           </CardDescription>
         </CardHeader>
         <CardContent />

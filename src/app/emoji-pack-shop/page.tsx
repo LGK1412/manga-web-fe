@@ -35,7 +35,7 @@ export default function EmojiShopPage() {
             } catch (err) {
                 console.error("Error fetching emoji packs:", err);
                 toast({
-                    title: "Không thể tải emoji pack",
+                    title: "Failed to load emoji packs",
                     variant: "destructive",
                 });
             } finally {
@@ -58,7 +58,7 @@ export default function EmojiShopPage() {
 
                 {loading ? (
                     <div className="text-center text-muted-foreground py-16">
-                        Đang tải...
+                        Loading...
                     </div>
                 ) : (
                     <>
@@ -74,7 +74,7 @@ export default function EmojiShopPage() {
                                 ))
                             ) : (
                                 <div className="col-span-full text-center text-muted-foreground py-16">
-                                    Hiện tại không có emoji pack nào có thể mua được.
+                                    Currently, there are no emoji packs available for purchase.
                                 </div>
                             )}
                         </div>

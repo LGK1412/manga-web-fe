@@ -39,7 +39,8 @@ export default function NotificationPage() {
         try {
             setLoading(true);
             const res = await axios.get<Notification[]>(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/user/get-all-noti-for-user/${id}`
+                `${process.env.NEXT_PUBLIC_API_URL}/api/notification/get-all-noti-for-user/${id}`,
+                { withCredentials: true }
             );
 
             // 🔽 Sắp xếp thông báo mới nhất lên đầu
@@ -81,7 +82,7 @@ export default function NotificationPage() {
     const markAsRead = async (notiId: string) => {
         try {
             await axios.patch(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/user/mark-noti-as-read/${notiId}`,
+                `${process.env.NEXT_PUBLIC_API_URL}/api/notification/mark-noti-as-read/${notiId}`,
                 {},
                 { withCredentials: true }
             );
@@ -98,7 +99,7 @@ export default function NotificationPage() {
     const deleteNotification = async (notiId: string) => {
         try {
             await axios.delete(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/user/delete-noti/${notiId}`,
+                `${process.env.NEXT_PUBLIC_API_URL}/api/notification/delete-noti/${notiId}`,
                 { withCredentials: true }
             );
             setNotifications(prev => prev.filter(n => n._id !== notiId));
@@ -109,7 +110,7 @@ export default function NotificationPage() {
 
     const markAllAsRead = async () => {
         try {
-            await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/mark-all-noti-as-read/`, {}, { withCredentials: true });
+            await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/notification/mark-all-noti-as-read/`, {}, { withCredentials: true });
             setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         } catch (err) {
             console.error(err);
@@ -122,7 +123,7 @@ export default function NotificationPage() {
             if (!noti) return;
 
             await axios.patch(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/user/save-noti/${notiId}`,
+                `${process.env.NEXT_PUBLIC_API_URL}/api/notification+/save-noti/${notiId}`,
                 {},
                 { withCredentials: true }
             );

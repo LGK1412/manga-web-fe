@@ -64,7 +64,7 @@ export default function ChapterNavigation() {
       {chapterList.length > 0 && (
         <div className="w-full max-w-3xl rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <h3 className="mb-3 text-center text-lg font-semibold text-gray-800 dark:text-gray-100">
-            Danh sách chương ({chapterList.length})
+          Chapter List ({chapterList.length})
           </h3>
 
           <div className="max-h-[420px] overflow-y-auto rounded-md border border-gray-100 dark:border-gray-700">
@@ -80,7 +80,7 @@ export default function ChapterNavigation() {
                   }`}
                 >
                   <span className="truncate">
-                    Chương {ch.order}: {ch.title}
+                    Chapter {ch.order}: {ch.title}
                   </span>
                   {ch.is_published ? (
                     <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-800 dark:text-green-300">

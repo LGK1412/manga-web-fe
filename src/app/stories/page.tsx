@@ -86,7 +86,7 @@ function buildCoverUrl(filename?: string) {
   return `${api}/assets/coverImages/${filename}`.replace(/([^:]\/)\/+/g, "$1");
 }
 function getTitle(x: MangaRaw) {
-  return (x.title || x.name || "Không rõ tiêu đề").toString();
+  return (x.title || x.name || "Unknown title").toString();
 }
 function getKey(x: MangaRaw) {
   return String(x._id ?? x.id ?? x.slug ?? getTitle(x));
@@ -163,9 +163,9 @@ function mapToCard(x: MangaRaw): CardItem {
 
 // ===== UI constants
 const SORTS: { key: "updated" | "views" | "follows"; label: string }[] = [
-  { key: "updated", label: "Mới cập nhật" },
-  { key: "views", label: "Xem nhiều" },
-  { key: "follows", label: "Theo dõi nhiều" },
+  { key: "updated", label: "Recently Updated" },
+  { key: "views", label: "Most Viewed" },
+  { key: "follows", label: "Most Followed" },
 ];
 
 const PAGE_SIZE = 24;
@@ -337,7 +337,7 @@ export default function StoriesPage() {
         if (axios.isCancel(e)) return;
         if (!cancelled)
           setErr(
-            e?.response?.data?.message || e?.message || "Tải dữ liệu thất bại"
+            e?.response?.data?.message || e?.message || "Failed to load data"
           );
         setHasMore(false);
       } finally {
@@ -455,13 +455,13 @@ export default function StoriesPage() {
           <h1 className="text-xl font-semibold text-foreground">
             {q ? (
               <>
-                Kết quả cho <span className="italic">"{q}"</span>
+                Results for <span className="italic">"{q}"</span>
               </>
             ) : (
-              "Tất cả truyện"
+              "All Stories"
             )}
             <span className="ml-2 text-sm text-muted-foreground">
-              ({filteredSorted.length.toLocaleString("vi-VN")} mục)
+              ({filteredSorted.length.toLocaleString("en-US")} items)
             </span>
           </h1>
 
@@ -510,7 +510,7 @@ export default function StoriesPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               {loadingFilters && (
-                <div className="text-xs text-muted-foreground">Đang tải category…</div>
+                <div className="text-xs text-muted-foreground">Loading category…</div>
               )}
               {!loadingFilters &&
                 (availableGenres.length ? (
@@ -563,7 +563,7 @@ export default function StoriesPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               {loadingFilters && (
-                <div className="text-xs text-muted-foreground">Đang tải style…</div>
+                <div className="text-xs text-muted-foreground">Loading style…</div>
               )}
               {!loadingFilters &&
                 (availableStyles.length ? (
@@ -611,10 +611,10 @@ export default function StoriesPage() {
         </div>
 
         {/* States */}
-        {err && <p className="mb-3 text-destructive">Lỗi: {err}</p>}
+        {err && <p className="mb-3 text-destructive">Error: {err}</p>}
         {!err && !loading && filteredSorted.length === 0 && (
           <p className="mb-3 text-muted-foreground">
-            Không có kết quả phù hợp (thử thay đổi bộ lọc).
+            No matching results (try changing filters).
           </p>
         )}
 
@@ -654,7 +654,7 @@ export default function StoriesPage() {
         )}
         {loading && allItems.length > 0 && (
           <div className="mt-4 flex justify-center text-sm text-muted-foreground">
-            Đang tải thêm…
+            Loading more…
           </div>
         )}
       </div>

@@ -12,7 +12,7 @@ export default function EmojiInventory({ emojiPacks }: { emojiPacks: any[] }) {
     if (!emojiPacks?.length)
         return (
             <div className="text-center text-muted-foreground py-12">
-                Bạn chưa sở hữu Emoji Pack nào.
+                You don't own any Emoji Packs yet.
             </div>
         );
 
@@ -48,7 +48,7 @@ export default function EmojiInventory({ emojiPacks }: { emojiPacks: any[] }) {
                                     variant="secondary"
                                     onClick={() => setSelectedPack(pack)}
                                 >
-                                    Xem chi tiết
+                                    View details
                                 </Button>
                             </CardContent>
                         </Card>

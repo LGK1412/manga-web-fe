@@ -44,7 +44,7 @@ export default function NotificationComponent() {
         try {
             setLoading(true);
             const res = await axios.get<Notification[]>(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/user/get-all-noti-for-user/${id}`
+                `${process.env.NEXT_PUBLIC_API_URL}/api/notification/get-all-noti-for-user/${id}`,{ withCredentials: true }
             );
 
             // 🔸 Chỉ giữ lại thông báo chưa đọc
@@ -79,7 +79,7 @@ export default function NotificationComponent() {
         if (!messaging) return;
 
         const unsubscribe = onMessage(messaging, (payload) => {
-            // console.log("Foreground message received: ", payload);
+            console.log("Foreground message received: ", payload);
             setHasNew(true);
             if (user?.user_id) fetchNotifications(user.user_id);
         });
@@ -90,7 +90,7 @@ export default function NotificationComponent() {
     // 🔹 Khi user focus lại web → refresh noti
     useEffect(() => {
         const handleFocus = () => {
-            // console.log("User focus lại web");
+            console.log("User focus lại web");
             if (user?.user_id) fetchNotifications(user.user_id);
         };
         window.addEventListener("focus", handleFocus);

@@ -24,29 +24,29 @@ export function Footer({
   const router = useRouter();
   const year = new Date().getFullYear();
   const brandName = brand?.name ?? "MangaWorld";
-  const tagline = brand?.tagline ?? "Đọc truyện nhanh, mượt, dễ nhìn.";
+  const tagline = brand?.tagline ?? "Read stories quickly, smoothly, and with an easy-to-read interface.";
 
   const navSections: Section[] = sections ?? [
     {
-      title: "Khám phá",
+      title: "Explore",
       links: [
-        { label: "Tất cả truyện", href: "/stories" },
-        { label: "Mới cập nhật", href: "/stories?sort=update" },
-        { label: "Thể loại", href: "/stories?tab=genres" },
+        { label: "All Stories", href: "/stories" },
+        { label: "Recently Updated", href: "/stories?sort=update" },
+        { label: "Genres", href: "/stories?tab=genres" },
       ],
     },
     {
-      title: "Tài khoản",
+      title: "Account",
       links: [
-        { label: "Đăng nhập", href: "/login" },
-        { label: "Nạp điểm", href: "/topup" },
+        { label: "Login", href: "/login" },
+        { label: "Top Up Points", href: "/topup" },
       ],
     },
     {
-      title: "Thông tin",
+      title: "Information",
       links: [
-        { label: "Về chúng tôi", href: "#" },
-        { label: "Liên hệ", href: "#" },
+        { label: "About Us", href: "#" },
+        { label: "Contact", href: "#" },
       ],
     },
   ];
@@ -101,7 +101,7 @@ export function Footer({
                     className="inline-flex items-center gap-2 hover:text-foreground"
                   >
                     <MessageSquare className="h-4 w-4" />
-                    Cộng đồng
+                    Community
                   </a>
                 )}
               </div>
@@ -140,7 +140,7 @@ export function Footer({
               onClick={() => router.push("/policy/term")}
               className="hover:text-foreground"
             >
-              Điều khoản sử dụng
+              Terms of Service
             </button>
 
             <span className="opacity-50">•</span>
@@ -149,7 +149,7 @@ export function Footer({
               onClick={() => router.push("/policy/privacy")}
               className="hover:text-foreground"
             >
-              Chính sách bảo mật
+              Privacy Policy
             </button>
 
             {showBackToTop && (
@@ -160,7 +160,7 @@ export function Footer({
                   className="inline-flex items-center gap-1 rounded-full border px-3 py-1 hover:bg-muted"
                 >
                   <ArrowUp className="h-4 w-4" />
-                  Lên đầu trang
+                  Back to top
                 </button>
               </>
             )}

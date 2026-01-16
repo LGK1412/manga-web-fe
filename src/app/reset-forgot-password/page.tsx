@@ -48,24 +48,24 @@ export default function ResetPasswordPage() {
     setError("")
 
     if (!newPassword) {
-      setError("Vui lòng nhập mật khẩu mới")
+      setError("Please enter a new password")
       return
     }
 
     if (newPassword.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự")
+      setError("Password must be at least 6 characters long")
       return
     }
 
     if (newPassword !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp")
+      setError("Passwords do not match")
       return
     }
 
     setIsLoading(true)
 
     if (!code) {
-      setError("Mã xác nhận không tìm thấy. Vui lòng thử lại.")
+      setError("Verification code not found. Please try again.")
       setIsLoading(false)
       return
     }
@@ -78,29 +78,30 @@ export default function ResetPasswordPage() {
 
       if (res.data.success) {
         toast({
-          title: "Đổi mật khẩu thành công",
-          description: "Có thể đăng nhập lại bằng mật khẩu mới",
+          title: "Password changed successfully",
+          description: "You can now log in with your new password",
+          variant: "success",
         })
         setIsSuccess(true)
         router.push("/login")
       } else {
         toast({
-          title: "Đổi mật khẩu không thành công",
-          description: "Vui lòng làm lại.",
+          title: "Failed to change password",
+          description: "Please try again.",
           variant: "destructive",
         })
       }
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
         toast({
-          title: "Đổi mật khẩu không thành công",
+          title: "Failed to change password",
           description: error.response?.data.message || error,
           variant: "destructive",
         })
       } else {
         toast({
-          title: "Đổi mật khẩu không thành công",
-          description: `Lỗi không mong muốn: ${error}`,
+          title: "Failed to change password",
+          description: `Unexpected error: ${error}`,
           variant: "destructive",
         })
       }
@@ -117,22 +118,22 @@ export default function ResetPasswordPage() {
             <CardContent className="p-8 text-center">
               <div className="mb-6">
                 <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold mb-2">Đặt lại mật khẩu thành công!</h2>
+                <h2 className="text-2xl font-bold mb-2">Password reset successful!</h2>
                 <p className="text-muted-foreground">
-                  Mật khẩu của bạn đã được cập nhật thành công.
+                  Your password has been updated successfully.
                   <br />
-                  Bạn có thể đăng nhập với mật khẩu mới.
+                  You can now log in with your new password.
                 </p>
               </div>
 
               <div className="space-y-4">
                 <Button className="w-full h-11" asChild>
-                  <Link href="/login">Đăng nhập ngay</Link>
+                  <Link href="/login">Log in now</Link>
                 </Button>
 
                 <div className="text-center">
                   <Link href="/" className="text-sm text-primary hover:underline">
-                    Về trang chủ
+                    Back to home
                   </Link>
                 </div>
               </div>
@@ -153,9 +154,9 @@ export default function ResetPasswordPage() {
                 <Lock className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold text-center">Đặt mật khẩu mới</CardTitle>
+            <CardTitle className="text-2xl font-bold text-center">Set New Password</CardTitle>
             <CardDescription className="text-center">
-              Tạo mật khẩu mới cho tài khoản
+              Create a new password for your account
               <br />
               <strong>{email}</strong>
             </CardDescription>
@@ -165,14 +166,14 @@ export default function ResetPasswordPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="newPassword" className="text-sm font-medium">
-                  Mật khẩu mới
+                  New Password
                 </Label>
 
                 <div className="relative">
                   <Input
                     id="newPassword"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+                    placeholder="Enter new password (minimum 6 characters)"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="h-11 pr-10"
@@ -191,14 +192,14 @@ export default function ResetPasswordPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" className="text-sm font-medium">
-                  Xác nhận mật khẩu
+                  Confirm Password
                 </Label>
 
                 <div className="relative">
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Nhập lại mật khẩu mới"
+                    placeholder="Re-enter new password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="h-11 pr-10"
@@ -218,7 +219,7 @@ export default function ResetPasswordPage() {
               {/* Password strength indicator */}
               {newPassword && (
                 <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">Độ mạnh mật khẩu:</div>
+                  <div className="text-xs text-muted-foreground">Password strength:</div>
                   <div className="flex gap-1">
                     <div
                       className={`h-1 flex-1 rounded ${newPassword.length >= 6 ? "bg-green-500" : "bg-gray-300"}`}
@@ -231,15 +232,15 @@ export default function ResetPasswordPage() {
                     ></div>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {newPassword.length < 6 && "Cần ít nhất 6 ký tự"}
-                    {newPassword.length >= 6 && newPassword.length < 8 && "Tốt - nên có 8+ ký tự"}
+                    {newPassword.length < 6 && "Need at least 6 characters"}
+                    {newPassword.length >= 6 && newPassword.length < 8 && "Good - should have 8+ characters"}
                     {newPassword.length >= 8 &&
                       !/[A-Z]/.test(newPassword) &&
-                      "Rất tốt - thêm chữ hoa và số để mạnh hơn"}
+                      "Very good - add uppercase and numbers to make it stronger"}
                     {newPassword.length >= 8 &&
                       /[A-Z]/.test(newPassword) &&
                       /[0-9]/.test(newPassword) &&
-                      "Mật khẩu mạnh!"}
+                      "Strong password!"}
                   </div>
                 </div>
               )}
@@ -254,10 +255,10 @@ export default function ResetPasswordPage() {
                 {isLoading ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Đang cập nhật...
+                    Updating...
                   </>
                 ) : (
-                  "Cập nhật mật khẩu"
+                  "Update Password"
                 )}
               </Button>
             </form>
@@ -268,7 +269,7 @@ export default function ResetPasswordPage() {
                 className="inline-flex items-center text-sm text-primary hover:underline"
               >
                 <ArrowLeft className="h-4 w-4 mr-1" />
-                Quay lại xác nhận mã
+                Back to verify code
               </Link>
             </div>
           </CardContent>

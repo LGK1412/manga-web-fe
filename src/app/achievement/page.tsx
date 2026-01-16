@@ -28,10 +28,9 @@ export default function AchievementsPage() {
       );
       setAchievements(res.data);
     } catch (err) {
-      console.error("Lỗi tải thành tựu:", err);
       toast({
-        title: "Lỗi tải thành tựu",
-        description: "Không thể tải danh sách thành tựu",
+        title: "Error loading achievements",
+        description: "Unable to load achievements list",
       });
     } finally {
       setLoading(false);
@@ -58,17 +57,32 @@ export default function AchievementsPage() {
       }
 
       toast({
-        title: "Thành công",
-        description: "Nhận thưởng thành công",
+        title: "Success",
+        description: res.data.message || "Reward claimed successfully",
       });
 
       fetchAchievements();
     } catch (err: any) {
-      console.error("Lỗi nhận thưởng:", err);
-
+      let errorMessage = "Unable to claim reward. Please try again.";
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 401) {
+          errorMessage = "Session expired. Please log in again.";
+        } else if (err.response?.status === 400) {
+          errorMessage = err.response?.data?.message || "Invalid data";
+        } else if (err.response?.status === 404) {
+          errorMessage = err.response?.data?.message || "Achievement not found";
+        } else if (err.response?.status === 500) {
+          errorMessage = "Server error, please try again later";
+        } else if (err.message === "Network Error") {
+          errorMessage = "Unable to connect to server";
+        } else if (err.response?.data?.message) {
+          errorMessage = err.response.data.message;
+        }
+      }
       toast({
-        title: "Lỗi",
-        description: err.response?.data?.message || "Không thể nhận thưởng",
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
       });
     } finally {
       setClaiming(null);
@@ -77,8 +91,8 @@ export default function AchievementsPage() {
 
   if (loading)
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p className="text-gray-500">Đang tải thành tựu...</p>
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900">
+        <p className="text-gray-500 dark:text-gray-400">Loading achievements...</p>
       </div>
     );
 
@@ -91,11 +105,11 @@ export default function AchievementsPage() {
           <div className="flex items-center gap-3 mb-3">
             <Trophy className="w-8 h-8 text-amber-500" />
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-indigo-400 dark:to-blue-400 bg-clip-text text-transparent">
-              Thành tựu
+              Achievements
             </h1>
           </div>
           <p className="text-muted-foreground text-lg italic">
-            Hoàn thành các nhiệm vụ để nhận phần thưởng!
+            Complete tasks to earn rewards!
           </p>
         </div>
 
@@ -112,21 +126,21 @@ export default function AchievementsPage() {
               return (
                 <div
                   key={a._id}
-                  className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-gray-700 hover:border-blue-200 overflow-hidden"
+                  className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-700 overflow-hidden"
                 >
                   <div className="p-6 flex items-center gap-6">
                     {/* Icon */}
                     <div
                       className={`flex-shrink-0 w-16 h-16 rounded-lg flex items-center justify-center transition-all duration-300 ${
                         isCompleted
-                          ? "bg-gradient-to-br from-amber-100 to-amber-50"
-                          : "bg-gradient-to-br from-blue-100 to-indigo-50"
+                          ? "bg-gradient-to-br from-amber-100 to-amber-50 dark:from-amber-900/30 dark:to-amber-800/20"
+                          : "bg-gradient-to-br from-blue-100 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-800/20"
                       }`}
                     >
                       {isCompleted ? (
-                        <Trophy className="w-8 h-8 text-amber-600" />
+                        <Trophy className="w-8 h-8 text-amber-600 dark:text-amber-400" />
                       ) : (
-                        <Clock className="w-8 h-8 text-blue-600" />
+                        <Clock className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                       )}
                     </div>
 
@@ -143,12 +157,12 @@ export default function AchievementsPage() {
                       <div className="space-y-2">
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-muted-foreground">
-                            Tiến độ:{" "}
-                            <span className="font-semibold text-gray-800">
+                            Progress:{" "}
+                            <span className="font-semibold text-gray-800 dark:text-gray-200">
                               {a.progressCount}/{ach.threshold}
                             </span>
                           </span>
-                          <span className="font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                          <span className="font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
                             {percent.toFixed(0)}%
                           </span>
                         </div>
@@ -170,22 +184,22 @@ export default function AchievementsPage() {
                       {/* Reward Info */}
                       <div className="text-right">
                         {ach.reward?.author_point > 0 && (
-                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                            <Zap className="w-4 h-4 text-yellow-500" />
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mb-1">
+                            <Zap className="w-4 h-4 text-yellow-500 dark:text-yellow-400" />
                             <span className="font-semibold">
                               {ach.reward.author_point}
                             </span>
-                            <span>điểm tác giả</span>
+                            <span>author points</span>
                           </div>
                         )}
 
                         {ach.reward?.point > 0 && (
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Coins className="w-4 h-4 text-blue-500" />
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                            <Coins className="w-4 h-4 text-blue-500 dark:text-blue-400" />
                             <span className="font-semibold">
                               {ach.reward.point}
                             </span>
-                            <span>điểm thông thường</span>
+                            <span>regular points</span>
                           </div>
                         )}
                       </div>
@@ -193,7 +207,7 @@ export default function AchievementsPage() {
                       {/* Status Button */}
                       {!isCompleted ? (
                         <div className="text-xs text-muted-foreground px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full">
-                          Đang tiến hành
+                          In Progress
                         </div>
                       ) : isCompleted && !isRewardClaimed ? (
                         <Button
@@ -205,19 +219,19 @@ export default function AchievementsPage() {
                           {claiming === ach._id ? (
                             <span className="flex items-center gap-2">
                               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                              Đang nhận...
+                              Claiming...
                             </span>
                           ) : (
                             <span className="flex items-center gap-2">
                               <Gift className="w-4 h-4" />
-                              Nhận thưởng
+                              Claim Reward
                             </span>
                           )}
                         </Button>
                       ) : (
-                        <div className="flex items-center gap-1 text-green-600 font-medium text-sm px-3 py-1 bg-green-50 dark:bg-green-900/30 rounded-full">
+                        <div className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium text-sm px-3 py-1 bg-green-50 dark:bg-green-900/30 rounded-full">
                           <CheckCircle2 className="w-4 h-4" />
-                          Đã nhận
+                          Claimed
                         </div>
                       )}
                     </div>
@@ -228,9 +242,9 @@ export default function AchievementsPage() {
           </div>
         ) : (
           <div className="text-center py-12">
-            <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <Trophy className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
             <p className="text-muted-foreground text-lg">
-              Chưa có thành tựu nào.
+              No achievements yet.
             </p>
           </div>
         )}

@@ -39,8 +39,8 @@ export default function PurchaseHistory() {
         setHistory(res.data);
       } catch (error: any) {
         toast({
-          title: "Lỗi khi tải lịch sử mua chương",
-          description: error.response?.data?.message || "Vui lòng thử lại sau.",
+          title: "Error loading purchase history",
+          description: error.response?.data?.message || "Please try again later.",
           variant: "destructive",
         });
       } finally {
@@ -55,20 +55,20 @@ export default function PurchaseHistory() {
     return (
       <div className="flex justify-center items-center py-10 text-gray-500">
         <Loader2 className="animate-spin w-5 h-5 mr-2" />
-        Đang tải lịch sử mua...
+        Loading purchase history...
       </div>
     );
 
   if (history.length === 0)
     return (
       <div className="text-center py-10 text-gray-500">
-        Bạn chưa mua chương nào.
+        You haven't purchased any chapters yet.
       </div>
     );
 
   return (
     <div className="max-w-3xl mx-auto space-y-3">
-      <h3>Lịch sử mua chapter</h3>
+      <h3>Chapter Purchase History</h3>
       {history.map((item) => {
         const chapter = item.chapterId;
         const manga = chapter?.manga_id;
@@ -82,15 +82,15 @@ export default function PurchaseHistory() {
             <CardContent className="p-4 flex justify-between items-center">
               <div>
                 <h3 className="font-semibold text-lg">
-                  {manga?.title || "Không rõ truyện"}
+                  {manga?.title || "Unknown story"}
                 </h3>
                 <p className="text-sm text-gray-600">
                   {chapter?.title
-                    ? `Chương ${chapter.order}: ${chapter.title}`
-                    : "Không rõ chương"}
+                    ? `Chapter ${chapter.order}: ${chapter.title}`
+                    : "Unknown chapter"}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Tác giả: {author?.username || "Không rõ"}
+                  Author: {author?.username || "Unknown"}
                 </p>
               </div>
               <div className="text-sm text-gray-500">
