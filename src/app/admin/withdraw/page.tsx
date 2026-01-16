@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Search, CheckCircle, XCircle, Clock, Banknote } from "lucide-react";
+import {
+  Search,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Banknote,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -42,18 +49,27 @@ import AdminLayout from "../adminLayout/page";
 
 interface Withdraw {
   _id: string;
-  authorId: {
+  author: {
     _id: string;
     username: string;
     email: string;
   };
+
   withdraw_point: number;
   amount: number;
+
+  grossAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  netAmount: number;
+
   bankCode: string;
   bankAccount: string;
   accountHolder: string;
-  status: string;
+
+  status: "pending" | "completed" | "rejected";
   note?: string;
+
   createdAt: string;
 }
 
@@ -67,6 +83,7 @@ export default function WithdrawManagement() {
   const [dialogType, setDialogType] = useState<"approve" | "reject" | null>(
     null
   );
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchWithdraws = async () => {
     try {
@@ -77,6 +94,7 @@ export default function WithdrawManagement() {
         }
       );
       setWithdraws(res.data);
+      console.log(res.data);
     } catch (err) {
       console.error("Error fetching withdraws:", err);
       toast.error("Không tải được danh sách yêu cầu rút tiền");
@@ -89,43 +107,55 @@ export default function WithdrawManagement() {
 
   const filteredWithdraws = withdraws.filter((w) => {
     const matchesSearch =
-      w.authorId?.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      w.authorId?.email.toLowerCase().includes(searchTerm.toLowerCase());
+      w.author?.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      w.author?.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || w.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
   const handleApprove = async () => {
     if (!selectedWithdraw) return;
+
     try {
+      setIsSubmitting(true);
+
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/withdraw/${selectedWithdraw._id}/approve`,
         {},
         { withCredentials: true }
       );
+
       toast.success("Đã duyệt yêu cầu rút tiền");
       setDialogType(null);
       fetchWithdraws();
     } catch (err) {
       console.error(err);
       toast.error("Không thể duyệt yêu cầu");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleReject = async (note: string) => {
     if (!selectedWithdraw) return;
+
     try {
+      setIsSubmitting(true);
+
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/withdraw/${selectedWithdraw._id}/reject`,
         { note },
         { withCredentials: true }
       );
+
       toast.success("Đã từ chối yêu cầu");
       setDialogType(null);
       fetchWithdraws();
     } catch (err) {
       console.error(err);
       toast.error("Không thể từ chối yêu cầu");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -257,17 +287,21 @@ export default function WithdrawManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Tác giả</TableHead>
-                  <TableHead>Điểm</TableHead>
-                  <TableHead>Số tiền (VND)</TableHead>
-                  <TableHead>Ngân hàng</TableHead>
-                  <TableHead>Tài khoản</TableHead>
-                  <TableHead>Chủ TK</TableHead>
-                  <TableHead>Ngày tạo</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Hành động</TableHead>
+                  <TableHead>Author</TableHead>
+                  <TableHead className="text-center">Withdraw Point</TableHead>
+                  <TableHead className="text-right">Gross Amount</TableHead>
+                  <TableHead className="text-center">Tax Rate (%)</TableHead>
+                  <TableHead className="text-right">Tax Amount</TableHead>
+                  <TableHead className="text-right">Net Amount</TableHead>
+                  <TableHead>Bank</TableHead>
+                  <TableHead>Bank Account</TableHead>
+                  <TableHead>Account Holder</TableHead>
+                  <TableHead>Date created</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
                 {filteredWithdraws.length === 0 ? (
                   <TableRow>
@@ -282,17 +316,33 @@ export default function WithdrawManagement() {
                   filteredWithdraws.map((w) => (
                     <TableRow key={w._id}>
                       <TableCell>
-                        {w.authorId?.username} <br />
+                        {w.author?.username} <br />
                         <span className="text-xs text-gray-500">
-                          {w.authorId?.email}
+                          {w.author?.email}
                         </span>
                       </TableCell>
                       <TableCell className="text-center">
                         {w.withdraw_point}
                       </TableCell>
-                      <TableCell className="text-center">
-                        {w.amount.toLocaleString()}
+
+                      <TableCell className="text-right">
+                        {w.status === "completed"
+                          ? `${w.grossAmount} ₫`
+                          : `${w.amount} đ`}
                       </TableCell>
+
+                      <TableCell className="text-center">
+                        {w.status === "completed" ? `${w.taxRate}%` : ""}
+                      </TableCell>
+
+                      <TableCell className="text-right text-red-600">
+                        {w.status === "completed" ? `-${w.taxAmount} ₫` : ""}
+                      </TableCell>
+
+                      <TableCell className="text-right font-semibold text-green-700">
+                        {w.status === "completed" ? `${w.netAmount} ₫` : ""}
+                      </TableCell>
+
                       <TableCell>{w.bankCode}</TableCell>
                       <TableCell>{w.bankAccount}</TableCell>
                       <TableCell>{w.accountHolder}</TableCell>
@@ -365,17 +415,28 @@ export default function WithdrawManagement() {
               </div>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogType(null)}>
+              <Button
+                variant="outline"
+                onClick={() => setDialogType(null)}
+                disabled={isSubmitting}
+              >
                 Hủy
               </Button>
+
               {dialogType === "approve" ? (
-                <Button onClick={handleApprove}>Xác nhận</Button>
+                <Button onClick={handleApprove} disabled={isSubmitting}>
+                  {isSubmitting && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {isSubmitting ? "Đang duyệt..." : "Xác nhận"}
+                </Button>
               ) : (
                 <Button
                   variant="destructive"
                   onClick={() => handleReject(selectedWithdraw?.note || "")}
+                  disabled={isSubmitting}
                 >
-                  Từ chối
+                  {isSubmitting ? "Đang xử lý..." : "Từ chối"}
                 </Button>
               )}
             </DialogFooter>

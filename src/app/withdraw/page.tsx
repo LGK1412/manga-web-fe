@@ -17,13 +17,18 @@ interface Bank {
 
 interface Withdraw {
   _id: string;
-  amount: number;
+  withdraw_point: number;
   bankCode: string;
   bankAccount: string;
   accountHolder: string;
   status: string;
+  note?: string;
   createdAt: string;
-  withdraw_point: number;
+
+  taxAmount: number;
+  netAmount: number;
+  grossAmount: number;
+  taxRate: number;
 }
 
 export default function WithdrawPage() {
@@ -187,133 +192,150 @@ export default function WithdrawPage() {
       <div className="max-w-4xl mx-auto pt-24 px-4 pb-10 space-y-10">
         {/* Form rút tiền */}
         <div className="bg-white dark:bg-card p-6 rounded-lg shadow border border-input">
-          <h1 className="text-xl font-bold mb-6 text-foreground">Withdrawal Request</h1>
+          <h1 className="text-xl font-bold mb-6 text-foreground">
+            Yêu cầu rút tiền
+          </h1>
           <p className="mb-4 text-sm text-muted-foreground">
-            Current points: <span className="font-semibold text-foreground">{currentPoints}</span>
+            Điểm hiện tại:{" "}
+            <span className="font-semibold text-foreground">
+              {currentPoints}
+            </span>
           </p>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1 text-foreground">
-              Points to withdraw
-            </label>
-            <Input
-              type="number"
-              value={withdraw_point}
-              onChange={(e) => setPoints(Number(e.target.value) || 0)}
-              placeholder="Enter points (minimum 50)"
-            />
-          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-foreground">
+                Số điểm muốn rút
+              </label>
+              <Input
+                type="number"
+                value={withdraw_point}
+                onChange={(e) => setPoints(Number(e.target.value) || 0)}
+                placeholder="Nhập số điểm (tối thiểu 50)"
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1 text-foreground">Bank</label>
-            <select
-              value={bankCode}
-              onChange={(e) => setBankCode(e.target.value)}
-              className="w-full border border-input dark:bg-input/30 rounded px-3 py-2 text-foreground bg-transparent"
+            <div>
+              <label className="block text-sm font-medium mb-1 text-foreground">
+                Ngân hàng
+              </label>
+              <select
+                value={bankCode}
+                onChange={(e) => setBankCode(e.target.value)}
+                className="w-full border border-input dark:bg-input/30 rounded px-3 py-2 text-foreground bg-transparent"
+              >
+                <option value="">-- Chọn ngân hàng --</option>
+                {bankList.map((bank) => (
+                  <option key={bank.code} value={bank.code}>
+                    {bank.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-foreground">
+                Số tài khoản
+              </label>
+              <Input
+                value={bankAccount}
+                onChange={(e) => setBankAccount(e.target.value)}
+                placeholder="VD: 0123456789"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-foreground">
+                Chủ tài khoản
+              </label>
+              <Input
+                value={accountHolder}
+                onChange={(e) => setAccountHolder(e.target.value)}
+                placeholder="Tên đầy đủ"
+              />
+            </div>
+
+            <Button
+              onClick={handleWithdraw}
+              disabled={loading}
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <option value="">-- Select bank --</option>
-              {bankList.map((bank) => (
-                <option key={bank.code} value={bank.code}>
-                  {bank.name}
-                </option>
-              ))}
-            </select>
+              {loading ? "Đang xử lý..." : "Xác nhận rút tiền"}
+            </Button>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-foreground">
-              Account Number
-            </label>
-            <Input
-              value={bankAccount}
-              onChange={(e) => setBankAccount(e.target.value)}
-              placeholder="e.g., 0123456789"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-foreground">
-              Account Holder Name
-            </label>
-            <Input
-              value={accountHolder}
-              onChange={(e) => setAccountHolder(e.target.value)}
-              placeholder="Full name"
-            />
-          </div>
-
-          <Button
-            onClick={handleWithdraw}
-            disabled={loading}
-            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            {loading ? "Processing..." : "Confirm Withdrawal"}
-          </Button>
         </div>
-      </div>
 
         {/* Lịch sử rút tiền */}
         <div className="bg-white dark:bg-card p-6 rounded-lg shadow border border-input">
-          <h2 className="text-lg font-bold mb-6 text-foreground">Withdrawal History</h2>
+          <h2 className="text-lg font-bold mb-6 text-foreground">
+            Lịch sử rút tiền
+          </h2>
           {withdrawList.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No requests yet.</p>
-        ) : (
-          <div className="space-y-4">
-            {withdrawList.map((w) => (
-              <div
-                key={w._id}
-                className="p-6 border border-input rounded-lg flex justify-between items-center bg-background dark:bg-card"
-              >
-                <div>
-                  <p className="font-medium text-foreground">
-                    {w.withdraw_point} points → {w.amount.toLocaleString()} VND
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {w.bankAccount} ({w.accountHolder}) - {w.bankCode}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(w.createdAt).toLocaleString()}
-                  </p>
-                </div>
-                <span
-                  className={`px-3 py-1 text-xs rounded-full ${
-                    w.status === "pending"
-                      ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
-                      : w.status === "approved"
-                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                      : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                  }`}
+            <p className="text-sm text-muted-foreground">
+              Chưa có yêu cầu nào.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {withdrawList.map((w) => (
+                <div
+                  key={w._id}
+                  className="p-6 border border-input rounded-lg flex justify-between items-center bg-background dark:bg-card"
                 >
-                  {w.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+                  <div>
+                    <p className="font-medium text-foreground">
+                      {w.withdraw_point} point →{" "}
+                      {w.grossAmount +
+                        " - " +
+                        w.taxAmount +
+                        " = " +
+                        w.netAmount}{" "}
+                      VND (thuế {w.taxRate * 100}%)
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {w.bankAccount} ({w.accountHolder}) - {w.bankCode}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(w.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <span
+                    className={`px-3 py-1 text-xs rounded-full ${
+                      w.status === "pending"
+                        ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                        : w.status === "completed"
+                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                        : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                    }`}
+                  >
+                    {w.note ? `${w.status} (${w.note})` : w.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
-        {/* Pagination */}
-        {total > pageSize && (
-          <div className="flex justify-between items-center mt-6">
-            <Button
-              disabled={page === 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              variant="outline"
-            >
-              Previous page
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {page} / {Math.ceil(total / pageSize)}
-            </span>
-            <Button
-              disabled={page >= Math.ceil(total / pageSize)}
-              onClick={() => setPage((p) => p + 1)}
-              variant="outline"
-            >
-              Next page
-            </Button>
-          </div>
-        )}
+          {/* Pagination */}
+          {total > pageSize && (
+            <div className="flex justify-between items-center mt-6">
+              <Button
+                disabled={page === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                variant="outline"
+              >
+                Trang trước
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Trang {page} / {Math.ceil(total / pageSize)}
+              </span>
+              <Button
+                disabled={page >= Math.ceil(total / pageSize)}
+                onClick={() => setPage((p) => p + 1)}
+                variant="outline"
+              >
+                Trang sau
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
