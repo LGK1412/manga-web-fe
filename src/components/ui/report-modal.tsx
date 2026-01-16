@@ -114,14 +114,14 @@ export default function ReportModal({
                 <FileText className="w-4 h-4" /> Admin Notesdadd
               </p>
               <Textarea
-                placeholder="Ghi chú tiến độ xử lý hoặc kết quả..."
+                placeholder="Note on processing progress or results..."
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={4}
                 className="mt-1"
               />
               <p className="text-xs text-gray-500 mt-1">
-                (Ghi chú sẽ được lưu lại và hiển thị khi mở báo cáo này)
+                (Note will be saved and displayed when opening this report)
               </p>
             </div>
           </div>

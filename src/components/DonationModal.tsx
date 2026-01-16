@@ -96,8 +96,8 @@ export default function DonationShopModal({
   const handleConfirmDonation = async () => {
     if (!selectedItem || !receiverId || !senderId)
       return toast({
-        title: "Không thể gửi quà",
-        description: "Thiếu thông tin khi gửi",
+        title: "Cannot send gift",
+        description: "Missing information when sending",
       });
 
     try {
@@ -114,13 +114,13 @@ export default function DonationShopModal({
       );
 
       toast({
-        title: "Thành công",
-        description: `Tặng ${selectedQuantity} ${selectedItem?.name} thành công!`,
+        title: "Success",
+        description: `Sent ${selectedQuantity} ${selectedItem?.name} successfully!`,
       });
     } catch (err: any) {
       toast({
-        title: "Gửi lỗi",
-        description: err.response?.data?.message || "Không thể tặng quà",
+        title: "Send error",
+        description: err.response?.data?.message || "Cannot send gift",
       });
     } finally {
       setMessageModalOpen(false);
@@ -141,11 +141,11 @@ export default function DonationShopModal({
             <div className="flex items-center gap-2">
               <Sparkles className="text-yellow-500 w-6 h-6" />
               <DialogTitle className="text-2xl font-bold">
-                Kho quà tặng
+                Gift Shop
               </DialogTitle>
             </div>
             <DialogDescription className="text-gray-500">
-              Chọn quà và số lượng để tặng
+              Select gift and quantity to send
             </DialogDescription>
           </DialogHeader>
 
@@ -158,7 +158,7 @@ export default function DonationShopModal({
               {rarities.map((r) => (
                 <option key={r} value={r}>
                   {r === ""
-                    ? "Tất cả độ hiếm"
+                    ? "All rarities"
                     : r.charAt(0).toUpperCase() + r.slice(1)}
                 </option>
               ))}
@@ -171,7 +171,7 @@ export default function DonationShopModal({
             </div>
           ) : items.length === 0 ? (
             <p className="text-center text-gray-500 py-10">
-              Không có vật phẩm nào.
+              No items available.
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -209,12 +209,12 @@ export default function DonationShopModal({
                       </p>
 
                       <p className="text-primary font-bold text-sm">
-                        {item.price.toLocaleString()} điểm / quà
+                        {item.price.toLocaleString()} points / gift
                       </p>
 
                       <div className="flex items-center justify-center gap-2 mt-2">
                         <label className="text-xs text-gray-600">
-                          Số lượng:
+                          Quantity:
                         </label>
                         <input
                           type="number"
@@ -231,9 +231,9 @@ export default function DonationShopModal({
                       </div>
 
                       <p className="text-xs text-gray-600">
-                        Tổng:{" "}
+                        Total:{" "}
                         <span className="font-semibold text-primary">
-                          {totalPrice.toLocaleString()} điểm
+                          {totalPrice.toLocaleString()} points
                         </span>
                       </p>
 
@@ -242,7 +242,7 @@ export default function DonationShopModal({
                         onClick={() => handleOpenMessageModal(item)}
                       >
                         <Gift className="w-4 h-4 mr-2" />
-                        Tặng ngay
+                        Send now
                       </Button>
                     </CardContent>
                   </Card>
@@ -258,23 +258,23 @@ export default function DonationShopModal({
         <DialogContent className="max-w-md bg-white rounded-2xl shadow-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold">
-              Gửi lời nhắn kèm quà
+              Send message with gift
             </DialogTitle>
             <DialogDescription className="text-gray-500">
-              Bạn có thể để trống nếu không muốn gửi lời nhắn.
+              You can leave it empty if you don't want to send a message.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
             <p className="text-sm text-gray-700">
-              Quà:{" "}
+              Gift:{" "}
               <span className="font-semibold text-primary">
                 {selectedItem?.name}
               </span>{" "}
               × <span className="font-semibold">{selectedQuantity}</span>
             </p>
             <Textarea
-              placeholder="Nhập lời nhắn của bạn..."
+              placeholder="Enter your message..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               className="w-full h-24 resize-none border rounded-lg p-2 text-sm focus:outline-none"

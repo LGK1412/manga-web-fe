@@ -32,13 +32,13 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
                 headers: { "Content-Type": "multipart/form-data" },
             });
 
-            toast({ title: "Cập nhật thành công" });
+            toast({ title: "Updated successfully" });
             onOpenChange(false);
             onSuccess();
             setNewFiles([]);
             setDeletedEmojis([]);
         } catch {
-            toast({ title: "Lỗi khi lưu", variant: "destructive" });
+            toast({ title: "Error saving", variant: "destructive" });
         } finally {
             setIsLoading(false);
         }
@@ -74,7 +74,7 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
         return (
             <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                    <Label className="font-semibold">Danh sách Emoji</Label>
+                    <Label className="font-semibold">Emoji List</Label>
                 </div>
 
                 <div className="border rounded-md p-2">
@@ -108,7 +108,7 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
                 </div>
 
                 <div>
-                    <Label>Emoji (tối đa 30 ảnh, &lt; 3MB mỗi ảnh)</Label>
+                    <Label>Emoji (max 30 images, &lt; 3MB each)</Label>
                     <Input
                         type="file"
                         multiple
@@ -151,12 +151,12 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Chỉnh sửa Emoji Pack</DialogTitle>
+                    <DialogTitle>Edit Emoji Pack</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-4">
                     <div>
-                        <Label>Tên</Label>
+                        <Label>Name</Label>
                         <Input
                             value={pack.name}
                             disabled={isLoading} // ⬅ DISABLE INPUT
@@ -164,7 +164,7 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
                         />
                     </div>
                     <div>
-                        <Label>Giá</Label>
+                        <Label>Price</Label>
                         <Input
                             type="number"
                             value={pack.price}
@@ -178,11 +178,11 @@ export default function EditEmojiPackDialog({ open, onOpenChange, emojiPack, onS
 
                 <DialogFooter>
                     <Button variant="outline" disabled={isLoading} onClick={() => onOpenChange(false)}>
-                        Hủy
+                        Cancel
                     </Button>
 
                     <Button disabled={isLoading} onClick={handleSave}>
-                        {isLoading ? "Đang lưu..." : "Lưu"}
+                        {isLoading ? "Saving..." : "Save"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

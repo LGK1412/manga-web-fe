@@ -29,12 +29,12 @@ export function GamePointBadge({ refreshKey }: { refreshKey: number }) {
   const handleTransfer = async () => {
     const value = Number(transferAmount);
     if (!value || value % 1000 !== 0) {
-      alert("Số điểm phải là bội số của 1000");
+      alert("Points must be a multiple of 1000");
       return;
     }
 
     if (value > gamePoint) {
-      alert("Không đủ điểm game để chuyển");
+      alert("Insufficient game points to transfer");
       return;
     }
 
@@ -47,10 +47,10 @@ export function GamePointBadge({ refreshKey }: { refreshKey: number }) {
       );
       setTransferAmount("");
       fetchGamePoint();
-      alert("Chuyển điểm thành công!");
+      alert("Points transferred successfully!");
     } catch (err) {
       console.error(err);
-      alert("Chuyển điểm thất bại!");
+      alert("Failed to transfer points!");
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ export function GamePointBadge({ refreshKey }: { refreshKey: number }) {
         onClick={() => setShowTransfer(!showTransfer)}
       >
         <span className="text-slate-300 font-semibold truncate">
-          Điểm hiện có:
+          Current points:
         </span>
         <div className="flex items-center gap-1 shrink-0">
           <span className="text-yellow-400 font-bold">{gamePoint}</span>
@@ -83,15 +83,14 @@ export function GamePointBadge({ refreshKey }: { refreshKey: number }) {
           <div className="relative flex items-center">
             <Info className="w-4 h-4 text-slate-400 cursor-pointer" />
             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 bg-slate-700 text-slate-200 text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-              Tỉ lệ chuyển: 1 game_point = 1 point. Chỉ được rút điểm chia hết
-              cho 1000.
+              Transfer rate: 1 game_point = 1 point. Only points divisible by 1000 can be transferred.
             </div>
           </div>
 
           {/* Input */}
           <input
             type="number"
-            placeholder="Điểm"
+            placeholder="Points"
             value={transferAmount}
             onChange={(e) => setTransferAmount(e.target.value)}
             className="w-40 px-2 py-1 rounded border border-slate-600 bg-slate-700 text-slate-200"

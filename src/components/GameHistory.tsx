@@ -18,7 +18,7 @@ export default function GameHistory({ refreshKey }: { refreshKey: number }) {
         setHistory(res.data.history);
         setBestScore(res.data.bestScore);
       } catch (err) {
-        console.error("Lỗi khi lấy lịch sử:", err);
+        console.error("Error fetching history:", err);
       } finally {
         setLoading(false);
       }
@@ -30,26 +30,26 @@ export default function GameHistory({ refreshKey }: { refreshKey: number }) {
   if (loading)
     return (
       <p className="text-center mt-6 text-slate-400 animate-pulse">
-        Đang tải lịch sử...
+        Loading history...
       </p>
     );
 
   if (history.length === 0)
     return (
       <div className="text-center mt-6 bg-slate-800/70 p-4 rounded-xl border border-slate-600 shadow-md">
-        <p className="text-slate-400 mb-2">Chưa có lượt chơi nào.</p>
+        <p className="text-slate-400 mb-2">No game history yet.</p>
       </div>
     );
   return (
     <div className="max-w-[800px] h-[550px] mx-auto mt-10 bg-slate-900/70 backdrop-blur-md rounded-2xl border border-slate-600 shadow-lg text-white p-5 flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-teal-300 bg-clip-text text-transparent">
-          Lịch sử chơi game
+          Game History
         </h2>
       </div>
 
       <div className="bg-slate-800/80 border border-slate-600 p-4 rounded-xl mb-5 text-center">
-        <p className="text-slate-300 mb-1 text-sm">🏆 Điểm cao nhất</p>
+        <p className="text-slate-300 mb-1 text-sm">🏆 Best Score</p>
         <p className="text-4xl font-extrabold text-yellow-400 drop-shadow-lg">
           {bestScore}
         </p>
@@ -70,7 +70,7 @@ export default function GameHistory({ refreshKey }: { refreshKey: number }) {
                 })}
               </span>
               <span className="font-semibold text-blue-400">
-                {item.score} điểm
+                {item.score} points
               </span>
             </li>
           ))}

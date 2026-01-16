@@ -140,7 +140,7 @@ export default function TTSReader({ text }: Props) {
           className="px-3 py-1 rounded bg-black text-white disabled:opacity-50"
           disabled={isLoading}
         >
-          {isLoading ? "Đang xử lý..." : "Play"}
+          {isLoading ? "Processing..." : "Play"}
         </button>
         <button onClick={pause} className="px-3 py-1 rounded border">
           Pause
@@ -197,12 +197,12 @@ export default function TTSReader({ text }: Props) {
       {/* 6. Cập nhật UI status text */}
       <p className="text-xs text-gray-500">
         {isLoading
-          ? "Đang xử lý nội dung..."
+          ? "Processing content..."
           : playing
-          ? "Đang đọc…"
+          ? "Reading…"
           : cleanText
-          ? "Sẵn sàng đọc nội dung đã được làm sạch."
-          : "Nhấn Play để bắt đầu."}
+          ? "Ready to read cleaned content."
+          : "Press Play to start."}
       </p>
     </div>
   );

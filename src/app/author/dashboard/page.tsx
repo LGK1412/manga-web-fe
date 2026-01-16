@@ -150,7 +150,7 @@ export default function AuthorDashboard() {
                     <Badge className="text-xs bg-green-100 text-green-700">Published</Badge>
                   )}
                   {story.isDeleted && (
-                    <Badge variant="destructive" className="text-xs">
+                    <Badge  className="text-xs">
                       Deleted
                     </Badge>
                   )}
@@ -268,8 +268,8 @@ export default function AuthorDashboard() {
           <div className="mb-8">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "text" | "image")} className="w-full">
               <TabsList className="grid w-full grid-cols-2 sm:w-auto bg-gray-200 dark:bg-muted">
-                <TabsTrigger value="text">Text Stories</TabsTrigger>
-                <TabsTrigger value="image">Manga Stories</TabsTrigger>
+                <TabsTrigger value="text">Light Novel</TabsTrigger>
+                <TabsTrigger value="image">Manga</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>

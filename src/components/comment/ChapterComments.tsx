@@ -469,10 +469,10 @@ export default function ChapterComments() {
 
               <div>
                 <label className="text-sm font-medium mb-2 block">
-                  Mô tả chi tiết
+                  Detailed description
                 </label>
                 <Textarea
-                  placeholder="Mô tả vấn đề bạn gặp phải..."
+                  placeholder="Describe the issue you encountered..."
                   value={reportDescription}
                   onChange={(e) => setReportDescription(e.target.value)}
                 />
@@ -481,7 +481,7 @@ export default function ChapterComments() {
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
-                Hủy
+                Cancel
               </Button>
               <Button
                 onClick={async () => {
@@ -495,8 +495,8 @@ export default function ChapterComments() {
                   }
                   if (!reportTarget?._id) {
                     toast({
-                      title: "Thiếu mục tiêu báo cáo",
-                      description: "Không tìm thấy bình luận cần báo cáo.",
+                      title: "Missing report target",
+                      description: "Comment to report not found.",
                       variant: "destructive",
                     });
                     return;
@@ -515,17 +515,17 @@ export default function ChapterComments() {
                       { withCredentials: true }
                     );
                     toast({
-                      title: "Gửi báo cáo thành công ✅",
-                      description: "Cảm ơn bạn đã gửi phản hồi.",
+                      title: "Report submitted successfully ✅",
+                      description: "Thank you for your feedback.",
                     });
                     setReportDialogOpen(false);
                     setReportDescription("");
                     setReportReason("Spam");
                   } catch (err: any) {
                     toast({
-                      title: "Lỗi khi gửi báo cáo",
+                      title: "Error submitting report",
                       description:
-                        err.response?.data?.message || "Vui lòng thử lại sau.",
+                        err.response?.data?.message || "Please try again later.",
                       variant: "destructive",
                     });
                   } finally {
@@ -534,7 +534,7 @@ export default function ChapterComments() {
                 }}
                 disabled={isSubmittingReport}
               >
-                {isSubmittingReport ? "Đang gửi..." : "Gửi báo cáo"}
+                {isSubmittingReport ? "Submitting..." : "Submit report"}
               </Button>
             </DialogFooter>
           </DialogContent>

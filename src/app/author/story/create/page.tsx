@@ -108,57 +108,57 @@ export default function CreateStoryPage() {
     // validate trước
     if (!storyTitle.trim())
       return toast({
-        title: "Lỗi",
-        description: "Vui lòng nhập tên truyện.",
+        title: "Error",
+        description: "Please enter story title.",
         variant: "destructive",
       });
 
     if (storyTitle.trim().length < 3)
       return toast({
-        title: "Lỗi",
-        description: "Tên truyện phải có ít nhất 3 ký tự.",
+        title: "Error",
+        description: "Story title must be at least 3 characters.",
         variant: "destructive",
       });
 
     if (storyTitle.trim().length > 100)
       return toast({
-        title: "Lỗi",
-        description: "Tên truyện không được vượt quá 100 ký tự.",
+        title: "Error",
+        description: "Story title must not exceed 100 characters.",
         variant: "destructive",
       });
 
     if (!storySummary.trim())
       return toast({
-        title: "Lỗi",
-        description: "Vui lòng nhập mô tả.",
+        title: "Error",
+        description: "Please enter description.",
         variant: "destructive",
       });
 
     if (storySummary.trim().length < 10)
       return toast({
-        title: "Lỗi",
-        description: "Mô tả phải có ít nhất 10 ký tự.",
+        title: "Error",
+        description: "Description must be at least 10 characters.",
         variant: "destructive",
       });
 
     if (storySummary.trim().length > 1000)
       return toast({
-        title: "Lỗi",
-        description: "Mô tả không được vượt quá 1000 ký tự.",
+        title: "Error",
+        description: "Description must not exceed 1000 characters.",
         variant: "destructive",
       });
 
     if (!selectedGenres.length)
       return toast({
-        title: "Lỗi",
-        description: "Chọn ít nhất 1 thể loại.",
+        title: "Error",
+        description: "Please select at least 1 genre.",
         variant: "destructive",
       });
 
     if (!coverFile)
       return toast({
-        title: "Lỗi",
-        description: "Vui lòng chọn ảnh bìa cho truyện.",
+        title: "Error",
+        description: "Please select a cover image for the story.",
         variant: "destructive",
       });
 
@@ -166,8 +166,8 @@ export default function CreateStoryPage() {
     const authorId = tokenPayload?.user_id;
     if (!authorId)
       return toast({
-        title: "Thiếu đăng nhập",
-        description: "Vui lòng đăng nhập lại.",
+        title: "Not logged in",
+        description: "Please log in again.",
         variant: "destructive",
       });
 
@@ -194,15 +194,15 @@ export default function CreateStoryPage() {
         }
       );
       toast({
-        title: "Tạo truyện thành công!",
-        description: "Truyện đã được tạo thành công",
+        title: "Story created successfully!",
+        description: "Story has been created successfully",
         variant: "success",
       });
       router.push("/author/dashboard");
     } catch {
       toast({
-        title: "Không tạo được truyện",
-        description: "Vui lòng kiểm tra lại dữ liệu/đăng nhập.",
+        title: "Failed to create story",
+        description: "Please check your data/login again.",
         variant: "destructive",
       });
     } finally {
@@ -215,7 +215,7 @@ export default function CreateStoryPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8 pt-20">
-        <h1 className="text-3xl font-bold mb-6">Tạo truyện mới</h1>
+        <h1 className="text-3xl font-bold mb-6">Create New Story</h1>
 
         {availableStyles.length > 0 ? (
           <div className="space-y-6 max-w-4xl mx-auto">
@@ -237,9 +237,9 @@ export default function CreateStoryPage() {
                         <BookOpen className="w-4 h-4" />
                       )}
                       {s.name === "Light Novel"
-                        ? "Truyện Chữ"
+                        ? "Light Novel"
                         : s.name === "Manga"
-                          ? "Truyện Tranh"
+                          ? "Manga"
                           : s.name}
                     </TabsTrigger>
                   ))}
@@ -258,9 +258,9 @@ export default function CreateStoryPage() {
                     <BookOpen className="w-5 h-5" />
                   )}
                   {storyStyle === "Light Novel"
-                    ? "Truyện Chữ"
+                    ? "Light Novel"
                     : storyStyle === "Manga"
-                      ? "Truyện Tranh"
+                      ? "Manga"
                       : storyStyle}
                 </CardTitle>
 
@@ -269,27 +269,27 @@ export default function CreateStoryPage() {
                 {/* Title & Summary */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <Label htmlFor="story-title">Tên truyện *</Label>
+                    <Label htmlFor="story-title">Story Title *</Label>
                     <Input
                       id="story-title"
                       value={storyTitle}
                       onChange={(e) => setStoryTitle(e.target.value)}
-                      placeholder="Nhập tên truyện"
+                      placeholder="Enter story title"
                     />
-                    <Label htmlFor="story-description">Mô tả *</Label>
+                    <Label htmlFor="story-description">Description *</Label>
                     <Textarea
                       id="story-description"
                       className="h-43"
                       rows={6}
                       value={storySummary}
                       onChange={(e) => setStorySummary(e.target.value)}
-                      placeholder="Viết mô tả ngắn"
+                      placeholder="Write a short description"
                     />
                   </div>
 
                   {/* Cover */}
                   <div className="flex flex-col items-center -mt-6">
-                    <Label>Ảnh bìa *</Label>
+                    <Label>Cover Image *</Label>
                     <div
                       className="w-50 h-70 border rounded-md flex items-center justify-center cursor-pointer relative group mt-2"
                       onClick={() => fileInputRef.current?.click()}
@@ -303,7 +303,7 @@ export default function CreateStoryPage() {
                       ) : (
                         <div className="text-gray-400 flex flex-col items-center">
                           <ImageIcon className="w-8 h-8 mb-2" />
-                          <span>Chọn ảnh</span>
+                          <span>Select image</span>
                         </div>
                       )}
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
@@ -328,7 +328,7 @@ export default function CreateStoryPage() {
 
                 {/* Genres */}
                 <div className="space-y-2">
-                  <Label>Thể loại *</Label>
+                  <Label>Genres *</Label>
                   <div className="grid grid-cols-2 gap-3 mt-3">
                     {availableGenres.map((g) => (
                       <div key={g._id} className="flex items-center space-x-2">
@@ -350,10 +350,10 @@ export default function CreateStoryPage() {
 
                 {/* Status */}
                 <div className="space-y-2">
-                  <Label>Trạng thái</Label>
+                  <Label>Status</Label>
                   <Select value={storyStatus} onValueChange={setStoryStatus}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Chọn trạng thái" />
+                      <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
                       {availableStatuses.map((s: any) => {
@@ -378,7 +378,7 @@ export default function CreateStoryPage() {
                     checked={isPublish}
                     onCheckedChange={(v) => setIsPublish(!!v)}
                   />
-                  <Label htmlFor="is-public">Công khai</Label>
+                  <Label htmlFor="is-public">Public</Label>
                 </div>
 
                 {/* Buttons */}
@@ -390,7 +390,7 @@ export default function CreateStoryPage() {
                     disabled={isPublishing}
                   >
                     <Publish className="w-4 h-4 mr-2" />
-                    {isPublishing ? "Đang xử lý..." : "Xuất bản"}
+                    {isPublishing ? "Processing..." : "Publish"}
                   </Button>
 
                   <Button
@@ -398,7 +398,7 @@ export default function CreateStoryPage() {
                     className="flex-1"
                     onClick={() => router.push("/author/dashboard")}
                   >
-                    Hủy
+                    Cancel
                   </Button>
                 </div>
               </CardContent>
@@ -407,7 +407,7 @@ export default function CreateStoryPage() {
         ) : (
           <Card>
             <CardContent className="text-center py-8">
-              Hiện tại không có loại truyện nào khả dụng để tạo.
+              Currently no story types are available to create.
             </CardContent>
           </Card>
         )}

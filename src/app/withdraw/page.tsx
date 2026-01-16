@@ -65,7 +65,7 @@ export default function WithdrawPage() {
         }
       })
       .catch((err) => {
-        console.error("Không lấy được danh sách ngân hàng:", err);
+        console.error("Unable to fetch bank list:", err);
       });
   }, []);
 
@@ -79,7 +79,7 @@ export default function WithdrawPage() {
           setCurrentPoints(res.data.author_point);
         })
         .catch((err) => {
-          console.error("Không lấy được số điểm hiện tại:", err);
+          console.error("Unable to fetch current points:", err);
         });
     }
   }, [authorId]);
@@ -97,7 +97,7 @@ export default function WithdrawPage() {
           setTotal(res.data.totalDocs);
         })
         .catch((err) =>
-          console.error("Không lấy được danh sách rút tiền:", err)
+          console.error("Unable to fetch withdrawal list:", err)
         );
     }
   }, [authorId, page]);
@@ -193,10 +193,10 @@ export default function WithdrawPage() {
         {/* Form rút tiền */}
         <div className="bg-white dark:bg-card p-6 rounded-lg shadow border border-input">
           <h1 className="text-xl font-bold mb-6 text-foreground">
-            Yêu cầu rút tiền
+            Withdrawal Request
           </h1>
           <p className="mb-4 text-sm text-muted-foreground">
-            Điểm hiện tại:{" "}
+            Current points:{" "}
             <span className="font-semibold text-foreground">
               {currentPoints}
             </span>
@@ -205,26 +205,26 @@ export default function WithdrawPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1 text-foreground">
-                Số điểm muốn rút
+                Points to withdraw
               </label>
               <Input
                 type="number"
                 value={withdraw_point}
                 onChange={(e) => setPoints(Number(e.target.value) || 0)}
-                placeholder="Nhập số điểm (tối thiểu 50)"
+                placeholder="Enter points (minimum 50)"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1 text-foreground">
-                Ngân hàng
+                Bank
               </label>
               <select
                 value={bankCode}
                 onChange={(e) => setBankCode(e.target.value)}
                 className="w-full border border-input dark:bg-input/30 rounded px-3 py-2 text-foreground bg-transparent"
               >
-                <option value="">-- Chọn ngân hàng --</option>
+                <option value="">-- Select bank --</option>
                 {bankList.map((bank) => (
                   <option key={bank.code} value={bank.code}>
                     {bank.name}
@@ -235,23 +235,23 @@ export default function WithdrawPage() {
 
             <div>
               <label className="block text-sm font-medium mb-1 text-foreground">
-                Số tài khoản
+                Account number
               </label>
               <Input
                 value={bankAccount}
                 onChange={(e) => setBankAccount(e.target.value)}
-                placeholder="VD: 0123456789"
+                placeholder="e.g: 0123456789"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1 text-foreground">
-                Chủ tài khoản
+                Account holder
               </label>
               <Input
                 value={accountHolder}
                 onChange={(e) => setAccountHolder(e.target.value)}
-                placeholder="Tên đầy đủ"
+                placeholder="Full name"
               />
             </div>
 
@@ -260,7 +260,7 @@ export default function WithdrawPage() {
               disabled={loading}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              {loading ? "Đang xử lý..." : "Xác nhận rút tiền"}
+              {loading ? "Processing..." : "Confirm withdrawal"}
             </Button>
           </div>
         </div>

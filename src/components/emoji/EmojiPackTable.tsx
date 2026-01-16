@@ -8,10 +8,10 @@ export default function EmojiPackTable({ packs, onEdit, onDelete }: any) {
         <Table>
             <TableHeader>
                 <TableRow>
-                    <TableHead>Tên Pack</TableHead>
-                    <TableHead>Giá</TableHead>
-                    <TableHead>Số lượng Emoji</TableHead>
-                    <TableHead>Hành động</TableHead>
+                    <TableHead>Pack Name</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Emoji Count</TableHead>
+                    <TableHead>Actions</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
@@ -23,15 +23,15 @@ export default function EmojiPackTable({ packs, onEdit, onDelete }: any) {
                         <TableCell>
                             <div className="flex gap-2">
                                 <Button variant="outline" size="sm" onClick={() => onEdit(p)}>
-                                    <Edit className="h-4 w-4 mr-1" /> Sửa
+                                    <Edit className="h-4 w-4 mr-1" /> Edit
                                 </Button>
                                 {p.is_hide ? (
                                     <Button variant="success" size="sm" onClick={() => onDelete(p._id)}>
-                                        <ArchiveRestore className="h-4 w-4 mr-1" /> Khôi phục
+                                        <ArchiveRestore className="h-4 w-4 mr-1" /> Restore
                                     </Button>
                                 ) : (
                                     <Button variant="destructive" size="sm" onClick={() => onDelete(p._id)}>
-                                        <Trash2 className="h-4 w-4 mr-1" /> Xoá
+                                        <Trash2 className="h-4 w-4 mr-1" /> Delete
                                     </Button>
                                 )}
                             </div>

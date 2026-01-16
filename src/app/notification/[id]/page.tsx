@@ -123,7 +123,7 @@ export default function NotificationPage() {
             if (!noti) return;
 
             await axios.patch(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/notification+/save-noti/${notiId}`,
+                `${process.env.NEXT_PUBLIC_API_URL}/api/notification/save-noti/${notiId}`,
                 {},
                 { withCredentials: true }
             );

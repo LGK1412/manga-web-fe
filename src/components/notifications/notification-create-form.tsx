@@ -69,7 +69,7 @@ export function NotificationCreateForm({
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                *Nhập email người nhận. Backend sẽ tự tìm user_id tương ứng.
+                *Enter receiver email. Backend will automatically find the corresponding user_id.
               </p>
             </div>
 

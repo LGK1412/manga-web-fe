@@ -4,16 +4,36 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useUserPoint } from "@/contexts/UserPointContext";
+import { useState, useEffect } from "react";
+import Cookies from "js-cookie";
 
 export function PointBadge() {
   const { point, authorPoint, role } = useUserPoint();
+  const [fallbackRole, setFallbackRole] = useState<string>("");
 
-  if (role === "admin") return null; // Admin không hiện gì cả
+  // Get role from cookie as fallback if context role is empty
+  useEffect(() => {
+    const userInfo = Cookies.get("user_normal_info");
+    if (userInfo) {
+      try {
+        const decoded = decodeURIComponent(userInfo);
+        const parsed = JSON.parse(decoded);
+        setFallbackRole(parsed.role || "");
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+  }, []);
+
+  // Use role from context if available, otherwise use fallback from cookie
+  const currentRole = role || fallbackRole;
+
+  if (currentRole === "admin") return null; // Admin không hiện gì cả
 
   return (
     <div className="flex items-center gap-4 mr-2">
       {/* Bar nạp (user và author đều có) */}
-      {(role === "user" || role === "author") && (
+      {(currentRole === "user" || currentRole === "author") && (
         <div className="flex items-center bg-muted px-5 py-2 rounded-full shadow-sm min-w-[140px] justify-between">
           <div className="flex items-center gap-2">
             <Image
@@ -37,7 +57,7 @@ export function PointBadge() {
       )}
 
       {/* Bar rút (chỉ author có) */}
-      {role === "author" && (
+      {currentRole === "author" && (
         <div className="flex items-center bg-muted px-5 py-2 rounded-full shadow-sm min-w-[140px] justify-between">
           <div className="flex items-center gap-2">
             <Image
