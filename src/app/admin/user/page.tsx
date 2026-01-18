@@ -81,7 +81,7 @@ function logAxiosError(tag: string, endpoint: string, err: any, extra?: any) {
   console.log("data (stringify):", JSON.stringify(data, null, 2));
   console.log("message:", message);
 
-  // phân biệt network / CORS / không nhận được response
+  // detect network / CORS / no response
   if (!err?.response) {
     console.log("No response object -> maybe network/CORS/server down?");
     console.log("err.request:", err?.request);
@@ -101,13 +101,13 @@ export default function UserManagement() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  // Fetch users từ backend
+  // Fetch users from backend
   const fetchUsers = async () => {
     const endpoint = `${API_URL}/api/user/all`;
 
     try {
       if (!API_URL) {
-        toast.error("Thiếu NEXT_PUBLIC_API_URL");
+        toast.error("Missing NEXT_PUBLIC_API_URL");
         return;
       }
 
@@ -142,10 +142,9 @@ export default function UserManagement() {
       setUsers(mappedUsers);
     } catch (err: any) {
       logAxiosError("[Admin Fetch Users]", endpoint, err);
+
       const msg = err?.response?.data?.message;
-      toast.error(
-        Array.isArray(msg) ? msg.join(", ") : msg ?? "Không tải được danh sách users"
-      );
+      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to load users");
     }
   };
 
@@ -160,8 +159,7 @@ export default function UserManagement() {
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesRole = filterRole === "all" || user.role === filterRole;
-      const matchesStatus =
-        filterStatus === "all" || user.status === filterStatus;
+      const matchesStatus = filterStatus === "all" || user.status === filterStatus;
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [users, searchTerm, filterRole, filterStatus]);
@@ -222,7 +220,7 @@ export default function UserManagement() {
     if (!selectedUser) return;
 
     if (!API_URL) {
-      toast.error("Thiếu NEXT_PUBLIC_API_URL");
+      toast.error("Missing NEXT_PUBLIC_API_URL");
       return;
     }
 
@@ -248,12 +246,10 @@ export default function UserManagement() {
         data: res.data,
       });
 
-      toast.success("Cập nhật trạng thái thành công");
+      toast.success("Status updated successfully");
 
       setUsers((prev) =>
-        prev.map((u) =>
-          u.id === selectedUser.id ? { ...u, status: newStatus } : u
-        )
+        prev.map((u) => (u.id === selectedUser.id ? { ...u, status: newStatus } : u))
       );
       setSelectedUser((prev) => (prev ? { ...prev, status: newStatus } : prev));
     } catch (err: any) {
@@ -263,9 +259,7 @@ export default function UserManagement() {
       });
 
       const msg = err?.response?.data?.message;
-      toast.error(
-        Array.isArray(msg) ? msg.join(", ") : msg ?? "Không thể cập nhật trạng thái"
-      );
+      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to update status");
     }
   };
 
@@ -274,7 +268,7 @@ export default function UserManagement() {
     if (!selectedUser) return;
 
     if (!API_URL) {
-      toast.error("Thiếu NEXT_PUBLIC_API_URL");
+      toast.error("Missing NEXT_PUBLIC_API_URL");
       return;
     }
 
@@ -298,12 +292,10 @@ export default function UserManagement() {
         data: res.data,
       });
 
-      toast.success("Cập nhật role thành công");
+      toast.success("Role updated successfully");
 
       setUsers((prev) =>
-        prev.map((u) =>
-          u.id === selectedUser.id ? { ...u, role: newRole } : u
-        )
+        prev.map((u) => (u.id === selectedUser.id ? { ...u, role: newRole } : u))
       );
       setSelectedUser((prev) => (prev ? { ...prev, role: newRole } : prev));
     } catch (err: any) {
@@ -315,7 +307,7 @@ export default function UserManagement() {
       const msg = err?.response?.data?.message;
       const prettyMsg = Array.isArray(msg) ? msg.join(", ") : msg;
 
-      toast.error(prettyMsg ?? "Không thể cập nhật role");
+      toast.error(prettyMsg ?? "Failed to update role");
     }
   };
 
@@ -325,7 +317,7 @@ export default function UserManagement() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-            <p className="text-gray-600 mt-2">Quản lý người dùng trong hệ thống</p>
+            <p className="text-gray-600 mt-2">Manage users in the system</p>
           </div>
         </div>
 
@@ -333,7 +325,7 @@ export default function UserManagement() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tổng Users</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
               <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -367,7 +359,7 @@ export default function UserManagement() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Banned</CardTitle>
+              <CardTitle className="text-sm font-medium">Banned Users</CardTitle>
               <Shield className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
@@ -381,14 +373,14 @@ export default function UserManagement() {
         {/* Search + Filter */}
         <Card>
           <CardHeader>
-            <CardTitle>Tìm kiếm và Lọc</CardTitle>
+            <CardTitle>Search & Filters</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Tìm kiếm theo tên hoặc email..."
+                  placeholder="Search by name or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -397,10 +389,10 @@ export default function UserManagement() {
 
               <Select value={filterRole} onValueChange={setFilterRole}>
                 <SelectTrigger className="w-56">
-                  <SelectValue placeholder="Vai trò" />
+                  <SelectValue placeholder="Role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
                   {ROLE_OPTIONS.map((r) => (
                     <SelectItem key={r.value} value={r.value}>
                       {r.label}
@@ -411,10 +403,10 @@ export default function UserManagement() {
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Trạng thái" />
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
                   <SelectItem value="Normal">Normal</SelectItem>
                   <SelectItem value="Muted">Muted</SelectItem>
                   <SelectItem value="Banned">Banned</SelectItem>
@@ -427,21 +419,22 @@ export default function UserManagement() {
         {/* Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Danh sách Users ({filteredUsers.length})</CardTitle>
-            <CardDescription>Quản lý tất cả người dùng trong hệ thống</CardDescription>
+            <CardTitle>User List ({filteredUsers.length})</CardTitle>
+            <CardDescription>Manage all users in the system</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Người dùng</TableHead>
+                  <TableHead>User</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Vai trò</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Ngày tham gia</TableHead>
-                  <TableHead>Thao tác</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Join Date</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
                 {filteredUsers.map((user) => (
                   <TableRow key={user.id}>
@@ -494,8 +487,8 @@ export default function UserManagement() {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Chỉnh sửa User</DialogTitle>
-              <DialogDescription>Cập nhật role và trạng thái của người dùng</DialogDescription>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>Update user role and status</DialogDescription>
             </DialogHeader>
 
             {selectedUser && (
@@ -511,19 +504,20 @@ export default function UserManagement() {
                   </div>
                 </div>
 
-                {/* Role (disable author -> user) */}
+                {/* Role (block author -> user) */}
                 <div>
-                  <Label htmlFor="role">Vai trò</Label>
+                  <Label htmlFor="role">Role</Label>
+
                   <Select
                     value={selectedUser.role}
                     onValueChange={(value) => {
-                      // ✅ chặn FE luôn cho khỏi bắn request 400
+                      // ✅ block FE to avoid request 400
                       if (selectedUser.role === "author" && value === "user") {
                         console.warn("[Admin Set Role] BLOCKED: author -> user", {
                           selectedUser,
                           attemptedRole: value,
                         });
-                        toast.error("Không thể downgrade AUTHOR về USER (backend đang chặn).");
+                        toast.error("Cannot downgrade AUTHOR back to USER (blocked by backend).");
                         return;
                       }
                       handleUpdateUserRole(value);
@@ -532,9 +526,12 @@ export default function UserManagement() {
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
+
                     <SelectContent>
                       {ROLE_OPTIONS.map((r) => {
-                        const disabled = selectedUser.role === "author" && r.value === "user";
+                        const disabled =
+                          selectedUser.role === "author" && r.value === "user";
+
                         return (
                           <SelectItem key={r.value} value={r.value} disabled={disabled}>
                             {r.label}
@@ -546,14 +543,14 @@ export default function UserManagement() {
 
                   {selectedUser.role === "author" && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      * Backend hiện tại không cho downgrade AUTHOR về USER.
+                      * Backend currently blocks downgrading AUTHOR to USER.
                     </p>
                   )}
                 </div>
 
                 {/* Status */}
                 <div>
-                  <Label htmlFor="status">Trạng thái</Label>
+                  <Label htmlFor="status">Status</Label>
                   <Select value={selectedUser.status} onValueChange={handleUpdateUserStatus}>
                     <SelectTrigger>
                       <SelectValue />
@@ -570,9 +567,9 @@ export default function UserManagement() {
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Hủy
+                Cancel
               </Button>
-              <Button onClick={() => setIsEditDialogOpen(false)}>Đóng</Button>
+              <Button onClick={() => setIsEditDialogOpen(false)}>Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
