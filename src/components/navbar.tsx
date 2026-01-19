@@ -19,7 +19,6 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import {
   Search,
-  Bell,
   BookOpen,
   PenTool,
   User,
@@ -46,12 +45,24 @@ import NotificationComponent from "./firebase/NotificationComponent";
 import DailyCheckinPanel from "./DailyCheckinPanel";
 
 export function Navbar() {
-  const { isLogin, setLoginStatus } = useAuth();
+  const { setLoginStatus } = useAuth();
   const [user, setUser] = useState<any | undefined>();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const router = useRouter();
   const pathname = usePathname();
+
+  // ✅ Roles có thể vào admin dashboard
+  const ADMIN_DASHBOARD_ROLES = [
+    "admin",
+    "content_moderator",
+    "financial_manager",
+    "community_manager",
+  ];
+
+  const canSeeAdminDashboard = ADMIN_DASHBOARD_ROLES.includes(
+    user?.role?.trim()
+  );
 
   // Desktop search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -81,6 +92,7 @@ export function Navbar() {
     e.preventDefault();
     submitSearch(searchQuery);
   };
+
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -95,7 +107,7 @@ export function Navbar() {
         const decoded = decodeURIComponent(raw);
         const parsed = JSON.parse(decoded);
         setUser(parsed);
-      } catch (e) {
+      } catch {
         console.error("Invalid cookie data");
       }
     }
@@ -142,7 +154,7 @@ export function Navbar() {
       if (res.data?._id) {
         router.push(`/story/${res.data._id}`);
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Unable to load random story. Please try again.",
@@ -180,6 +192,7 @@ export function Navbar() {
                 )}
                 Random
               </Button>
+
               <Link
                 href="/game"
                 className="text-sm font-medium hover:text-primary ml-4 flex items-center gap-1"
@@ -206,10 +219,9 @@ export function Navbar() {
                 </button>
               )}
 
-              {/* Modal */}
               {user && (
                 <DailyCheckinPanel
-                  role={user.role ?? "user"} // nếu role undefined thì default "user"
+                  role={user.role ?? "user"}
                   open={showCheckinModal}
                   onClose={() => setShowCheckinModal(false)}
                 />
@@ -237,6 +249,7 @@ export function Navbar() {
           {/* Desktop: right actions */}
           <div className="hidden md:flex items-center gap-4">
             {user && <PointBadge />}
+
             <Button
               variant="ghost"
               size="icon"
@@ -265,13 +278,16 @@ export function Navbar() {
                     </Link>
                   </Button>
                 )}
-                {user.role.trim() === "admin" && (
+
+                {/* ✅ ADMIN DASHBOARD ICON: admin + mod + managers */}
+                {canSeeAdminDashboard && (
                   <Button variant="ghost" size="icon" asChild>
                     <Link href="/admin/dashboard">
                       <UserStar className="h-5 w-5" />
                     </Link>
                   </Button>
                 )}
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -289,31 +305,29 @@ export function Navbar() {
                           }
                           alt={user.username}
                         />
-
                         <AvatarFallback>
                           {user?.username?.charAt(0)?.toUpperCase() ?? "U"}
                         </AvatarFallback>
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
+
                   <DropdownMenuContent className="w-56" align="end" forceMount>
                     <DropdownMenuItem asChild>
                       <Link
-                        href={
-                          user?.user_id ? `/profile/${user.user_id}` : "/login"
-                        }
+                        href={user?.user_id ? `/profile/${user.user_id}` : "/login"}
                         className="flex items-center"
                       >
                         <User className="mr-2 h-4 w-4" />
                         Profile
                       </Link>
                     </DropdownMenuItem>
-                    {user?.role?.trim() !== "admin"  && user &&  (
+
+                    {/* ✅ Nếu là staff/admin thì ẩn Inventory & Emoji */}
+                    {!canSeeAdminDashboard && user && (
                       <DropdownMenuItem asChild>
                         <Link
-                          href={
-                            user?.user_id ? `/inventory/${user.user_id}` : "/login"
-                          }
+                          href={user?.user_id ? `/inventory/${user.user_id}` : "/login"}
                           className="flex items-center"
                         >
                           <Package className="mr-2 h-4 w-4" />
@@ -321,12 +335,11 @@ export function Navbar() {
                         </Link>
                       </DropdownMenuItem>
                     )}
-                    {user?.role?.trim() !== "admin" && user && (
+
+                    {!canSeeAdminDashboard && user && (
                       <DropdownMenuItem asChild>
                         <Link
-                          href={
-                            user?.user_id ? `/emoji-pack-shop` : "/login"
-                          }
+                          href={user?.user_id ? `/emoji-pack-shop` : "/login"}
                           className="flex items-center"
                         >
                           <Smile className="mr-2 h-4 w-4" />
@@ -334,7 +347,9 @@ export function Navbar() {
                         </Link>
                       </DropdownMenuItem>
                     )}
+
                     <DropdownMenuSeparator />
+
                     <DropdownMenuItem
                       onClick={logout}
                       className="flex items-center"
@@ -367,7 +382,7 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Mobile: only the menu icon */}
+          {/* Mobile: menu icon */}
           <div className="ml-auto md:hidden">
             <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <SheetTrigger asChild>
@@ -378,7 +393,6 @@ export function Navbar() {
 
               <SheetContent side="right" className="w-80 p-0">
                 <div className="p-6 pt-16 space-y-4">
-                  {/* Mobile search */}
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
@@ -400,9 +414,9 @@ export function Navbar() {
                       />
                     </div>
                   </form>
+
                   {user && <PointBadge />}
 
-                  {/* Vertical menu list */}
                   <div className="space-y-2">
                     <div className="text-sm font-semibold">Menu</div>
                     <Link
@@ -428,6 +442,7 @@ export function Navbar() {
                       )}
                       Random
                     </button>
+
                     <Link
                       href="/game"
                       onClick={() => setIsMenuOpen(false)}
@@ -449,26 +464,15 @@ export function Navbar() {
 
                   <Separator />
 
-                  {/* Auth actions */}
                   {!user ? (
                     <div className="flex gap-2">
                       <Button asChild className="flex-1">
-                        <Link
-                          href="/register"
-                          onClick={() => setIsMenuOpen(false)}
-                        >
+                        <Link href="/register" onClick={() => setIsMenuOpen(false)}>
                           Sign Up
                         </Link>
                       </Button>
-                      <Button
-                        variant="outline"
-                        asChild
-                        className="flex-1 bg-transparent"
-                      >
-                        <Link
-                          href="/login"
-                          onClick={() => setIsMenuOpen(false)}
-                        >
+                      <Button variant="outline" asChild className="flex-1 bg-transparent">
+                        <Link href="/login" onClick={() => setIsMenuOpen(false)}>
                           Login
                         </Link>
                       </Button>
@@ -487,18 +491,17 @@ export function Navbar() {
                             }
                             alt={user.username}
                           />
-
                           <AvatarFallback>
-                            {user?.username && user.username.length > 0
-                              ? user.username.charAt(0).toUpperCase()
-                              : "U"}
+                            {user?.username?.charAt(0)?.toUpperCase() ?? "U"}
                           </AvatarFallback>
                         </Avatar>
+
                         <div className="text-sm">
                           <p className="font-medium">{user.name}</p>
                           <p className="text-muted-foreground">{user.email}</p>
                         </div>
                       </div>
+
                       <Link
                         href="/notifications"
                         onClick={() => setIsMenuOpen(false)}
@@ -506,6 +509,7 @@ export function Navbar() {
                       >
                         Notifications
                       </Link>
+
                       {user.role === "author" && (
                         <Link
                           href="/author/dashboard"
@@ -515,15 +519,26 @@ export function Navbar() {
                           Write
                         </Link>
                       )}
+
+                      {/* ✅ Staff/admin show admin dashboard in mobile too */}
+                      {canSeeAdminDashboard && (
+                        <Link
+                          href="/admin/dashboard"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="block py-2 text-sm"
+                        >
+                          Admin Dashboard
+                        </Link>
+                      )}
+
                       <Link
-                        href={
-                          user?.user_id ? `/profile/${user.user_id}` : "/login"
-                        }
+                        href={user?.user_id ? `/profile/${user.user_id}` : "/login"}
                         onClick={() => setIsMenuOpen(false)}
                         className="block py-2 text-sm"
                       >
                         Profile
                       </Link>
+
                       <button
                         onClick={() => {
                           logout();
@@ -539,15 +554,12 @@ export function Navbar() {
 
                   <Separator />
 
-                  {/* Theme toggle inside menu */}
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Theme</span>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() =>
-                        setTheme(theme === "dark" ? "light" : "dark")
-                      }
+                      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                       className="bg-transparent"
                     >
                       {mounted ? (
