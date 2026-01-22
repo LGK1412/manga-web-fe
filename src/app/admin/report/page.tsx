@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import {
   AlertTriangle,
@@ -10,8 +11,10 @@ import {
   BookOpen,
   FileText,
   MessageSquare,
+  Mail,
 } from "lucide-react";
 
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -95,7 +98,24 @@ function logAxiosError(tag: string, endpoint: string, err: any, extra?: any) {
   console.groupEnd();
 }
 
+/** ✅ Hover border color based on status */
+function hoverBorderByStatus(status: string) {
+  switch (status) {
+    case "new":
+      return "hover:border-l-red-500";
+    case "in-progress":
+      return "hover:border-l-orange-500";
+    case "resolved":
+      return "hover:border-l-green-500";
+    case "rejected":
+      return "hover:border-l-gray-500";
+    default:
+      return "hover:border-l-slate-400";
+  }
+}
+
 export default function ReportsPage() {
+  const router = useRouter();
   const API = process.env.NEXT_PUBLIC_API_URL;
 
   const [reports, setReports] = useState<Report[]>([]);
@@ -107,7 +127,11 @@ export default function ReportsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Pagination
+  /** ✅ highlight row when click sendmail */
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Pagination */
   const [currentPage, setCurrentPage] = useState(1);
   const reportsPerPage = 10;
 
@@ -143,6 +167,12 @@ export default function ReportsPage() {
 
     fetchReports();
   }, [API]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    };
+  }, []);
 
   const handleUpdateStatus = async (
     id: string,
@@ -183,29 +213,35 @@ export default function ReportsPage() {
 
       setIsModalOpen(false);
     } catch (err: any) {
-      logAxiosError("[Admin Update Report]", endpoint, err, { id, newStatus, note });
-      alert("Update failed");
+      logAxiosError("[Admin Update Report]", endpoint, err, {
+        id,
+        newStatus,
+        note,
+      });
+      toast.error("Update failed");
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Filter logic
-  const filteredReports = reports.filter((r) => {
-    const term = searchTerm.toLowerCase();
+  /** ✅ Filter logic */
+  const filteredReports = useMemo(() => {
+    return reports.filter((r) => {
+      const term = searchTerm.toLowerCase();
 
-    const matchSearch =
-      r.reason?.toLowerCase().includes(term) ||
-      r.reporter_id?.username?.toLowerCase().includes(term) ||
-      r.reporter_id?.email?.toLowerCase().includes(term) ||
-      r.target_id?.title?.toLowerCase().includes(term) ||
-      r.target_id?.content?.toLowerCase().includes(term);
+      const matchSearch =
+        r.reason?.toLowerCase().includes(term) ||
+        r.reporter_id?.username?.toLowerCase().includes(term) ||
+        r.reporter_id?.email?.toLowerCase().includes(term) ||
+        r.target_id?.title?.toLowerCase().includes(term) ||
+        r.target_id?.content?.toLowerCase().includes(term);
 
-    const matchStatus = statusFilter === "all" || r.status === statusFilter;
-    const matchType = typeFilter === "all" || r.target_type === typeFilter;
+      const matchStatus = statusFilter === "all" || r.status === statusFilter;
+      const matchType = typeFilter === "all" || r.target_type === typeFilter;
 
-    return matchSearch && matchStatus && matchType;
-  });
+      return matchSearch && matchStatus && matchType;
+    });
+  }, [reports, searchTerm, statusFilter, typeFilter]);
 
   const indexOfLast = currentPage * reportsPerPage;
   const indexOfFirst = indexOfLast - reportsPerPage;
@@ -264,9 +300,38 @@ export default function ReportsPage() {
     setSelectedReport(null);
   };
 
+  /** ✅ NEW: SendMail like User Management */
+  const handleSendMail = (report: Report) => {
+    const reportedAgainstEmail =
+      report.target_detail?.target_human?.email ||
+      report.target_id?.authorId?.email ||
+      report.target_id?.user?.email ||
+      "";
+
+    if (!reportedAgainstEmail) {
+      toast.error("Reported Against Email not found.");
+      return;
+    }
+
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+
+    // highlight row
+    setHighlightId(report._id);
+
+    // delay to show highlight
+    highlightTimerRef.current = setTimeout(() => {
+      const params = new URLSearchParams({
+        receiverEmail: reportedAgainstEmail,
+      });
+
+      router.push(`/admin/notifications?${params.toString()}`);
+    }, 600);
+  };
+
   const totalReports = reports.length;
   const newReports = reports.filter((r) => r.status === "new").length;
-  const unresolvedReports = reports.filter((r) => r.status === "in-progress").length;
+  const unresolvedReports = reports.filter((r) => r.status === "in-progress")
+    .length;
 
   return (
     <AdminLayout>
@@ -289,7 +354,9 @@ export default function ReportsPage() {
               <AlertTriangle className="h-5 w-5 text-gray-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-gray-900">{totalReports}</div>
+              <div className="text-3xl font-bold text-gray-900">
+                {totalReports}
+              </div>
               <p className="text-xs text-gray-600 mt-1">+12 from last month</p>
             </CardContent>
           </Card>
@@ -320,7 +387,9 @@ export default function ReportsPage() {
               <div className="text-3xl font-bold text-orange-600">
                 {unresolvedReports}
               </div>
-              <p className="text-xs text-gray-600 mt-1">Currently under review</p>
+              <p className="text-xs text-gray-600 mt-1">
+                Currently under review
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -437,11 +506,33 @@ export default function ReportsPage() {
                         r.target_id?.content?.slice(0, 50) ||
                         "—";
 
-                      return (
-                        <TableRow key={r._id}>
-                          <TableCell>{r.reportCode}</TableCell>
+                      const isHighlighted = highlightId === r._id;
 
-                          <TableCell>
+                      /** ✅ Strong row hover + status-based left border */
+                      const rowClass = [
+                        "group transition-all duration-150",
+                        "cursor-default",
+                        // hover make row obvious (serious tool)
+                        "hover:bg-slate-50 hover:shadow-sm",
+                        // status-based left border when hover
+                        "hover:border-l-4",
+                        hoverBorderByStatus(r.status),
+                        // keyboard focus
+                        "focus-within:bg-slate-50 focus-within:shadow-sm",
+                        "focus-within:border-l-4 focus-within:border-l-blue-500",
+                        // click SendMail highlight
+                        isHighlighted
+                          ? "bg-blue-50 ring-1 ring-blue-200 border-l-4 border-l-blue-500 shadow-sm"
+                          : "",
+                      ].join(" ");
+
+                      return (
+                        <TableRow key={r._id} className={rowClass}>
+                          <TableCell className="group-hover:text-slate-900">
+                            {r.reportCode}
+                          </TableCell>
+
+                          <TableCell className="group-hover:text-slate-900">
                             <div>
                               <div className="font-semibold">
                                 {r.reporter_id?.username}
@@ -452,9 +543,11 @@ export default function ReportsPage() {
                             </div>
                           </TableCell>
 
-                          <TableCell>
+                          <TableCell className="group-hover:text-slate-900">
                             <div>
-                              <div className="font-semibold">{reportedAgainst}</div>
+                              <div className="font-semibold">
+                                {reportedAgainst}
+                              </div>
                               {reportedAgainstEmail && (
                                 <div className="text-xs text-gray-500">
                                   {reportedAgainstEmail}
@@ -465,24 +558,65 @@ export default function ReportsPage() {
 
                           <TableCell>{targetTypeBadge(r.target_type)}</TableCell>
 
-                          <TableCell>{targetTitle}</TableCell>
+                          <TableCell className="group-hover:text-slate-900">
+                            {targetTitle}
+                          </TableCell>
 
-                          <TableCell>{r.reason}</TableCell>
-
-                          <TableCell>
-                            <Badge className={statusColor(r.status)}>{r.status}</Badge>
+                          <TableCell className="group-hover:text-slate-900">
+                            {r.reason}
                           </TableCell>
 
                           <TableCell>
+                            <Badge className={statusColor(r.status)}>
+                              {r.status}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell className="group-hover:text-slate-900">
                             {r.createdAt
                               ? new Date(r.createdAt).toLocaleDateString("en-GB")
                               : "—"}
                           </TableCell>
 
                           <TableCell className="text-right">
-                            <Button variant="outline" size="sm" onClick={() => openModal(r)}>
-                              <Eye className="h-4 w-4 mr-1" /> View
-                            </Button>
+                            <div className="flex items-center justify-end gap-2">
+                              {/* View */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="
+                                  bg-white
+                                  transition-all
+                                  group-hover:border-slate-400
+                                  hover:bg-slate-100 hover:border-slate-500 hover:shadow-sm
+                                  focus-visible:ring-2 focus-visible:ring-blue-500
+                                "
+                                onClick={() => openModal(r)}
+                              >
+                                <Eye className="h-4 w-4 mr-1" /> View
+                              </Button>
+
+                              {/* ✅ SendMail */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                type="button"
+                                className="
+                                  bg-white
+                                  transition-all
+                                  group-hover:border-red-400
+                                  hover:bg-red-50 hover:border-red-500 hover:text-red-700 hover:shadow-sm
+                                  focus-visible:ring-2 focus-visible:ring-red-500
+                                "
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleSendMail(r);
+                                }}
+                              >
+                                <Mail className="h-4 w-4 mr-1" /> SendMail
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -494,16 +628,18 @@ export default function ReportsPage() {
 
             {/* Pagination */}
             <div className="flex justify-center mt-4 space-x-2">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <Button
-                  key={page}
-                  variant={page === currentPage ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handlePageChange(page)}
-                >
-                  {page}
-                </Button>
-              ))}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <Button
+                    key={page}
+                    variant={page === currentPage ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handlePageChange(page)}
+                  >
+                    {page}
+                  </Button>
+                )
+              )}
             </div>
           </CardContent>
         </Card>

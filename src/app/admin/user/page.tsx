@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { toast } from "sonner";
@@ -42,7 +42,6 @@ import {
 import { Label } from "@/components/ui/label";
 import AdminLayout from "../adminLayout/page";
 import Link from "next/link";
-
 
 /** ===== Role options (raw values from backend) ===== */
 const ROLE_OPTIONS = [
@@ -93,6 +92,24 @@ function logAxiosError(tag: string, endpoint: string, err: any, extra?: any) {
   console.groupEnd();
 }
 
+/** ✅ hover border color by role (for “serious / precise” UX) */
+function hoverBorderByRole(role: string) {
+  switch (role) {
+    case "admin":
+      return "hover:border-l-red-500";
+    case "author":
+      return "hover:border-l-blue-500";
+    case "content_moderator":
+      return "hover:border-l-purple-500";
+    case "financial_manager":
+      return "hover:border-l-emerald-500";
+    case "community_manager":
+      return "hover:border-l-amber-500";
+    default:
+      return "hover:border-l-slate-400";
+  }
+}
+
 export default function UserManagement() {
   const router = useRouter();
 
@@ -105,20 +122,25 @@ export default function UserManagement() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  // ✅ NEW: click mail => navigate to notifications with receiverEmail
-  const handleSendMail = (user: UserRow) => {
-    if (!user?.email) {
-      toast.error("User email is missing.");
-      return;
-    }
+  /** ✅ highlight row when click sendmail */
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    console.log("[Admin Send Mail] NAVIGATE to notifications", {
-      receiverEmail: user.email,
-      user,
-    });
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    };
+  }, []);
 
-    const params = new URLSearchParams({ receiverEmail: user.email });
-    router.push(`/admin/notifications?${params.toString()}`);
+  /** ✅ highlight then navigate (same logic as report management) */
+  const highlightThenNavigate = (userId: string, href: string) => {
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+
+    setHighlightId(userId);
+
+    highlightTimerRef.current = setTimeout(() => {
+      router.push(href);
+    }, 600);
   };
 
   // Fetch users from backend
@@ -151,8 +173,8 @@ export default function UserManagement() {
           u.status === "normal"
             ? "Normal"
             : u.status === "ban"
-              ? "Banned"
-              : "Muted",
+            ? "Banned"
+            : "Muted",
         joinDate: new Date(u.createdAt).toISOString().split("T")[0],
         avatar: u.avatar
           ? `${API_URL}/uploads/${u.avatar}`
@@ -324,9 +346,7 @@ export default function UserManagement() {
       toast.success("Role updated successfully");
 
       setUsers((prev) =>
-        prev.map((u) =>
-          u.id === selectedUser.id ? { ...u, role: newRole } : u
-        )
+        prev.map((u) => (u.id === selectedUser.id ? { ...u, role: newRole } : u))
       );
       setSelectedUser((prev) => (prev ? { ...prev, role: newRole } : prev));
     } catch (err: any) {
@@ -392,9 +412,7 @@ export default function UserManagement() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Banned Users
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Banned Users</CardTitle>
               <Shield className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
@@ -457,6 +475,7 @@ export default function UserManagement() {
             <CardTitle>User List ({filteredUsers.length})</CardTitle>
             <CardDescription>Manage all users in the system</CardDescription>
           </CardHeader>
+
           <CardContent>
             <Table>
               <TableHeader>
@@ -471,72 +490,109 @@ export default function UserManagement() {
               </TableHeader>
 
               <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage
-                            src={user.avatar || "/placeholder.svg"}
-                          />
-                          <AvatarFallback>
-                            {user.name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">{user.name}</span>
-                      </div>
-                    </TableCell>
+                {filteredUsers.map((user) => {
+                  const href = `/admin/notifications?receiverEmail=${encodeURIComponent(
+                    user.email
+                  )}`;
 
-                    <TableCell className="text-gray-600">
-                      {user.email}
-                    </TableCell>
+                  const isHighlighted = highlightId === user.id;
 
-                    <TableCell>
-                      <Badge
-                        className={getRoleColor(user.role)}
-                        variant="secondary"
-                      >
-                        <div className="flex items-center space-x-1">
-                          {getRoleIcon(user.role)}
-                          <span>{formatRoleLabel(user.role)}</span>
+                  const rowClass = [
+                    "group transition-all duration-150",
+                    "cursor-default",
+                    "hover:bg-slate-50 hover:shadow-sm",
+                    "hover:border-l-4",
+                    hoverBorderByRole(user.role),
+                    "focus-within:bg-slate-50 focus-within:shadow-sm",
+                    "focus-within:border-l-4 focus-within:border-l-blue-500",
+                    isHighlighted
+                      ? "bg-blue-50 ring-1 ring-blue-200 border-l-4 border-l-blue-500 shadow-sm"
+                      : "",
+                  ].join(" ");
+
+                  return (
+                    <TableRow key={user.id} className={rowClass}>
+                      <TableCell className="group-hover:text-slate-900">
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={user.avatar || "/placeholder.svg"} />
+                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">{user.name}</span>
                         </div>
-                      </Badge>
-                    </TableCell>
+                      </TableCell>
 
-                    <TableCell>
-                      <Badge
-                        className={getStatusColor(user.status)}
-                        variant="secondary"
-                      >
-                        {user.status}
-                      </Badge>
-                    </TableCell>
+                      <TableCell className="text-gray-600 group-hover:text-slate-900">
+                        {user.email}
+                      </TableCell>
 
-                    <TableCell className="text-gray-600">
-                      {user.joinDate}
-                    </TableCell>
+                      <TableCell>
+                        <Badge className={getRoleColor(user.role)} variant="secondary">
+                          <div className="flex items-center space-x-1">
+                            {getRoleIcon(user.role)}
+                            <span>{formatRoleLabel(user.role)}</span>
+                          </div>
+                        </Badge>
+                      </TableCell>
 
-                    <TableCell className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditUser(user)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <TableCell>
+                        <Badge className={getStatusColor(user.status)} variant="secondary">
+                          {user.status}
+                        </Badge>
+                      </TableCell>
 
-                      {/* ✅ UPDATED: click Mail => go to Notifications + prefill email */}
-                      <Button variant="outline" size="sm" asChild>
-                        <Link
-                          href={`/admin/notifications?receiverEmail=${encodeURIComponent(user.email)}`}
+                      <TableCell className="text-gray-600 group-hover:text-slate-900">
+                        {user.joinDate}
+                      </TableCell>
+
+                      <TableCell className="flex items-center gap-2 justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="
+                            bg-white transition-all
+                            group-hover:border-slate-400
+                            hover:bg-slate-100 hover:border-slate-500 hover:shadow-sm
+                            focus-visible:ring-2 focus-visible:ring-blue-500
+                          "
+                          onClick={() => handleEditUser(user)}
                         >
-                          <Mail className="h-4 w-4" />
-                        </Link>
-                      </Button>
+                          <Edit className="h-4 w-4" />
+                        </Button>
 
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        {/* ✅ SendMail (hover mạnh + highlight cả row + delay navigate) */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          className="
+                            bg-white transition-all
+                            group-hover:border-red-400
+                            hover:bg-red-50 hover:border-red-500 hover:text-red-700 hover:shadow-sm
+                            focus-visible:ring-2 focus-visible:ring-red-500
+                          "
+                        >
+                          <Link
+                            href={href}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+
+                              if (!user.email) {
+                                toast.error("User email is missing.");
+                                return;
+                              }
+
+                              highlightThenNavigate(user.id, href);
+                            }}
+                          >
+                            <Mail className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -547,21 +603,15 @@ export default function UserManagement() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit User</DialogTitle>
-              <DialogDescription>
-                Update user role and status
-              </DialogDescription>
+              <DialogDescription>Update user role and status</DialogDescription>
             </DialogHeader>
 
             {selectedUser && (
               <div className="space-y-4">
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage
-                      src={selectedUser.avatar || "/placeholder.svg"}
-                    />
-                    <AvatarFallback>
-                      {selectedUser.name.charAt(0)}
-                    </AvatarFallback>
+                    <AvatarImage src={selectedUser.avatar || "/placeholder.svg"} />
+                    <AvatarFallback>{selectedUser.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div>
                     <h3 className="font-semibold">{selectedUser.name}</h3>
@@ -577,13 +627,10 @@ export default function UserManagement() {
                     value={selectedUser.role}
                     onValueChange={(value) => {
                       if (selectedUser.role === "author" && value === "user") {
-                        console.warn(
-                          "[Admin Set Role] BLOCKED: author -> user",
-                          {
-                            selectedUser,
-                            attemptedRole: value,
-                          }
-                        );
+                        console.warn("[Admin Set Role] BLOCKED: author -> user", {
+                          selectedUser,
+                          attemptedRole: value,
+                        });
                         toast.error(
                           "Cannot downgrade AUTHOR back to USER (blocked by backend)."
                         );
@@ -642,10 +689,7 @@ export default function UserManagement() {
             )}
 
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
-              >
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancel
               </Button>
               <Button onClick={() => setIsEditDialogOpen(false)}>Close</Button>
