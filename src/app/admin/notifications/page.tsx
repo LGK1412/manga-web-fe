@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import AdminLayout from "../adminLayout/page";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,7 +49,6 @@ function mapToVM(n: BackendNotification): NotificationVM {
   };
 }
 
-/** ✅ helper: read json safely */
 async function safeJson(resp: Response) {
   try {
     return await resp.json();
@@ -57,7 +57,6 @@ async function safeJson(resp: Response) {
   }
 }
 
-/** ✅ helper: log full fetch error */
 async function logFetchError(tag: string, url: string, resp: Response) {
   const data = await safeJson(resp);
 
@@ -73,6 +72,8 @@ async function logFetchError(tag: string, url: string, resp: Response) {
 }
 
 export default function AdminNotificationsPage() {
+  const searchParams = useSearchParams();
+
   const [notifications, setNotifications] = useState<NotificationVM[]>([]);
   const [filteredNotifications, setFilteredNotifications] = useState<NotificationVM[]>([]);
   const [selectedNotification, setSelectedNotification] = useState<NotificationVM | null>(null);
@@ -81,11 +82,13 @@ export default function AdminNotificationsPage() {
   const [loading, setLoading] = useState(true);
 
   const [filters, setFilters] = useState({ status: "All", search: "" });
-
   const [stats, setStats] = useState<{ total: number; read: number; unread: number } | null>(null);
 
   // ✅ id -> email map (for display)
   const [usersMap, setUsersMap] = useState<Record<string, string>>({});
+
+  // ✅ NEW: email prefill from query
+  const [prefillEmail, setPrefillEmail] = useState<string>("");
 
   // ✅ email -> id map (for sending notification)
   const emailToIdMap = useMemo(() => {
@@ -95,6 +98,16 @@ export default function AdminNotificationsPage() {
     }
     return reversed;
   }, [usersMap]);
+
+  // ✅ NEW: check query receiverEmail => open create form + prefill
+  useEffect(() => {
+    const receiverEmail = searchParams.get("receiverEmail")?.trim() ?? "";
+    if (receiverEmail) {
+      console.log("[Admin Notifications] Prefill receiverEmail from query", receiverEmail);
+      setPrefillEmail(receiverEmail);
+      setIsFormOpen(true);
+    }
+  }, [searchParams]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -240,11 +253,6 @@ export default function AdminNotificationsPage() {
     }
   };
 
-  /**
-   * ✅ CREATE notification
-   * FE form provides: receiver_email + title + body
-   * BE likely expects: receiver_id + title + body
-   */
   const handleCreateNotification = async (formData: { receiver_email: string; title: string; body: string }) => {
     const url = `${API}/api/admin/notifications/send`;
 
@@ -264,7 +272,7 @@ export default function AdminNotificationsPage() {
       }
 
       const payload = {
-        receiver_id: receiverId, // ✅ convert email -> id
+        receiver_id: receiverId,
         title: formData.title,
         body: formData.body,
       };
@@ -286,6 +294,7 @@ export default function AdminNotificationsPage() {
 
       toast.success("Notification sent successfully.");
       setIsFormOpen(false);
+      setPrefillEmail(""); // ✅ reset after success
       await refetchAll();
     } catch (error) {
       console.error("❌ Failed to create notification:", error);
@@ -367,7 +376,13 @@ export default function AdminNotificationsPage() {
             <p className="text-gray-600 mt-1">Manage and send notifications</p>
           </div>
 
-          <Button onClick={() => setIsFormOpen(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
+          <Button
+            onClick={() => {
+              setPrefillEmail(""); // ✅ new click => empty prefill
+              setIsFormOpen(true);
+            }}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+          >
             <Plus className="h-4 w-4" /> New Notification
           </Button>
         </div>
@@ -375,24 +390,30 @@ export default function AdminNotificationsPage() {
         {/* Summary */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
-            <CardHeader><CardTitle>Total Notifications</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Total Notifications</CardTitle>
+            </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold">{stats?.total ?? notifications.length}</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Unread</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Unread</CardTitle>
+            </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-blue-600">{stats?.unread ?? unreadCount}</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Read</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Read</CardTitle>
+            </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-gray-600">
-                {stats?.read ?? (notifications.length - unreadCount)}
+                {stats?.read ?? notifications.length - unreadCount}
               </p>
             </CardContent>
           </Card>
@@ -430,11 +451,15 @@ export default function AdminNotificationsPage() {
           usersMap={usersMap}
         />
 
-        {/* Create Form */}
+        {/* ✅ Create Form (updated with prefillEmail) */}
         <NotificationCreateForm
           isOpen={isFormOpen}
-          onClose={() => setIsFormOpen(false)}
+          onClose={() => {
+            setIsFormOpen(false);
+            setPrefillEmail(""); // ✅ reset when close
+          }}
           onSubmit={handleCreateNotification}
+          defaultReceiverEmail={prefillEmail}
         />
       </div>
     </AdminLayout>

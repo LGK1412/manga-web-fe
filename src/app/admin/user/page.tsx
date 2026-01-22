@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import { toast } from "sonner";
 import { Search, Edit, Mail, User, Crown, Shield } from "lucide-react";
@@ -40,6 +41,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import AdminLayout from "../adminLayout/page";
+import Link from "next/link";
+
 
 /** ===== Role options (raw values from backend) ===== */
 const ROLE_OPTIONS = [
@@ -62,7 +65,7 @@ type UserRow = {
   id: string;
   name: string;
   email: string;
-  role: string; // raw role: 'user' | 'author' | 'content_moderator' | ...
+  role: string;
   status: "Normal" | "Muted" | "Banned";
   joinDate: string;
   avatar: string;
@@ -81,7 +84,6 @@ function logAxiosError(tag: string, endpoint: string, err: any, extra?: any) {
   console.log("data (stringify):", JSON.stringify(data, null, 2));
   console.log("message:", message);
 
-  // detect network / CORS / no response
   if (!err?.response) {
     console.log("No response object -> maybe network/CORS/server down?");
     console.log("err.request:", err?.request);
@@ -92,6 +94,8 @@ function logAxiosError(tag: string, endpoint: string, err: any, extra?: any) {
 }
 
 export default function UserManagement() {
+  const router = useRouter();
+
   const [users, setUsers] = useState<UserRow[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
@@ -100,6 +104,22 @@ export default function UserManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  // ✅ NEW: click mail => navigate to notifications with receiverEmail
+  const handleSendMail = (user: UserRow) => {
+    if (!user?.email) {
+      toast.error("User email is missing.");
+      return;
+    }
+
+    console.log("[Admin Send Mail] NAVIGATE to notifications", {
+      receiverEmail: user.email,
+      user,
+    });
+
+    const params = new URLSearchParams({ receiverEmail: user.email });
+    router.push(`/admin/notifications?${params.toString()}`);
+  };
 
   // Fetch users from backend
   const fetchUsers = async () => {
@@ -126,13 +146,13 @@ export default function UserManagement() {
         id: u._id,
         name: u.username,
         email: u.email,
-        role: u.role, // ✅ keep raw role
+        role: u.role,
         status:
           u.status === "normal"
             ? "Normal"
             : u.status === "ban"
-            ? "Banned"
-            : "Muted",
+              ? "Banned"
+              : "Muted",
         joinDate: new Date(u.createdAt).toISOString().split("T")[0],
         avatar: u.avatar
           ? `${API_URL}/uploads/${u.avatar}`
@@ -144,7 +164,9 @@ export default function UserManagement() {
       logAxiosError("[Admin Fetch Users]", endpoint, err);
 
       const msg = err?.response?.data?.message;
-      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to load users");
+      toast.error(
+        Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to load users"
+      );
     }
   };
 
@@ -159,7 +181,8 @@ export default function UserManagement() {
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesRole = filterRole === "all" || user.role === filterRole;
-      const matchesStatus = filterStatus === "all" || user.status === filterStatus;
+      const matchesStatus =
+        filterStatus === "all" || user.status === filterStatus;
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [users, searchTerm, filterRole, filterStatus]);
@@ -239,7 +262,9 @@ export default function UserManagement() {
         selectedUser,
       });
 
-      const res = await axios.post(endpoint, payload, { withCredentials: true });
+      const res = await axios.post(endpoint, payload, {
+        withCredentials: true,
+      });
 
       console.log("[Admin Update Status] RESPONSE", {
         status: res.status,
@@ -249,7 +274,9 @@ export default function UserManagement() {
       toast.success("Status updated successfully");
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === selectedUser.id ? { ...u, status: newStatus } : u))
+        prev.map((u) =>
+          u.id === selectedUser.id ? { ...u, status: newStatus } : u
+        )
       );
       setSelectedUser((prev) => (prev ? { ...prev, status: newStatus } : prev));
     } catch (err: any) {
@@ -259,7 +286,9 @@ export default function UserManagement() {
       });
 
       const msg = err?.response?.data?.message;
-      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to update status");
+      toast.error(
+        Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to update status"
+      );
     }
   };
 
@@ -295,7 +324,9 @@ export default function UserManagement() {
       toast.success("Role updated successfully");
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === selectedUser.id ? { ...u, role: newRole } : u))
+        prev.map((u) =>
+          u.id === selectedUser.id ? { ...u, role: newRole } : u
+        )
       );
       setSelectedUser((prev) => (prev ? { ...prev, role: newRole } : prev));
     } catch (err: any) {
@@ -316,7 +347,9 @@ export default function UserManagement() {
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              User Management
+            </h1>
             <p className="text-gray-600 mt-2">Manage users in the system</p>
           </div>
         </div>
@@ -359,7 +392,9 @@ export default function UserManagement() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Banned Users</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Banned Users
+              </CardTitle>
               <Shield className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
@@ -441,17 +476,26 @@ export default function UserManagement() {
                     <TableCell>
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={user.avatar || "/placeholder.svg"} />
-                          <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                          <AvatarImage
+                            src={user.avatar || "/placeholder.svg"}
+                          />
+                          <AvatarFallback>
+                            {user.name.charAt(0)}
+                          </AvatarFallback>
                         </Avatar>
                         <span className="font-medium">{user.name}</span>
                       </div>
                     </TableCell>
 
-                    <TableCell className="text-gray-600">{user.email}</TableCell>
+                    <TableCell className="text-gray-600">
+                      {user.email}
+                    </TableCell>
 
                     <TableCell>
-                      <Badge className={getRoleColor(user.role)} variant="secondary">
+                      <Badge
+                        className={getRoleColor(user.role)}
+                        variant="secondary"
+                      >
                         <div className="flex items-center space-x-1">
                           {getRoleIcon(user.role)}
                           <span>{formatRoleLabel(user.role)}</span>
@@ -460,21 +504,36 @@ export default function UserManagement() {
                     </TableCell>
 
                     <TableCell>
-                      <Badge className={getStatusColor(user.status)} variant="secondary">
+                      <Badge
+                        className={getStatusColor(user.status)}
+                        variant="secondary"
+                      >
                         {user.status}
                       </Badge>
                     </TableCell>
 
-                    <TableCell className="text-gray-600">{user.joinDate}</TableCell>
+                    <TableCell className="text-gray-600">
+                      {user.joinDate}
+                    </TableCell>
 
-                    <TableCell>
-                      <Button variant="outline" size="sm" onClick={() => handleEditUser(user)}>
+                    <TableCell className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditUser(user)}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
 
-                      <Button variant="outline" size="sm">
-                        <Mail className="h-4 w-4" />
+                      {/* ✅ UPDATED: click Mail => go to Notifications + prefill email */}
+                      <Button variant="outline" size="sm" asChild>
+                        <Link
+                          href={`/admin/notifications?receiverEmail=${encodeURIComponent(user.email)}`}
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Link>
                       </Button>
+
                     </TableCell>
                   </TableRow>
                 ))}
@@ -488,15 +547,21 @@ export default function UserManagement() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit User</DialogTitle>
-              <DialogDescription>Update user role and status</DialogDescription>
+              <DialogDescription>
+                Update user role and status
+              </DialogDescription>
             </DialogHeader>
 
             {selectedUser && (
               <div className="space-y-4">
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage src={selectedUser.avatar || "/placeholder.svg"} />
-                    <AvatarFallback>{selectedUser.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage
+                      src={selectedUser.avatar || "/placeholder.svg"}
+                    />
+                    <AvatarFallback>
+                      {selectedUser.name.charAt(0)}
+                    </AvatarFallback>
                   </Avatar>
                   <div>
                     <h3 className="font-semibold">{selectedUser.name}</h3>
@@ -504,20 +569,24 @@ export default function UserManagement() {
                   </div>
                 </div>
 
-                {/* Role (block author -> user) */}
+                {/* Role */}
                 <div>
                   <Label htmlFor="role">Role</Label>
 
                   <Select
                     value={selectedUser.role}
                     onValueChange={(value) => {
-                      // ✅ block FE to avoid request 400
                       if (selectedUser.role === "author" && value === "user") {
-                        console.warn("[Admin Set Role] BLOCKED: author -> user", {
-                          selectedUser,
-                          attemptedRole: value,
-                        });
-                        toast.error("Cannot downgrade AUTHOR back to USER (blocked by backend).");
+                        console.warn(
+                          "[Admin Set Role] BLOCKED: author -> user",
+                          {
+                            selectedUser,
+                            attemptedRole: value,
+                          }
+                        );
+                        toast.error(
+                          "Cannot downgrade AUTHOR back to USER (blocked by backend)."
+                        );
                         return;
                       }
                       handleUpdateUserRole(value);
@@ -533,7 +602,11 @@ export default function UserManagement() {
                           selectedUser.role === "author" && r.value === "user";
 
                         return (
-                          <SelectItem key={r.value} value={r.value} disabled={disabled}>
+                          <SelectItem
+                            key={r.value}
+                            value={r.value}
+                            disabled={disabled}
+                          >
                             {r.label}
                           </SelectItem>
                         );
@@ -551,7 +624,10 @@ export default function UserManagement() {
                 {/* Status */}
                 <div>
                   <Label htmlFor="status">Status</Label>
-                  <Select value={selectedUser.status} onValueChange={handleUpdateUserStatus}>
+                  <Select
+                    value={selectedUser.status}
+                    onValueChange={handleUpdateUserStatus}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -566,7 +642,10 @@ export default function UserManagement() {
             )}
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+              >
                 Cancel
               </Button>
               <Button onClick={() => setIsEditDialogOpen(false)}>Close</Button>
