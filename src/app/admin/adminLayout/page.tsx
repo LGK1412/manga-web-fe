@@ -19,6 +19,7 @@ import {
   ListTodo,
   PanelRight,
   Banknote,
+  FileCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -124,6 +125,13 @@ const menuItems: MenuItem[] = [
     label: "Policies",
     icon: BookOpen,
     href: "/admin/policies",
+  },
+  {
+    kind: "link",
+    id: "audit-logs",
+    label: "Audit Logs",
+    icon: FileCheck,
+    href: "/admin/audit-logs",
   },
   {
     kind: "link",
