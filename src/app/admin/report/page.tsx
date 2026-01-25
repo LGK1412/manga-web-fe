@@ -174,6 +174,11 @@ export default function ReportsPage() {
     };
   }, []);
 
+  /**
+   * ✅ IMPORTANT UPDATE:
+   * Update endpoint now is:
+   * PUT /api/reports/:id/moderate
+   */
   const handleUpdateStatus = async (
     id: string,
     newStatus?: string,
@@ -184,7 +189,7 @@ export default function ReportsPage() {
       return;
     }
 
-    const endpoint = `${API}/api/reports/${id}`;
+    const endpoint = `${API}/api/reports/${id}/moderate`;
 
     try {
       setLoading(true);
@@ -212,6 +217,7 @@ export default function ReportsPage() {
       );
 
       setIsModalOpen(false);
+      toast.success("Report updated!");
     } catch (err: any) {
       logAxiosError("[Admin Update Report]", endpoint, err, {
         id,
@@ -300,7 +306,7 @@ export default function ReportsPage() {
     setSelectedReport(null);
   };
 
-  /** ✅ NEW: SendMail like User Management */
+  /** ✅ SendMail */
   const handleSendMail = (report: Report) => {
     const reportedAgainstEmail =
       report.target_detail?.target_human?.email ||
@@ -315,10 +321,8 @@ export default function ReportsPage() {
 
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
 
-    // highlight row
     setHighlightId(report._id);
 
-    // delay to show highlight
     highlightTimerRef.current = setTimeout(() => {
       const params = new URLSearchParams({
         receiverEmail: reportedAgainstEmail,
@@ -508,19 +512,14 @@ export default function ReportsPage() {
 
                       const isHighlighted = highlightId === r._id;
 
-                      /** ✅ Strong row hover + status-based left border */
                       const rowClass = [
                         "group transition-all duration-150",
                         "cursor-default",
-                        // hover make row obvious (serious tool)
                         "hover:bg-slate-50 hover:shadow-sm",
-                        // status-based left border when hover
                         "hover:border-l-4",
                         hoverBorderByStatus(r.status),
-                        // keyboard focus
                         "focus-within:bg-slate-50 focus-within:shadow-sm",
                         "focus-within:border-l-4 focus-within:border-l-blue-500",
-                        // click SendMail highlight
                         isHighlighted
                           ? "bg-blue-50 ring-1 ring-blue-200 border-l-4 border-l-blue-500 shadow-sm"
                           : "",
@@ -596,7 +595,7 @@ export default function ReportsPage() {
                                 <Eye className="h-4 w-4 mr-1" /> View
                               </Button>
 
-                              {/* ✅ SendMail */}
+                              {/* SendMail */}
                               <Button
                                 variant="outline"
                                 size="sm"
