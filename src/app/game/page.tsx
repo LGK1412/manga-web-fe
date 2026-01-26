@@ -85,7 +85,7 @@ export default function CatchGame() {
         { withCredentials: true },
       );
     } catch (e) {
-      console.error("Lưu điểm thất bại", e);
+      console.error("Failed to save score", e);
     }
   }, [score]);
 
@@ -734,23 +734,23 @@ export default function CatchGame() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-center p-6">
       <div className="max-w-6xl w-full">
         <div className="fixed top-4 left-4 right-4 flex justify-between items-center z-50">
-          {/* Nút quay về */}
+          {/* Back button */}
           <button
             onClick={() => window.history.back()}
             className="px-4 py-2 bg-slate-800/80 hover:bg-slate-700 text-white rounded-lg border border-slate-600 shadow-md transition-all flex items-center gap-2"
           >
-            <span className="font-semibold">Quay về</span>
+            <span className="font-semibold">Back</span>
           </button>
 
-          {/* Hiển thị điểm */}
+          {/* Display points */}
           <GamePointBadge refreshKey={refreshKey} />
         </div>
         <div className="text-center mb-6">
           <h1 className="text-5xl font-bold mb-3 bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
-            Bóng Rơi - Hứng Điểm
+            Ball Drop - Catch Points
           </h1>
           <p className="text-slate-300 text-lg">
-            Bắt quả tốt, tránh quả xấu, thu thập bonus!
+            Catch good balls, avoid bad ones, collect bonuses!
           </p>
         </div>
 
@@ -787,13 +787,13 @@ export default function CatchGame() {
               {!running && !gameOver && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl backdrop-blur-sm">
                   <div className="text-center">
-                    <h2 className="text-3xl font-bold mb-4">Sẵn sàng chơi?</h2>
+                    <h2 className="text-3xl font-bold mb-4">Ready to play?</h2>
                     <button
                       onClick={startGame}
                       className="px-8 py-4 bg-green-500 hover:bg-green-600 rounded-xl font-bold text-xl transition-all transform hover:scale-105 shadow-lg flex items-center gap-2 mx-auto"
                     >
                       <Play size={24} />
-                      Bắt đầu
+                      Start
                     </button>
                   </div>
                 </div>
@@ -803,9 +803,9 @@ export default function CatchGame() {
                 <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded-2xl backdrop-blur-sm">
                   <div className="text-center bg-slate-800 p-8 rounded-xl border-4 border-green-500 shadow-2xl">
                     <h2 className="text-4xl font-bold mb-4 text-green-400">
-                      🎉 Chúc mừng!
+                      🎉 Congratulations!
                     </h2>
-                    <p className="text-2xl mb-2">Điểm của bạn</p>
+                    <p className="text-2xl mb-2">Your Score</p>
                     <p className="text-6xl font-bold mb-6 text-yellow-400">
                       {score}
                     </p>
@@ -814,7 +814,7 @@ export default function CatchGame() {
                       className="px-6 py-3 bg-green-500 hover:bg-green-600 rounded-lg font-bold transition-all transform hover:scale-105 shadow-lg flex items-center gap-2 mx-auto"
                     >
                       <RotateCcw size={20} />
-                      Chơi lại
+                      Play Again
                     </button>
                   </div>
                 </div>
@@ -828,7 +828,7 @@ export default function CatchGame() {
                   className="px-6 py-3 bg-red-500 hover:bg-red-600 rounded-lg font-bold transition-all shadow-lg flex items-center gap-2"
                 >
                   <Pause size={20} />
-                  Kết thúc
+                  End
                 </button>
               ) : !gameOver ? (
                 <>
@@ -837,14 +837,14 @@ export default function CatchGame() {
                     className="px-6 py-3 bg-green-500 hover:bg-green-600 rounded-lg font-bold transition-all shadow-lg flex items-center gap-2"
                   >
                     <Play size={20} />
-                    Bắt đầu
+                    Start
                   </button>
                   <button
                     onClick={resetGame}
                     className="px-6 py-3 bg-slate-600 hover:bg-slate-700 rounded-lg font-bold transition-all shadow-lg flex items-center gap-2"
                   >
                     <RotateCcw size={20} />
-                    Làm mới
+                    Reset
                   </button>
                 </>
               ) : null}
@@ -865,12 +865,12 @@ export default function CatchGame() {
           </div>
 
           <div className="bg-slate-800 border-2 border-slate-700 rounded-2xl p-6 w-full lg:w-80 shadow-2xl">
-            <h2 className="text-2xl font-bold mb-4 text-center">Thông tin</h2>
+            <h2 className="text-2xl font-bold mb-4 text-center">Information</h2>
 
             <div className="space-y-4 mb-6">
               <div className="bg-slate-700 p-4 rounded-xl">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-300 text-lg">⏱️ Thời gian</span>
+                  <span className="text-slate-300 text-lg">⏱️ Time</span>
                   <span className="text-3xl font-bold text-blue-400">
                     {timeLeft}s
                   </span>
@@ -879,7 +879,7 @@ export default function CatchGame() {
 
               <div className="bg-slate-700 p-4 rounded-xl">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-300 text-lg">🏆 Điểm</span>
+                  <span className="text-slate-300 text-lg">🏆 Score</span>
                   <span className="text-3xl font-bold text-yellow-400">
                     {score}
                   </span>
@@ -888,7 +888,7 @@ export default function CatchGame() {
 
               <div className="bg-slate-700 p-4 rounded-xl">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-300 text-lg">⚪ Bóng</span>
+                  <span className="text-slate-300 text-lg">⚪ Balls</span>
                   <span className="text-3xl font-bold text-green-400">
                     {ballsRef.current.length}
                   </span>
@@ -899,31 +899,31 @@ export default function CatchGame() {
             <hr className="border-slate-600 my-4" />
 
             <div>
-              <h3 className="text-xl font-bold mb-3 text-center">Loại bóng</h3>
+              <h3 className="text-xl font-bold mb-3 text-center">Ball Types</h3>
               <div className="space-y-3 text-sm">
                 <div className="flex items-center gap-3 bg-slate-700 p-3 rounded-lg">
                   <span className="w-5 h-5 bg-green-400 rounded-full shadow-lg"></span>
-                  <span className="flex-1">Bóng tốt nhỏ</span>
+                  <span className="flex-1">Small good ball</span>
                   <span className="font-bold text-green-400">+2</span>
                 </div>
                 <div className="flex items-center gap-3 bg-slate-700 p-3 rounded-lg">
                   <span className="w-6 h-6 bg-blue-400 rounded-full shadow-lg"></span>
-                  <span className="flex-1">Bóng tốt vừa</span>
+                  <span className="flex-1">Medium good ball</span>
                   <span className="font-bold text-blue-400">+5</span>
                 </div>
                 <div className="flex items-center gap-3 bg-slate-700 p-3 rounded-lg">
                   <span className="w-7 h-7 bg-yellow-400 rounded-full shadow-lg"></span>
-                  <span className="flex-1">Bóng tốt lớn</span>
+                  <span className="flex-1">Large good ball</span>
                   <span className="font-bold text-yellow-400">+10</span>
                 </div>
                 <div className="flex items-center gap-3 bg-slate-700 p-3 rounded-lg">
                   <span className="w-6 h-6 bg-red-500 rounded-full shadow-lg"></span>
-                  <span className="flex-1">Bóng xấu</span>
+                  <span className="flex-1">Bad ball</span>
                   <span className="font-bold text-red-500">-5/-10</span>
                 </div>
                 <div className="flex items-center gap-3 bg-slate-700 p-3 rounded-lg">
                   <span className="w-6 h-6 bg-cyan-400 rounded-full shadow-lg"></span>
-                  <span className="flex-1">Đóng băng</span>
+                  <span className="flex-1">Freeze</span>
                   <span className="font-bold text-cyan-400">3s</span>
                 </div>
                 <div className="flex items-center gap-3 bg-slate-700 p-3 rounded-lg">
@@ -933,12 +933,12 @@ export default function CatchGame() {
                 </div>
                 <div className="flex items-center gap-3 bg-slate-700 p-3 rounded-lg">
                   <span className="w-6 h-6 bg-orange-500 rounded-full shadow-lg"></span>
-                  <span className="flex-1">Thu nhỏ thanh</span>
+                  <span className="flex-1">Shrink bar</span>
                   <span className="font-bold text-orange-500">5s</span>
                 </div>
                 <div className="flex items-center gap-3 bg-slate-700 p-3 rounded-lg">
                   <span className="w-6 h-6 bg-teal-500 rounded-full shadow-lg"></span>
-                  <span className="flex-1">Mở rộng thanh</span>
+                  <span className="flex-1">Expand bar</span>
                   <span className="font-bold text-teal-500">5s</span>
                 </div>
               </div>
@@ -947,11 +947,11 @@ export default function CatchGame() {
             <hr className="border-slate-600 my-4" />
 
             <div className="text-xs text-slate-400 space-y-1">
-              <p>💡 Di chuyển: chuột hoặc phím mũi tên</p>
-              <p>🎯 Bonus: +5 điểm và nhân đôi x2 trong 3s</p>
-              <p>❄️ Freeze: Dừng thời gian trong 3s</p>
-              <p>🔻 Shrink: Thu nhỏ thanh hứng trong 5s</p>
-              <p>🔺 Expand: Mở rộng thanh hứng trong 5s</p>
+              <p>💡 Move: mouse or arrow keys</p>
+              <p>🎯 Bonus: +5 points and double x2 for 3s</p>
+              <p>❄️ Freeze: Stop time for 3s</p>
+              <p>🔻 Shrink: Shrink catch bar for 5s</p>
+              <p>🔺 Expand: Expand catch bar for 5s</p>
             </div>
           </div>
         </div>

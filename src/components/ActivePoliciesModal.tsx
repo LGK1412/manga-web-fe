@@ -37,7 +37,7 @@ export default function ActivePoliciesModal({
   onOpenChange,
   typeFilter,
   title = "Active Policies",
-  description = "Các chính sách đang có hiệu lực",
+  description = "Currently active policies",
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [policies, setPolicies] = useState<Policy[]>([]);
@@ -66,7 +66,7 @@ export default function ActivePoliciesModal({
         setPolicies(filtered);
       } catch (e: any) {
         if (!mounted) return;
-        setError(e?.message || "Không thể tải policies");
+        setError(e?.message || "Unable to load policies");
       } finally {
         if (!mounted) return;
         setLoading(false);
@@ -87,11 +87,11 @@ export default function ActivePoliciesModal({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        {loading && <p className="text-sm text-gray-500">Đang tải…</p>}
-        {error && <p className="text-sm text-red-600">Lỗi: {error}</p>}
+        {loading && <p className="text-sm text-gray-500">Loading…</p>}
+        {error && <p className="text-sm text-red-600">Error: {error}</p>}
 
         {!loading && !error && policies.length === 0 && (
-          <p className="text-sm text-gray-500">Chưa có policy công khai nào.</p>
+          <p className="text-sm text-gray-500">No public policies available.</p>
         )}
 
         {!loading && !error && policies.length > 0 && (

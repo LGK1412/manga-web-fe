@@ -189,7 +189,7 @@ export default function NativeRichEditor({
         applySpellHighlights(el, data.errors || []);
       }
     } catch (err) {
-      console.error("Lỗi check spelling:", err);
+      console.error("Error checking spelling:", err);
       // Silent fail - không hiển thị error
     }
   }, [applySpellHighlights]);
@@ -382,21 +382,21 @@ export default function NativeRichEditor({
           <button
             className="p-2 rounded-lg hover:bg-white active:scale-95"
             onClick={onBold}
-            title="Đậm (Ctrl+B)"
+            title="Bold (Ctrl+B)"
           >
             <Bold className="w-4 h-4" />
           </button>
           <button
             className="p-2 rounded-lg hover:bg-white active:scale-95"
             onClick={onItalic}
-            title="Nghiêng (Ctrl+I)"
+            title="Italic (Ctrl+I)"
           >
             <Italic className="w-4 h-4" />
           </button>
           <button
             className="p-2 rounded-lg hover:bg-white active:scale-95"
             onClick={onUnderline}
-            title="Gạch dưới (Ctrl+U)"
+            title="Underline (Ctrl+U)"
           >
             <Underline className="w-4 h-4" />
           </button>
@@ -406,21 +406,21 @@ export default function NativeRichEditor({
           <button
             className="p-2 rounded-lg hover:bg-white active:scale-95"
             onClick={() => onAlign("left")}
-            title="Canh trái"
+            title="Align left"
           >
             <AlignLeft className="w-4 h-4" />
           </button>
           <button
             className="p-2 rounded-lg hover:bg-white active:scale-95"
             onClick={() => onAlign("center")}
-            title="Canh giữa"
+            title="Align center"
           >
             <AlignCenter className="w-4 h-4" />
           </button>
           <button
             className="p-2 rounded-lg hover:bg-white active:scale-95"
             onClick={() => onAlign("right")}
-            title="Canh phải"
+            title="Align right"
           >
             <AlignRight className="w-4 h-4" />
           </button>
@@ -432,7 +432,7 @@ export default function NativeRichEditor({
             type="color"
             onChange={(e) => onColor(e.target.value)}
             className="h-8 w-10 rounded border bg-white p-0"
-            title="Màu chữ"
+            title="Text color"
           />
         </label>
 
@@ -441,7 +441,7 @@ export default function NativeRichEditor({
           <select
             onChange={(e) => onFontFamily(e.target.value)}
             className="rounded-lg border bg-white px-2 py-1"
-            title="Kiểu chữ"
+            title="Font family"
           >
             <option value="Inter, system-ui, sans-serif">Inter / System</option>
             <option value="Arial, Helvetica, sans-serif">Arial</option>
@@ -460,7 +460,7 @@ export default function NativeRichEditor({
           <select
             onChange={(e) => onFontSize(e.target.value)}
             className="rounded-lg border bg-white px-2 py-1"
-            title="Cỡ chữ"
+            title="Font size"
           >
             {[
               "12px",

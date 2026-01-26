@@ -36,8 +36,8 @@ export default function EmojiPackCard({
 
             if (res.data.success) {
                 toast({
-                    title: "Mua thành công!",
-                    description: "Bạn đã mua Emoji Pack thành công.",
+                    title: "Purchase successful!",
+                    description: "You have successfully purchased the Emoji Pack.",
                     variant: "success",
                 });
                 onBought?.(pack_id);
@@ -45,17 +45,17 @@ export default function EmojiPackCard({
         } catch (error: any) {
             if (axios.isAxiosError(error)) {
                 const message =
-                    error.response?.data?.message || "Đã xảy ra lỗi khi mua Emoji Pack.";
+                    error.response?.data?.message || "An error occurred while purchasing Emoji Pack.";
 
                 toast({
-                    title: "Lỗi mua hàng",
+                    title: "Purchase error",
                     description: message,
                     variant: "destructive",
                 });
             } else {
                 toast({
-                    title: "Lỗi không xác định",
-                    description: "Vui lòng thử lại sau.",
+                    title: "Unknown error",
+                    description: "Please try again later.",
                     variant: "destructive",
                 });
             }
@@ -80,24 +80,24 @@ export default function EmojiPackCard({
                 </div>
                 <h3 className="font-semibold text-lg">{pack.name}</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                    {pack.price > 0 ? `${pack.price} xu` : "Miễn phí"}
+                    {pack.price > 0 ? `${pack.price} points` : "Free"}
                 </p>
                 <div className="flex gap-2">
                     <Button size="sm" variant="secondary" onClick={onPreview}>
-                        Xem trước
+                        Preview
                     </Button>
 
                     {/* Button kích hoạt dialog */}
                     <Dialog open={open} onOpenChange={setOpen}>
                         <DialogTrigger asChild>
-                            <Button size="sm">Mua</Button>
+                            <Button size="sm">Buy</Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-[425px]">
                             <DialogHeader>
-                                <DialogTitle>Xác nhận mua</DialogTitle>
+                                <DialogTitle>Confirm purchase</DialogTitle>
                                 <DialogDescription>
-                                    Bạn có chắc muốn mua "{pack.name}" với giá{" "}
-                                    {pack.price > 0 ? pack.price + " xu" : "Miễn phí"} không?
+                                    Are you sure you want to buy "{pack.name}" for{" "}
+                                    {pack.price > 0 ? pack.price + " points" : "Free"}?
                                 </DialogDescription>
                             </DialogHeader>
                             <DialogFooter className="flex justify-end gap-2">
@@ -105,7 +105,7 @@ export default function EmojiPackCard({
                                     variant="secondary"
                                     onClick={() => setOpen(false)}
                                 >
-                                    Hủy
+                                    Cancel
                                 </Button>
                                 <Button
                                     onClick={() => {
@@ -113,7 +113,7 @@ export default function EmojiPackCard({
                                         setOpen(false);
                                     }}
                                 >
-                                    Xác nhận
+                                    Confirm
                                 </Button>
                             </DialogFooter>
                         </DialogContent>

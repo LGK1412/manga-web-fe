@@ -490,7 +490,7 @@ export default function StoriesPage() {
         <div className="mb-4 rounded-lg border border-border bg-muted p-3">
           <div className="mb-2 flex items-center justify-between">
             <div className="text-sm font-medium text-foreground">
-              Lọc theo{activeFiltersCount ? ` (${activeFiltersCount})` : ""}
+              Filter by{activeFiltersCount ? ` (${activeFiltersCount})` : ""}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -498,7 +498,7 @@ export default function StoriesPage() {
                 onClick={clearFilters}
                 className="rounded border border-border px-3 py-1 text-xs hover:bg-background disabled:opacity-50 text-foreground"
               >
-                Xoá tất cả
+                Clear All
               </button>
             </div>
           </div>

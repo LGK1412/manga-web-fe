@@ -113,7 +113,7 @@ export default function PublicUserProfile({
           setFollowersCount(statsRes.data?.followersCount || 0);
           setFollowingCount(statsRes.data?.followingCount || 0);
         } catch (err: any) {
-          console.error("Lỗi khi lấy thống kê theo dõi:", err);
+          console.error("Error fetching follow statistics:", err);
           setStatsError("Unable to load follow statistics");
           setFollowersCount(0);
           setFollowingCount(0);
@@ -176,11 +176,11 @@ export default function PublicUserProfile({
           if (e.response?.status === 404) {
             errorMessage = "User not found";
           } else if (e.response?.status === 400) {
-            errorMessage = e.response?.data?.message || "Dữ liệu không hợp lệ";
+            errorMessage = e.response?.data?.message || "Invalid data";
           } else if (e.response?.status === 500) {
-            errorMessage = "Lỗi máy chủ, vui lòng thử lại sau";
+            errorMessage = "Server error, please try again later";
           } else if (e.message === "Network Error") {
-            errorMessage = "Không thể kết nối đến máy chủ";
+            errorMessage = "Unable to connect to server";
           } else if (e.response?.data?.message) {
             errorMessage = e.response.data.message;
           }
@@ -188,7 +188,7 @@ export default function PublicUserProfile({
         
         setError(errorMessage);
         toast({
-          title: "Lỗi",
+          title: "Error",
           description: errorMessage,
           variant: "destructive",
         });
@@ -213,10 +213,10 @@ export default function PublicUserProfile({
         description: "Update successful.",
       });
     } catch (err: any) {
-      console.error("Lỗi khi theo dõi/bỏ theo dõi:", err);
+      console.error("Error following/unfollowing:", err);
       toast({
         title: "Unable to update follow status",
-        description: err.response?.data?.message || "Vui lòng thử lại.",
+        description: err.response?.data?.message || "Please try again.",
         variant: "destructive",
       });
     }
@@ -343,7 +343,7 @@ export default function PublicUserProfile({
                       onClick={handleToggleFollow}
                     >
                       <UserPlus className="w-4 h-4 mr-2" />
-                      {isFollowing ? "Đang theo dõi" : "Theo dõi"}
+                      {isFollowing ? "Following" : "Follow"}
                     </Button>
 
                     {user.role === "author" && (

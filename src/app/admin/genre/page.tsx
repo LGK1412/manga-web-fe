@@ -188,43 +188,43 @@ export default function GenreManagement() {
             <h1 className="text-3xl font-bold text-gray-900">
               Genre Management
             </h1>
-            <p className="text-gray-600 mt-2">Quản lý các thể loại truyện</p>
+            <p className="text-gray-600 mt-2">Managing story genres</p>
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Thêm Genre
+                Add Genre
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Thêm Genre Mới</DialogTitle>
+                <DialogTitle>Add New Genre</DialogTitle>
                 <DialogDescription>
-                  Tạo thể loại truyện mới cho hệ thống
+                  Create a new genre for the system
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Tên Genre</Label>
+                  <Label htmlFor="name">Genre's Name</Label>
                   <Input
                     id="name"
                     value={newGenre.name}
                     onChange={(e) =>
                       setNewGenre({ ...newGenre, name: e.target.value })
                     }
-                    placeholder="Nhập tên thể loại..."
+                    placeholder="Enter genre name..."
                   />
                 </div>
                 <div>
-                  <Label htmlFor="description">Mô tả</Label>
+                  <Label htmlFor="description">Short Description</Label>
                   <Textarea
                     id="description"
                     value={newGenre.description}
                     onChange={(e) =>
                       setNewGenre({ ...newGenre, description: e.target.value })
                     }
-                    placeholder="Nhập mô tả thể loại..."
+                    placeholder="Enter a description of the category..."
                   />
                 </div>
               </div>
@@ -233,9 +233,9 @@ export default function GenreManagement() {
                   variant="outline"
                   onClick={() => setIsAddDialogOpen(false)}
                 >
-                  Hủy
+                  Cancel
                 </Button>
-                <Button onClick={handleAddGenre}>Thêm Genre</Button>
+                <Button onClick={handleAddGenre}>Add Genre</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -244,14 +244,14 @@ export default function GenreManagement() {
         {/* Search + Filter */}
         <Card>
           <CardHeader>
-            <CardTitle>Tìm kiếm & Lọc</CardTitle>
+            <CardTitle>Search & Filter</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Tìm kiếm theo tên hoặc mô tả..."
+                  placeholder="Search by name or description..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -262,7 +262,7 @@ export default function GenreManagement() {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
               >
-                <option value="all">Tất cả</option>
+                <option value="all">All</option>
                 <option value="normal">Normal</option>
                 <option value="hide">Hide</option>
               </select>
@@ -273,19 +273,19 @@ export default function GenreManagement() {
         {/* Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Danh sách Genres ({filteredGenres.length})</CardTitle>
+            <CardTitle>List of Genres ({filteredGenres.length})</CardTitle>
             <CardDescription>
-              Quản lý tất cả thể loại truyện trong hệ thống
+              Manage all types of stories in the system.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Tên Genre</TableHead>
-                  <TableHead>Mô tả</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Số lượng truyện</TableHead>
+                  <TableHead>Genre's Name</TableHead>
+                  <TableHead>Short Description</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Quantity of stories</TableHead>
                   <TableHead>Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
@@ -321,7 +321,7 @@ export default function GenreManagement() {
                             setIsEditDialogOpen(true);
                           }}
                         >
-                          <Edit className="h-4 w-4 mr-1" /> Sửa
+                          <Edit className="h-4 w-4 mr-1" /> Update
                         </Button>
                         {/* <Button
                           variant="outline"
@@ -344,14 +344,14 @@ export default function GenreManagement() {
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Chỉnh sửa Genre</DialogTitle>
+                <DialogTitle>Update Genre</DialogTitle>
                 <DialogDescription>
-                  Cập nhật thông tin thể loại
+                  Update Information of the genre
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="edit-name">Tên Genre</Label>
+                  <Label htmlFor="edit-name">Genre's Name</Label>
                   <Input
                     id="edit-name"
                     value={editGenre.name}
@@ -361,7 +361,7 @@ export default function GenreManagement() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="edit-description">Mô tả</Label>
+                  <Label htmlFor="edit-description">Short Description</Label>
                   <Textarea
                     id="edit-description"
                     value={editGenre.description}
@@ -374,7 +374,7 @@ export default function GenreManagement() {
                   />
                 </div>
                 <div>
-                  <Label>Trạng thái</Label>
+                  <Label>Status</Label>
                   <Select
                     value={editGenre.status}
                     onValueChange={(value: "normal" | "hide") =>
@@ -396,9 +396,9 @@ export default function GenreManagement() {
                   variant="outline"
                   onClick={() => setIsEditDialogOpen(false)}
                 >
-                  Hủy
+                  Cancel
                 </Button>
-                <Button onClick={handleUpdateGenre}>Cập nhật</Button>
+                <Button onClick={handleUpdateGenre}>Update</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

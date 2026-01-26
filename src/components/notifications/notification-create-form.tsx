@@ -1,112 +1,110 @@
 "use client";
 
-import type React from "react";
-import { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Send } from "lucide-react";
-
-interface NotificationCreateFormProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (data: { receiver_email: string; title: string; body: string }) => void;
-  prefilledData?: Partial<{ receiver_email: string; title: string; body: string }>;
-}
 
 export function NotificationCreateForm({
   isOpen,
   onClose,
   onSubmit,
-  prefilledData,
-}: NotificationCreateFormProps) {
-  const [formData, setFormData] = useState({
-    receiver_email: prefilledData?.receiver_email ?? "",
-    title: prefilledData?.title ?? "",
-    body: prefilledData?.body ?? "",
-  });
+  defaultReceiverEmail,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: { receiver_email: string; title: string; body: string }) => void;
+  defaultReceiverEmail?: string;
+}) {
+  const [receiver_email, setReceiverEmail] = useState("");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
 
+  // ✅ Prefill Receiver Email when dialog opens
   useEffect(() => {
-    setFormData({
-      receiver_email: prefilledData?.receiver_email ?? "",
-      title: prefilledData?.title ?? "",
-      body: prefilledData?.body ?? "",
-    });
-  }, [prefilledData]);
+    if (!isOpen) return;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.receiver_email.trim() || !formData.title.trim() || !formData.body.trim()) return;
+    setReceiverEmail(defaultReceiverEmail?.trim() ?? "");
+    // optional: keep title/body empty
+    setTitle("");
+    setBody("");
+  }, [isOpen, defaultReceiverEmail]);
+
+  const handleSubmit = () => {
+    if (!receiver_email.trim()) {
+      toast.error("Receiver email is required.");
+      return;
+    }
+    if (!title.trim()) {
+      toast.error("Title is required.");
+      return;
+    }
+    if (!body.trim()) {
+      toast.error("Body is required.");
+      return;
+    }
 
     onSubmit({
-      receiver_email: formData.receiver_email.trim(),
-      title: formData.title.trim(),
-      body: formData.body.trim(),
+      receiver_email: receiver_email.trim(),
+      title: title.trim(),
+      body: body.trim(),
     });
-
-    setFormData({ receiver_email: "", title: "", body: "" });
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create Notification</DialogTitle>
-          <DialogDescription>Send a new notification</DialogDescription>
+          <DialogTitle>New Notification</DialogTitle>
+          <DialogDescription>Create and send a notification to a user.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700">Receiver Email</label>
-              <Input
-                type="email"
-                placeholder="vd: author@example.com"
-                value={formData.receiver_email}
-                onChange={(e) => setFormData({ ...formData, receiver_email: e.target.value })}
-                className="mt-1"
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                *Nhập email người nhận. Backend sẽ tự tìm user_id tương ứng.
-              </p>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-700">Title</label>
-              <Input
-                placeholder="Notification title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="mt-1"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-700">Body</label>
-              <Textarea
-                placeholder="Notification body"
-                value={formData.body}
-                onChange={(e) => setFormData({ ...formData, body: e.target.value })}
-                className="mt-1"
-                rows={4}
-                required
-              />
-            </div>
+        <div className="space-y-4">
+          <div>
+            <Label>Receiver Email</Label>
+            <Input
+              placeholder="example@email.com"
+              value={receiver_email}
+              onChange={(e) => setReceiverEmail(e.target.value)}
+            />
           </div>
 
-          <div className="flex gap-3 pt-4 border-t border-gray-200">
-            <Button type="submit" className="flex items-center gap-2">
-              <Send className="h-4 w-4" />
-              Send Notification
-            </Button>
-            <Button type="button" variant="outline" onClick={onClose} className="ml-auto bg-transparent">
-              Cancel
-            </Button>
+          <div>
+            <Label>Title</Label>
+            <Input
+              placeholder="Notification title..."
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
           </div>
-        </form>
+
+          <div>
+            <Label>Body</Label>
+            <Textarea
+              placeholder="Write your message..."
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={5}
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit}>Send</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

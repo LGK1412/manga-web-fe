@@ -57,7 +57,7 @@ export default function TopupPage() {
       );
       setPackages(res.data.packages);
     } catch (error) {
-      console.error("Lỗi khi lấy gói nạp:", error);
+      console.error("Error fetching top-up packages:", error);
     }
   }
   async function fetchTransactions() {
@@ -68,7 +68,7 @@ export default function TopupPage() {
       );
       setTransactions(res.data.transactions);
     } catch (error) {
-      console.error("Lỗi khi lấy lịch sử giao dịch:", error);
+      console.error("Error fetching transaction history:", error);
     }
   }
 
@@ -76,8 +76,8 @@ export default function TopupPage() {
     try {
       if (!user?.user_id) {
         toast({
-          title: "Thiếu đăng nhập",
-          description: "Vui lòng đăng nhập lại trước khi mua.",
+          title: "Lack of login information!",
+          description: "Please login before buying point",
           variant: "destructive",
         });
         return;
@@ -94,8 +94,8 @@ export default function TopupPage() {
       }
     } catch (error: any) {
       console.error(
-        "Lỗi tạo URL thanh toán",
-        error.response?.data || error.message,
+        "Error creating payment URL",
+        error.response?.data || error.message
       );
     }
   }

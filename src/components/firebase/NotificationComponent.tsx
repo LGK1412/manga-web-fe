@@ -41,10 +41,18 @@ export default function NotificationComponent() {
 
     // 🔹 Fetch danh sách thông báo
     const fetchNotifications = async (id: string) => {
+        // Validate id before making request
+        if (!id || typeof id !== 'string' || id.trim() === '') {
+            console.error('Invalid user ID:', id);
+            setError('Invalid user ID');
+            return;
+        }
+        
         try {
             setLoading(true);
             const res = await axios.get<Notification[]>(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/notification/get-all-noti-for-user/${id}`,{ withCredentials: true }
+                `${process.env.NEXT_PUBLIC_API_URL}/api/notification/get-all-noti-for-user/${id}`,
+                { withCredentials: true }
             );
 
             // 🔸 Chỉ giữ lại thông báo chưa đọc
@@ -58,10 +66,10 @@ export default function NotificationComponent() {
             setNotifications(unread);
             setHasNew(unread.length > 0);
 
-            // if (unread.length > 0) console.log("Có thông báo chưa đọc!");
+            // if (unread.length > 0) console.log("There are unread notifications!");
         } catch (err: any) {
             console.error(err);
-            setError(err?.response?.data?.message || "Lỗi khi tải thông báo");
+            setError(err?.response?.data?.message || "Error loading notifications");
         } finally {
             setLoading(false);
         }
@@ -90,7 +98,7 @@ export default function NotificationComponent() {
     // 🔹 Khi user focus lại web → refresh noti
     useEffect(() => {
         const handleFocus = () => {
-            console.log("User focus lại web");
+            console.log("User focused on web");
             if (user?.user_id) fetchNotifications(user.user_id);
         };
         window.addEventListener("focus", handleFocus);
@@ -136,18 +144,18 @@ export default function NotificationComponent() {
             {open && (
                 <div className="absolute right-0 mt-2 w-72 rounded-md border border-gray-200 bg-white shadow-lg z-50">
                     <h4 className="flex justify-between items-center px-4 py-2 text-sm font-semibold text-gray-800 border-b border-gray-300">
-                        Thông báo chưa đọc
+                        Unread notifications
                         <Link
                             href={`/notification/${user?.user_id}`}
                             className="text-blue-500 hover:text-blue-600 transition-colors duration-200"
                         >
-                            Xem tất cả
+                            View all
                         </Link>
                     </h4>
 
                     {loading ? (
                         <p className="px-3 py-2 text-xs text-gray-500">
-                            Đang tải...
+                            Loading...
                         </p>
                     ) : error ? (
                         <p className="px-3 py-2 text-xs text-red-500">
@@ -155,7 +163,7 @@ export default function NotificationComponent() {
                         </p>
                     ) : notifications.length === 0 ? (
                         <p className="px-3 py-2 text-xs text-gray-500">
-                            Không có thông báo chưa đọc
+                            No unread notifications
                         </p>
                     ) : (
                         <ul className="divide-y divide-gray-100 custom-scroll max-h-80 overflow-y-auto">

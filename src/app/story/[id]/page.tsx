@@ -133,7 +133,7 @@ export default function MangaDetailPage() {
         );
         setUserId(res.data.user_id);
       } catch (err) {
-        console.error("Chưa đăng nhập hoặc token hết hạn", err);
+        console.error("Not logged in or token expired", err);
         setUserId(null);
       }
     };
@@ -141,7 +141,7 @@ export default function MangaDetailPage() {
     fetchCurrentUser();
   }, []);
 
-  // Lịch sử đọc - Thêm dependency userId để re-fetch khi userId thay đổi
+  // Reading history - Add userId dependency to re-fetch when userId changes
   useEffect(() => {
     if (!mangaId || !userId) return;
     axios
@@ -158,7 +158,7 @@ export default function MangaDetailPage() {
       .catch(() => setLastRead(null));
   }, [mangaId, userId]); // Thay [mangaId, userId] thay vì [mangaId, userId] cũ (đã có)
 
-  // Fetch chi tiết manga + fav + follow
+  // Fetch manga details + fav + follow
   useEffect(() => {
     if (!mangaId) return;
 
@@ -207,13 +207,13 @@ export default function MangaDetailPage() {
         }
       })
       .catch((err) => {
-        console.error("Lỗi khi fetch manga:", err);
+        console.error("Error fetching manga:", err);
         setError(err.response?.data?.message || "Unable to load data");
       })
       .finally(() => setLoading(false));
   }, [mangaId]);
 
-  // Fetch tất cả rating
+  // Fetch all ratings
   useEffect(() => {
     if (!mangaId) return;
     axios
@@ -224,7 +224,7 @@ export default function MangaDetailPage() {
       .catch(() => setAllRatings([]));
   }, [mangaId, ratingDialogOpen]);
 
-  // Đếm Like + trạng thái Like của tôi cho từng rating
+  // Count Likes + my Like status for each rating
   useEffect(() => {
     if (!allRatings.length) {
       setLikesById({});
@@ -296,7 +296,7 @@ export default function MangaDetailPage() {
       const { isFavourite } = res.data;
       setIsFavourite(isFavourite);
     } catch (err: any) {
-      console.error("Lỗi khi thêm/trừ khỏi yêu thích:", err);
+      console.error("Error adding/removing from favorites:", err);
       toast({
         title: "Unable to update favorites",
         description:
@@ -315,7 +315,7 @@ export default function MangaDetailPage() {
       );
       setIsFollowing(res.data.isFollowing);
     } catch (err: any) {
-      console.error("Lỗi khi theo dõi/bỏ theo dõi:", err);
+      console.error("Error following/unfollowing:", err);
       toast({
         title: "Unable to update follow status",
         description:
@@ -373,7 +373,7 @@ export default function MangaDetailPage() {
         setRatingSummary({ avgRating: newAvg, count: currentCount });
       }
 
-      // Xác nhận lại từ server
+      // Re-confirm from server
       try {
         const summaryRes = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/api/rating/summary`,
@@ -731,12 +731,12 @@ export default function MangaDetailPage() {
                       onChange={(e) => setReportReason(e.target.value)}
                     >
                       <option value="Spam">Spam</option>
-                      <option value="Copyright">Vi phạm bản quyền</option>
+                      <option value="Copyright">Copyright violation</option>
                       <option value="Inappropriate">
-                        Nội dung không phù hợp
+                        Inappropriate content
                       </option>
-                      <option value="Harassment">Quấy rối / xúc phạm</option>
-                      <option value="Other">Khác</option>
+                      <option value="Harassment">Harassment / Offensive</option>
+                      <option value="Other">Other</option>
                     </select>
                   </div>
 

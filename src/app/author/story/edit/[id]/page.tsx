@@ -68,8 +68,8 @@ export default function EditStoryPage() {
                 const authorId = payload?.user_id;
                 if (!authorId) {
                     toast({
-                        title: "Lỗi",
-                        description: "Vui lòng đăng nhập lại.",
+                        title: "Error",
+                        description: "Please log in again.",
                         variant: "destructive",
                     });
                     router.push("/login");
@@ -85,8 +85,8 @@ export default function EditStoryPage() {
                     const current = allStories.find((s: Record<string, unknown>) => s?._id === params.id);
                     if (!current) {
                         toast({
-                            title: "Lỗi",
-                            description: "Không tìm thấy truyện.",
+                            title: "Error",
+                            description: "Story not found.",
                             variant: "destructive",
                         });
                         router.push("/author/dashboard");
@@ -123,8 +123,8 @@ export default function EditStoryPage() {
                     }
                 } catch {
                     toast({
-                        title: "Lỗi",
-                        description: "Không thể tải dữ liệu truyện.",
+                        title: "Error",
+                        description: "Unable to load story data.",
                         variant: "destructive",
                     });
                 }
@@ -173,34 +173,34 @@ export default function EditStoryPage() {
 
         // Title
         if (!v.title?.trim())
-            return toast({ title: "Lỗi", description: "Vui lòng nhập tên truyện.", variant: "destructive" });
+            return toast({ title: "Error", description: "Please enter story title.", variant: "destructive" });
 
         if (v.title.trim().length < 3)
-            return toast({ title: "Lỗi", description: "Tên truyện phải có ít nhất 3 ký tự.", variant: "destructive" });
+            return toast({ title: "Error", description: "Story title must be at least 3 characters.", variant: "destructive" });
 
         if (v.title.trim().length > 100)
-            return toast({ title: "Lỗi", description: "Tên truyện không được vượt quá 100 ký tự.", variant: "destructive" });
+            return toast({ title: "Error", description: "Story title must not exceed 100 characters.", variant: "destructive" });
 
         // Summary
         if (!v.summary?.trim())
-            return toast({ title: "Lỗi", description: "Vui lòng nhập mô tả.", variant: "destructive" });
+            return toast({ title: "Error", description: "Please enter description.", variant: "destructive" });
 
         if (v.summary.trim().length < 10)
-            return toast({ title: "Lỗi", description: "Mô tả phải có ít nhất 10 ký tự.", variant: "destructive" });
+            return toast({ title: "Error", description: "Description must be at least 10 characters.", variant: "destructive" });
 
         if (v.summary.trim().length > 1000)
-            return toast({ title: "Lỗi", description: "Mô tả không được vượt quá 1000 ký tự.", variant: "destructive" });
+            return toast({ title: "Error", description: "Description must not exceed 1000 characters.", variant: "destructive" });
 
         // Genres
         if (!v.genres?.length)
-            return toast({ title: "Lỗi", description: "Chọn ít nhất 1 thể loại.", variant: "destructive" });
+            return toast({ title: "Error", description: "Please select at least 1 genre.", variant: "destructive" });
 
         if (v.genres.length > 3)
-            return toast({ title: "Lỗi", description: "Chỉ được chọn tối đa 3 thể loại.", variant: "destructive" });
+            return toast({ title: "Error", description: "Maximum 3 genres allowed.", variant: "destructive" });
 
         // Cover
         if (!v.coverFile && !currentStory?.coverImage)
-            return toast({ title: "Lỗi", description: "Vui lòng chọn ảnh bìa cho truyện.", variant: "destructive" });
+            return toast({ title: "Error", description: "Please select a cover image for the story.", variant: "destructive" });
 
         // Build form data
         const formData = new FormData();
@@ -225,10 +225,10 @@ export default function EditStoryPage() {
                 withCredentials: true,
                 headers: { "Content-Type": "multipart/form-data" }
             });
-            toast({ title: "Cập nhật thành công!", description: "Truyện đã cập nhật thành công", variant: "success" });
+            toast({ title: "Updated successfully!", description: "Story has been updated successfully", variant: "success" });
             router.push("/author/dashboard");
         } catch {
-            toast({ title: "Không cập nhật được", description: "Vui lòng kiểm tra lại dữ liệu/đăng nhập.", variant: "destructive" });
+            toast({ title: "Failed to update", description: "Please check your data/login again.", variant: "destructive" });
         }
     };
 
@@ -237,7 +237,7 @@ export default function EditStoryPage() {
             <Navbar />
             <div className="container mx-auto px-4 py-8 pt-20">
                 <div className="mb-6">
-                    <h1 className="text-3xl font-bold">Chỉnh sửa truyện</h1>
+                    <h1 className="text-3xl font-bold">Edit Story</h1>
                 </div>
 
                 <div className="space-y-6 max-w-4xl mx-auto">
@@ -246,11 +246,11 @@ export default function EditStoryPage() {
                             <TabsList className="grid w-full grid-cols-2 max-w-md">
                                 <TabsTrigger value="text" className="flex items-center gap-2">
                                     <BookOpen className="w-4 h-4" />
-                                    Truyện Chữ
+                                    Light Novel
                                 </TabsTrigger>
                                 <TabsTrigger value="image" className="flex items-center gap-2">
                                     <ImageIcon className="w-4 h-4" />
-                                    Truyện Tranh
+                                    Manga
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>
@@ -261,7 +261,7 @@ export default function EditStoryPage() {
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     {storyType === "text" ? <BookOpen className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
-                                    {storyType === "text" ? "Truyện Chữ" : "Truyện Tranh"}
+                                    {storyType === "text" ? "Light Novel" : "Manga"}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-6">
@@ -270,21 +270,21 @@ export default function EditStoryPage() {
                                     {/* Left side */}
                                     <div className="space-y-4">
                                         <div className="space-y-2">
-                                            <Label htmlFor="story-title">Tên truyện *</Label>
+                                            <Label htmlFor="story-title">Story Title *</Label>
                                             <Input
                                                 id="story-title"
-                                                placeholder="Nhập tên truyện"
+                                                placeholder="Enter story title"
                                                 value={storyType === "text" ? textStoryTitle : imageStoryTitle}
                                                 onChange={(e) => storyType === "text" ? setTextStoryTitle(e.target.value) : setImageStoryTitle(e.target.value)}
                                             />
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="story-description">Mô tả truyện *</Label>
+                                            <Label htmlFor="story-description">Story Description *</Label>
                                             <Textarea
                                                 className="h-43"
                                                 id="story-description"
-                                                placeholder="Viết mô tả ngắn về truyện của bạn"
+                                                placeholder="Write a short description about your story"
                                                 rows={6}
                                                 value={storyType === "text" ? textStorySummary : imageStorySummary}
                                                 onChange={(e) => storyType === "text" ? setTextStorySummary(e.target.value) : setImageStorySummary(e.target.value)}
@@ -294,7 +294,7 @@ export default function EditStoryPage() {
 
                                     {/* Right side - Cover Image */}
                                     <div className="flex flex-col items-center -mt-6">
-                                        <Label>Ảnh bìa *</Label>
+                                        <Label>Cover Image *</Label>
                                         <div
                                             className="w-50 h-70 border rounded-md flex items-center justify-center cursor-pointer relative group mt-2"
                                             onClick={() => fileInputRef.current?.click()}
@@ -305,7 +305,7 @@ export default function EditStoryPage() {
                                                 ) : (
                                                     <div className="text-gray-400 flex flex-col items-center">
                                                         <ImageIcon className="w-8 h-8 mb-2" />
-                                                        <span>Chọn ảnh</span>
+                                                        <span>Select image</span>
                                                     </div>
                                                 )
                                             ) : (
@@ -314,7 +314,7 @@ export default function EditStoryPage() {
                                                 ) : (
                                                     <div className="text-gray-400 flex flex-col items-center">
                                                         <ImageIcon className="w-8 h-8 mb-2" />
-                                                        <span>Chọn ảnh</span>
+                                                        <span>Select image</span>
                                                     </div>
                                                 )
                                             )}
@@ -344,7 +344,7 @@ export default function EditStoryPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Thể loại *</Label>
+                                    <Label>Genres *</Label>
                                     <div className="grid grid-cols-2 gap-3 mt-2">
                                         {availableGenres.map((g) => {
                                             const selected = storyType === "text" ? textSelectedGenres : imageSelectedGenres;
@@ -371,13 +371,13 @@ export default function EditStoryPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="story-status">Trạng thái</Label>
+                                    <Label htmlFor="story-status">Status</Label>
                                     <Select
                                         value={storyType === "text" ? textStoryStatus : imageStoryStatus}
                                         onValueChange={(v) => (storyType === "text" ? setTextStoryStatus(v) : setImageStoryStatus(v))}
                                     >
                                         <SelectTrigger id="story-status">
-                                            <SelectValue placeholder="Chọn trạng thái" />
+                                            <SelectValue placeholder="Select status" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {availableStatuses.map((s: string | { value: string; label: string }) => {
@@ -395,16 +395,16 @@ export default function EditStoryPage() {
                                         checked={storyType === "text" ? textIsPublish : imageIsPublish}
                                         onCheckedChange={(v) => (storyType === "text" ? setTextIsPublish(!!v) : setImageIsPublish(!!v))}
                                     />
-                                    <Label htmlFor="is-public">Công khai</Label>
+                                    <Label htmlFor="is-public">Public</Label>
                                 </div>
 
                                 <div className="flex gap-3 pt-4">
                                     <Button onClick={handleUpdate} className="flex-1" variant="secondary">
                                         <Publish className="w-4 h-4 mr-2" />
-                                        Cập nhật
+                                        Update
                                     </Button>
                                     <Button variant="outline" className="flex-1" onClick={() => router.push("/author/dashboard")}>
-                                        Hủy
+                                        Cancel
                                     </Button>
                                 </div>
                             </CardContent>

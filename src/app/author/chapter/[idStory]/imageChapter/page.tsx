@@ -53,7 +53,7 @@ function getImageUrl(chapterId: string, filename: string): string {
 }
 
 export default function CreateChapterPage() {
-  // Truy cập params bên trong hàm
+  // Access params inside function
   const params = useParams();
   const mangaId = params.idStory;
 
@@ -118,7 +118,7 @@ export default function CreateChapterPage() {
           setOrder(mapped.length + 1);
         }
       } catch (err) {
-        console.error("Lỗi tải danh sách chương", err);
+        console.error("Error loading chapter list", err);
         setChapters([]);
       } finally {
         if (mounted) setIsLoadingList(false);
@@ -147,7 +147,7 @@ export default function CreateChapterPage() {
       const res = await api.get(`/image-chapter/id/${chapterId}`);
       const chapterData = res.data?.data;
 
-      if (!chapterData) throw new Error("Không tìm thấy dữ liệu chương");
+      if (!chapterData) throw new Error("Chapter data not found");
 
       setTitle(chapterData.title || "");
       setOrder(chapterData.order || 1);
@@ -174,8 +174,8 @@ export default function CreateChapterPage() {
       setDirty(false);
       setErrors({});
     } catch (err) {
-      console.error("Lỗi tải dữ liệu chương", err);
-      alert("Lỗi tải dữ liệu chương. Vui lòng thử lại.");
+      console.error("Error loading chapter data", err);
+      alert("Error loading chapter data. Please try again.");
     } finally {
       setIsLoadingChapter(false);
     }
@@ -183,11 +183,11 @@ export default function CreateChapterPage() {
 
   function validate() {
     const next: typeof errors = {};
-    if (!mangaId) next.manga = "Thiếu mangaId trên URL";
-    if (!title.trim()) next.title = "Tiêu đề là bắt buộc";
+    if (!mangaId) next.manga = "Missing mangaId in URL";
+    if (!title.trim()) next.title = "Title is required";
     if (!Number.isFinite(order) || order <= 0)
-      next.order = "Số chương phải > 0";
-    if (imageFiles.length === 0) next.images = "Chọn ít nhất 1 ảnh";
+      next.order = "Chapter number must be > 0";
+    if (imageFiles.length === 0) next.images = "Select at least 1 image";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -388,7 +388,7 @@ export default function CreateChapterPage() {
         }
 
         const chapterData = res.data?.data?.chapter || res.data?.chapter;
-        if (!chapterData?._id) throw new Error("Phản hồi không hợp lệ");
+        if (!chapterData?._id) throw new Error("Invalid response");
 
         if (isCreatingMode) {
           updateChaptersState(chapterData);
@@ -412,12 +412,12 @@ export default function CreateChapterPage() {
 
         alert(
           isCreatingMode
-            ? "Đã lưu bản nháp thành công!"
-            : "Đã cập nhật bản nháp thành công!"
+            ? "Draft saved successfully!"
+            : "Draft updated successfully!"
         );
       } catch (err) {
-        console.error("Lỗi lưu bản nháp", err);
-        alert("Lỗi lưu bản nháp. Vui lòng thử lại.");
+        console.error("Error saving draft", err);
+        alert("Error saving draft. Please try again.");
       }
     });
   }
@@ -474,7 +474,7 @@ export default function CreateChapterPage() {
 
         const chapterData =
           res.data?.chapter || res.data?.data?.chapter || res.data?.data;
-        if (!chapterData?._id) throw new Error("Phản hồi không hợp lệ");
+        if (!chapterData?._id) throw new Error("Invalid response");
 
         if (isCreatingMode) {
           updateChaptersState(chapterData);
@@ -498,13 +498,13 @@ export default function CreateChapterPage() {
 
         alert(
           isCreatingMode
-            ? "Đã tạo chương thành công!"
-            : "Đã cập nhật chương thành công!"
+            ? "Chapter created successfully!"
+            : "Chapter updated successfully!"
         );
       } catch (err) {
-        console.error("Lỗi xử lý chương", err);
+        console.error("Error processing chapter", err);
         alert(
-          `Lỗi ${isCreatingMode ? "tạo" : "cập nhật"} chương. Vui lòng thử lại.`
+          `Error ${isCreatingMode ? "creating" : "updating"} chapter. Please try again.`
         );
       }
     });
@@ -568,7 +568,7 @@ export default function CreateChapterPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Xoá chương này (và toàn bộ nội dung)?")) return;
+    if (!confirm("Delete this chapter (and all content)?")) return;
     try {
       await api.delete(`/image-chapter/${id}`);
       setChapters((prev) => prev.filter((c) => c.id !== id));
@@ -577,8 +577,8 @@ export default function CreateChapterPage() {
         handleStartNewChapter();
       }
     } catch (err) {
-      console.error("Lỗi xoá chương", err);
-      alert("Lỗi xoá chương");
+      console.error("Error deleting chapter", err);
+      alert("Error deleting chapter");
     }
   }
 
@@ -618,7 +618,7 @@ export default function CreateChapterPage() {
                     ChapterForge
                   </h1>
                   <p className="text-xs text-slate-500">
-                    Quản lý chương truyện tranh
+                    Manage manga chapters
                   </p>
                 </div>
               </div>
@@ -628,12 +628,12 @@ export default function CreateChapterPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-sm font-semibold text-slate-900">
-                    {isCreatingMode ? "Tạo chương mới" : "Chỉnh sửa chương"}
+                    {isCreatingMode ? "Create new chapter" : "Edit chapter"}
                   </h2>
                   <p className="text-xs text-slate-500">
                     {isCreatingMode
-                      ? "Bạn đang tạo một chương mới"
-                      : `Đang chỉnh sửa chương ${order}`}
+                      ? "You are creating a new chapter"
+                      : `Editing chapter ${order}`}
                   </p>
                 </div>
                 <span
@@ -642,9 +642,9 @@ export default function CreateChapterPage() {
                       ? "bg-amber-50 text-amber-700 border border-amber-200"
                       : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                   }`}
-                  title={dirty ? "Chưa lưu thay đổi" : "Đã sẵn sàng"}
+                  title={dirty ? "Unsaved changes" : "Ready"}
                 >
-                  {dirty ? "chưa lưu" : "sẵn sàng"}
+                  {dirty ? "unsaved" : "ready"}
                 </span>
               </div>
             </div>
@@ -652,7 +652,7 @@ export default function CreateChapterPage() {
             <section className="flex-1 p-4 flex flex-col">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-slate-900">
-                  Danh sách chương
+                  Chapter List
                 </h3>
                 <button
                   onClick={handleStartNewChapter}
@@ -663,23 +663,23 @@ export default function CreateChapterPage() {
                       : "border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
                   }`}
                   title={
-                    isCreatingMode ? "Đang ở chế độ tạo mới" : "Tạo chương mới"
+                    isCreatingMode ? "Already in create mode" : "Create new chapter"
                   }
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Tạo mới
+                  New
                 </button>
               </div>
 
               <div className="space-y-2 overflow-y-auto flex-1 pr-1">
                 <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/60 p-4">
                   <div className="flex items-center gap-2 text-xs text-blue-800">
-                    <span className="font-medium">Mẹo nhanh</span>
+                    <span className="font-medium">Quick tip</span>
                     <ChevronRight className="h-3 w-3" />
                     <span>
                       {isCreatingMode
-                        ? "Upload ảnh và sắp xếp theo thứ tự, sau đó tạo chương."
-                        : "Chỉnh sửa nội dung và nhấn Cập nhật để lưu thay đổi."}
+                        ? "Upload images and arrange in order, then create chapter."
+                        : "Edit content and click Update to save changes."}
                     </span>
                   </div>
                 </div>
@@ -688,7 +688,7 @@ export default function CreateChapterPage() {
                   <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-4">
                     <div className="flex items-center gap-2 text-xs text-blue-800">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      <span>Đang tải dữ liệu chương...</span>
+                      <span>Loading chapter data...</span>
                     </div>
                   </div>
                 )}
@@ -721,16 +721,16 @@ export default function CreateChapterPage() {
                               </span>
                               {chapter.is_published ? (
                                 <span className="px-2 py-0.5 text-[10px] rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  Công khai
+                                  Published
                                 </span>
                               ) : (
                                 <span className="px-2 py-0.5 text-[10px] rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                                  Nháp
+                                  Draft
                                 </span>
                               )}
                               {chapter.isActive && (
                                 <span className="px-2 py-0.5 text-[10px] rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                                  Đang sửa
+                                  Editing
                                 </span>
                               )}
                             </div>
@@ -748,7 +748,7 @@ export default function CreateChapterPage() {
                                   : "hover:bg-slate-100 text-slate-600"
                               }`}
                               title={
-                                chapter.isActive ? "Đang chỉnh sửa" : "Sửa chương"
+                                chapter.isActive ? "Currently editing" : "Edit chapter"
                               }
                             >
                               <Edit className="h-4 w-4" />
@@ -756,7 +756,7 @@ export default function CreateChapterPage() {
                             <button
                               onClick={() => handleDelete(chapter.id)}
                               className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                              title="Xoá chương"
+                              title="Delete chapter"
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </button>
@@ -777,16 +777,16 @@ export default function CreateChapterPage() {
                     className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                   >
                     <ArrowLeft className="h-4 w-4" />
-                    Bảng điều khiển
+                    Dashboard
                   </button>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium text-slate-600">
-                    {isCreatingMode ? `Ch. ${order} (mới)` : `Ch. ${order}`}
+                    {isCreatingMode ? `Ch. ${order} (new)` : `Ch. ${order}`}
                   </span>
                   {dirty && (
-                    <span className="text-[11px] text-amber-600">• chưa lưu</span>
+                    <span className="text-[11px] text-amber-600">• unsaved</span>
                   )}
                   {isLoadingChapter && (
                     <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
@@ -797,14 +797,14 @@ export default function CreateChapterPage() {
                   <button
                     onClick={handleDiscard}
                     className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                    title={isCreatingMode ? "Huỷ tạo mới" : "Hoàn tác thay đổi"}
+                    title={isCreatingMode ? "Cancel creation" : "Undo changes"}
                   >
                     {isCreatingMode ? (
                       <X className="h-4 w-4" />
                     ) : (
                       <RefreshCw className="h-4 w-4" />
                     )}
-                    {isCreatingMode ? "Huỷ" : "Hoàn tác"}
+                    {isCreatingMode ? "Cancel" : "Undo"}
                   </button>
 
                   <button
@@ -818,10 +818,10 @@ export default function CreateChapterPage() {
                       <Save className="h-4 w-4" />
                     )}
                     {isPending
-                      ? "Đang lưu..."
+                      ? "Saving..."
                       : isCreatingMode
-                      ? "Lưu nháp"
-                      : "Lưu thành nháp"}
+                      ? "Save Draft"
+                      : "Save as Draft"}
                   </button>
 
                   <button
@@ -830,10 +830,10 @@ export default function CreateChapterPage() {
                     className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     title={
                       !mangaId
-                        ? "Thêm mangaId vào URL trước"
+                        ? "Add mangaId to URL first"
                         : isCreatingMode
-                        ? "Tạo chương"
-                        : "Cập nhật chương"
+                        ? "Create chapter"
+                        : "Update chapter"
                     }
                   >
                     {isPending ? (
@@ -843,11 +843,11 @@ export default function CreateChapterPage() {
                     )}
                     {isPending
                       ? isCreatingMode
-                        ? "Đang tạo..."
-                        : "Đang cập nhật..."
+                        ? "Creating..."
+                        : "Updating..."
                       : isCreatingMode
-                      ? "Xuất bản chương"
-                      : "Cập nhật & Xuất bản"}
+                      ? "Publish Chapter"
+                      : "Update & Publish"}
                   </button>
                 </div>
               </div>
@@ -859,19 +859,19 @@ export default function CreateChapterPage() {
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
                     <div className="p-5 border-b border-slate-200">
                       <h3 className="text-sm font-semibold text-slate-800">
-                        Thông tin chương
+                        Chapter Information
                       </h3>
                       <p className="text-xs text-slate-500 mt-1">
                         {isCreatingMode
-                          ? "Thông tin cơ bản cho chương mới"
-                          : "Chỉnh sửa thông tin chương hiện tại"}
+                          ? "Basic information for new chapter"
+                          : "Edit current chapter information"}
                       </p>
                     </div>
 
                     <div className="p-5 space-y-5">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Tiêu đề <span className="text-red-500">*</span>
+                          Title <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -880,12 +880,12 @@ export default function CreateChapterPage() {
                             setTitle(e.target.value);
                             setDirty(true);
                           }}
-                          placeholder="Nhập tiêu đề cho chương…"
+                          placeholder="Enter chapter title…"
                           className="w-full px-4 py-3 border border-slate-300 rounded-xl text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-slate-400"
                         />
                         <div className="mt-2 flex items-center justify-between">
                           <p className="text-xs text-slate-500">
-                            Ngắn gọn, mô tả đúng nội dung
+                            Brief, accurately describes content
                           </p>
                           {errors.title && (
                             <p className="text-xs text-red-600">{errors.title}</p>
@@ -901,7 +901,7 @@ export default function CreateChapterPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-2">
-                            Số chương <span className="text-red-500">*</span>
+                            Chapter Number <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="number"
@@ -924,7 +924,7 @@ export default function CreateChapterPage() {
 
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-2">
-                            Điểm
+                            Points
                           </label>
                           <input
                             type="number"
@@ -941,7 +941,7 @@ export default function CreateChapterPage() {
                             className="w-full px-4 py-3 border border-slate-300 rounded-xl text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-slate-400"
                           />
                           <p className="mt-2 text-xs text-slate-500">
-                            Để 0 nếu miễn phí
+                            Set to 0 if free
                           </p>
                         </div>
                       </div>
@@ -955,12 +955,12 @@ export default function CreateChapterPage() {
                   <div className="flex items-center justify-between max-w-6xl mx-auto">
                     <div>
                       <h3 className="text-lg font-semibold text-slate-800">
-                        Ảnh chương truyện
+                        Chapter Images
                       </h3>
                       <p className="text-sm text-slate-500 mt-1">
                         {isCreatingMode
-                          ? "Upload và sắp xếp ảnh theo thứ tự đọc (tối thiểu 1 ảnh)"
-                          : "Chỉnh sửa và sắp xếp lại ảnh trong chương"}
+                          ? "Upload and arrange images in reading order (minimum 1 image)"
+                          : "Edit and rearrange images in chapter"}
                       </p>
                     </div>
                     <button
@@ -968,7 +968,7 @@ export default function CreateChapterPage() {
                       className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                     >
                       <Upload className="h-4 w-4" />
-                      {isCreatingMode ? "Upload ảnh" : "Thêm ảnh"}
+                      {isCreatingMode ? "Upload Images" : "Add Images"}
                     </button>
                   </div>
                   {errors.images && (
@@ -995,15 +995,15 @@ export default function CreateChapterPage() {
                         <ImageIcon className="h-16 w-16 text-slate-400 mx-auto mb-6" />
                         <h4 className="text-lg font-medium text-slate-700 mb-3">
                           {isCreatingMode
-                            ? "Chưa có ảnh nào"
-                            : "Chương này chưa có ảnh"}
+                            ? "No images yet"
+                            : "This chapter has no images"}
                         </h4>
                         <p className="text-sm text-slate-500 mb-6">
-                          Kéo thả hoặc nhấn để chọn nhiều ảnh
+                          Drag and drop or click to select multiple images
                         </p>
                         <button className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
                           <Upload className="h-5 w-5" />
-                          Chọn ảnh
+                          Select Images
                         </button>
                       </div>
                     </div>
@@ -1011,11 +1011,11 @@ export default function CreateChapterPage() {
                     <div className="max-w-6xl mx-auto space-y-6">
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-medium text-slate-700">
-                          {imageFiles.length} ảnh{" "}
-                          {isCreatingMode ? "đã chọn" : "trong chương"}
+                          {imageFiles.length} image{imageFiles.length !== 1 ? 's' : ''}{" "}
+                          {isCreatingMode ? "selected" : "in chapter"}
                         </span>
                         <span className="text-sm text-slate-500">
-                          Kéo thả để sắp xếp lại hoặc dùng các nút di chuyển
+                          Drag and drop to rearrange or use move buttons
                         </span>
                       </div>
 
@@ -1062,7 +1062,7 @@ export default function CreateChapterPage() {
                                       setTargetPosition((index + 1).toString());
                                     }}
                                     className="w-12 h-8 text-sm font-mono text-slate-700 border border-slate-300 bg-slate-50 rounded-md hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 shadow-sm transition-all"
-                                    title="Nhấn để nhập vị trí mong muốn"
+                                    title="Click to enter desired position"
                                   >
                                     {index + 1}
                                   </button>
@@ -1079,9 +1079,9 @@ export default function CreateChapterPage() {
                                 <div className="mt-4 text-center">
                                   <p className="text-sm font-medium text-slate-700">
                                     {imageFile.isExisting
-                                      ? `Ảnh ${index + 1} (hiện tại)`
+                                      ? `Image ${index + 1} (current)`
                                       : imageFile.file?.name ||
-                                        `Ảnh ${index + 1}`}
+                                        `Image ${index + 1}`}
                                   </p>
                                   {imageFile.file && (
                                     <p className="text-xs text-slate-500 mt-1">
@@ -1095,7 +1095,7 @@ export default function CreateChapterPage() {
                                   )}
                                   {imageFile.isExisting && (
                                     <span className="inline-block mt-2 px-2 py-1 text-xs bg-slate-100 text-slate-600 rounded-full">
-                                      Ảnh gốc
+                                      Original
                                     </span>
                                   )}
                                 </div>
@@ -1114,7 +1114,7 @@ export default function CreateChapterPage() {
                                     onMouseLeave={stopAutoScroll}
                                     disabled={index === 0}
                                     className="p-2 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Di chuyển lên đầu"
+                                    title="Move to top"
                                   >
                                     <ChevronsUp className="h-8 w-8 text-slate-600" />
                                   </button>
@@ -1127,7 +1127,7 @@ export default function CreateChapterPage() {
                                     onMouseLeave={stopAutoScroll}
                                     disabled={index === 0}
                                     className="p-2 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Di chuyển lên 1 vị trí"
+                                    title="Move up 1 position"
                                   >
                                     <ChevronUp className="h-8 w-8 text-slate-600" />
                                   </button>
@@ -1139,7 +1139,7 @@ export default function CreateChapterPage() {
                                     onMouseLeave={stopAutoScroll}
                                     disabled={index === imageFiles.length - 1}
                                     className="p-2 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Di chuyển xuống 1 vị trí"
+                                    title="Move down 1 position"
                                   >
                                     <ChevronDown className="h-8 w-8 text-slate-600" />
                                   </button>
@@ -1152,7 +1152,7 @@ export default function CreateChapterPage() {
                                     onMouseLeave={stopAutoScroll}
                                     disabled={index === imageFiles.length - 1}
                                     className="p-2 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Di chuyển xuống cuối"
+                                    title="Move to bottom"
                                   >
                                     <ChevronsDown className="h-8 w-8 text-slate-600" />
                                   </button>
@@ -1160,7 +1160,7 @@ export default function CreateChapterPage() {
 
                                 <div className="flex flex-col items-center gap-2 border-b border-slate-200 pb-3">
                                   <span className="text-base text-slate-500">
-                                    Đến:
+                                    To:
                                   </span>
                                   <button
                                     onClick={() => {
@@ -1168,16 +1168,16 @@ export default function CreateChapterPage() {
                                       setTargetPosition("");
                                     }}
                                     className="px-3 py-1.5 text-base bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
-                                    title="Nhập vị trí cụ thể (ví dụ: ảnh 15 → vị trí 5)"
+                                    title="Enter specific position (e.g., image 15 → position 5)"
                                   >
-                                    Vị trí
+                                    Position
                                   </button>
                                 </div>
 
                                 <button
                                   onClick={() => removeImage(imageFile.id)}
                                   className="p-2 rounded-lg hover:bg-red-50 text-red-500"
-                                  title="Xoá ảnh"
+                                  title="Delete image"
                                 >
                                   <Trash2 className="h-8 w-8" />
                                 </button>

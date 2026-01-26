@@ -43,8 +43,8 @@ export default function AddEmojiPackDialog({
 
         if (validFiles.length + files.length > 30) {
             toast({
-                title: "Quá nhiều ảnh",
-                description: "Tối đa chỉ được chọn 30 ảnh emoji.",
+                title: "Too many images",
+                description: "Maximum 30 emoji images allowed.",
                 variant: "destructive",
             });
             return;
@@ -52,8 +52,8 @@ export default function AddEmojiPackDialog({
 
         if (validFiles.length !== selected.length) {
             toast({
-                title: "Một số file bị loại bỏ",
-                description: "Chỉ chấp nhận ảnh PNG, JPEG, WEBP, GIF nhỏ hơn 3MB.",
+                title: "Some files removed",
+                description: "Only PNG, JPEG, WEBP, GIF images smaller than 3MB are accepted.",
                 variant: "destructive",
             });
         }
@@ -74,14 +74,14 @@ export default function AddEmojiPackDialog({
 
         if (!name) {
             setIsLoading(false);
-            return toast({ title: "Nhập tên pack", variant: "destructive" });
+            return toast({ title: "Enter pack name", variant: "destructive" });
         }
 
         if (files.length === 0) {
             setIsLoading(false);
             return toast({
-                title: "Chưa có emoji nào",
-                description: "Cần tải lên ít nhất 1 emoji.",
+                title: "No emoji yet",
+                description: "Please upload at least 1 emoji.",
                 variant: "destructive",
             });
         }
@@ -101,7 +101,7 @@ export default function AddEmojiPackDialog({
                 }
             );
 
-            toast({ title: "Tạo emoji pack thành công" });
+            toast({ title: "Emoji pack created successfully" });
             setName("");
             setPrice(0);
             setFiles([]);
@@ -109,8 +109,8 @@ export default function AddEmojiPackDialog({
             onSuccess();
         } catch (err: any) {
             toast({
-                title: "Lỗi khi thêm",
-                description: err?.response?.data?.message || err?.message || "Có lỗi xảy ra",
+                title: "Error adding",
+                description: err?.response?.data?.message || err?.message || "An error occurred",
                 variant: "destructive",
             });
         } finally {
@@ -122,22 +122,22 @@ export default function AddEmojiPackDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Thêm Emoji Pack</DialogTitle>
+                    <DialogTitle>Add Emoji Pack</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-4">
                     <div>
-                        <Label>Tên</Label>
+                        <Label>Name</Label>
                         <Input
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             disabled={isLoading}
-                            placeholder="Tên pack..."
+                            placeholder="Pack name..."
                         />
                     </div>
 
                     <div>
-                        <Label>Giá</Label>
+                        <Label>Price</Label>
                         <Input
                             type="number"
                             value={price}
@@ -147,7 +147,7 @@ export default function AddEmojiPackDialog({
                     </div>
 
                     <div>
-                        <Label>Emoji (tối đa 30 ảnh, &lt; 3MB mỗi ảnh)</Label>
+                        <Label>Emoji (max 30 images, &lt; 3MB each)</Label>
                         <Input
                             type="file"
                             multiple
@@ -185,10 +185,10 @@ export default function AddEmojiPackDialog({
 
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-                        Hủy
+                        Cancel
                     </Button>
                     <Button onClick={handleSubmit} disabled={isLoading}>
-                        {isLoading ? "Đang thêm..." : "Thêm"}
+                        {isLoading ? "Adding..." : "Add"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

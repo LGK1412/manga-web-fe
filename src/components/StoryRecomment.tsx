@@ -182,10 +182,10 @@ export default function StoryRecomment() {
                 {/* Status Badge */}
                 <div className="absolute top-3 left-3">
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold 
-                  ${manga.status === 'Đang cập nhật'
+                  ${manga.status === 'ongoing'
                       ? (theme === "dark" ? 'bg-green-700 text-green-200' : 'bg-green-100 text-green-800')
                       : (theme === "dark" ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-800')}`}>
-                    {manga.status === 'Đang cập nhật' ? 'Ongoing' : manga.status}
+                    {manga.status === 'ongoing' ? 'Ongoing' : manga.status}
                   </span>
                 </div>
 

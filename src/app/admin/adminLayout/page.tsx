@@ -19,6 +19,7 @@ import {
   ListTodo,
   PanelRight,
   Banknote,
+  FileCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -134,11 +135,18 @@ const menuItems: MenuItem[] = [
   },
   {
     kind: "link",
-    id: "logs",
-    label: "Logs",
-    icon: LogSquare,
-    href: "/admin/logs",
+    id: "audit-logs",
+    label: "Audit Logs",
+    icon: FileCheck,
+    href: "/admin/audit-logs",
   },
+  // {
+  //   kind: "link",
+  //   id: "logs",
+  //   label: "Logs",
+  //   icon: LogSquare,
+  //   href: "/admin/logs",
+  // },
   {
     kind: "group",
     id: "moderation",
@@ -146,11 +154,11 @@ const menuItems: MenuItem[] = [
     icon: CheckCircle2,
     submenu: [
       { label: "Queue", href: "/admin/moderation/queue", icon: ListTodo },
-      {
-        label: "Workspace",
-        href: "/admin/moderation/workspace",
-        icon: PanelRight,
-      },
+      // {
+      //   label: "Workspace",
+      //   href: "/admin/moderation/workspace",
+      //   icon: PanelRight,
+      // },
     ],
   },
 ];

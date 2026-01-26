@@ -22,6 +22,7 @@ import NativeRichEditor from "@/components/NativeRichEditor";
 // ---- Axios instance (trỏ tới NestJS)
 const api = axios.create({
   baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api`,
+  withCredentials: true,
 });
 
 // ---- Types
@@ -78,7 +79,7 @@ async function fakeAiModerate(inputHtml: string): Promise<{
       status: "AI_BLOCK",
       risk: 92,
       labels: ["policy_violation"],
-      findings: [{ section: "content", score: 0.92, note: "Từ khóa nhạy cảm" }],
+      findings: [{ section: "content", score: 0.92, note: "Sensitive keywords" }],
     };
   }
   if (wc < 30) {
@@ -86,7 +87,7 @@ async function fakeAiModerate(inputHtml: string): Promise<{
       status: "AI_WARN",
       risk: 35,
       labels: ["low_quality"],
-      findings: [{ section: "length", score: 0.35, note: "Nội dung quá ngắn" }],
+      findings: [{ section: "length", score: 0.35, note: "Content too short" }],
     };
   }
   return {
@@ -169,7 +170,7 @@ export default function CreateChapterPage({
         setChapters(mapped);
         setNumber(mapped.length + 1); // gợi ý số chương tiếp theo
       } catch (err) {
-        console.error("Lỗi tải danh sách chương", err);
+        console.error("Error loading chapter list", err);
       } finally {
         if (mounted) setIsLoadingList(false);
       }
@@ -183,10 +184,10 @@ export default function CreateChapterPage({
   // Validate form
   function validate() {
     const next: typeof errors = {};
-    if (!mangaId) next.manga = "Thiếu mangaId trên URL";
-    if (!title.trim()) next.title = "Tiêu đề là bắt buộc";
+    if (!mangaId) next.manga = "Missing mangaId in URL";
+    if (!title.trim()) next.title = "Title is required";
     if (!Number.isFinite(number) || number <= 0)
-      next.number = "Số chương phải > 0";
+      next.number = "Chapter number must be > 0";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -206,7 +207,7 @@ export default function CreateChapterPage({
         });
 
         const newChapter = res.data?.chapter;
-        if (!newChapter?._id) throw new Error("Phản hồi không hợp lệ");
+        if (!newChapter?._id) throw new Error("Invalid response");
 
         setChapters((prev) => [
           ...prev,
@@ -228,9 +229,13 @@ export default function CreateChapterPage({
         setDirty(false);
 
         router.push(`/author/chapter/${mangaId}/textChapter/create`);
-      } catch (err) {
-        console.error("Lỗi lưu bản nháp", err);
-        alert("Lỗi lưu bản nháp");
+      } catch (err: any) {
+        console.error("Error saving draft", err);
+        const errorMessage =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Error saving draft";
+        alert(errorMessage);
       }
     });
   }
@@ -251,7 +256,7 @@ export default function CreateChapterPage({
         const res = await api.post(`/text-chapter`, payload);
 
         const newChapter = res.data?.chapter;
-        if (!newChapter?._id) throw new Error("Phản hồi không hợp lệ");
+        if (!newChapter?._id) throw new Error("Invalid response");
 
         setChapters((prev) => [
           ...prev,
@@ -273,9 +278,13 @@ export default function CreateChapterPage({
         setDirty(false);
 
         router.push(`/author/chapter/${mangaId}/textChapter/create`);
-      } catch (err) {
-        console.error("Lỗi tạo chương", err);
-        alert("Lỗi tạo chương");
+      } catch (err: any) {
+        console.error("Error creating chapter", err);
+        const errorMessage =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Error creating chapter";
+        alert(errorMessage);
       }
     });
   }
@@ -291,20 +300,20 @@ export default function CreateChapterPage({
 
   // Delete chapter
   async function handleDelete(id: string) {
-    if (!confirm("Xoá chương này (và toàn bộ nội dung)?")) return;
+    if (!confirm("Delete this chapter (and all content)?")) return;
     try {
       await api.delete(`/text-chapter/${id}`);
       setChapters((prev) => prev.filter((c) => c.id !== id));
     } catch (err) {
-      console.error("Lỗi xoá chương", err);
-      alert("Lỗi xoá chương");
+      console.error("Error deleting chapter", err);
+      alert("Error deleting chapter");
     }
   }
 
   // === Nút Kiểm tra Policy (AI) — yêu cầu chapterId có sẵn ===
   async function handleAiCheckForCreate() {
     // Tại trang tạo chương: chưa có chapterId → yêu cầu lưu/tạo trước
-    alert("Vui lòng Lưu bản nháp hoặc Tạo chương trước, rồi vào trang Sửa để chạy kiểm tra Policy (AI).");
+    alert("Please Save draft or Create chapter first, then go to Edit page to run Policy (AI) check.");
   }
 
   return (
@@ -321,7 +330,7 @@ export default function CreateChapterPage({
                 <h1 className="text-base font-semibold text-slate-900 tracking-tight">
                   ChapterForge
                 </h1>
-                <p className="text-xs text-slate-500">Quản lý chương chữ</p>
+                <p className="text-xs text-slate-500">Manage text chapters</p>
               </div>
             </div>
           </div>
@@ -330,14 +339,14 @@ export default function CreateChapterPage({
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">
-                  Tạo chương mới
+                  Create New Chapter
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Bạn đang tạo một chương mới
+                  You are creating a new chapter
                 </p>
                 {!mangaId && (
                   <p className="text-xs text-red-600 mt-1">
-                    Thêm <code>mangaId</code> vào URL để bật chức năng tạo
+                    Add <code>mangaId</code> to URL to enable creation
                   </p>
                 )}
               </div>
@@ -348,9 +357,9 @@ export default function CreateChapterPage({
                     ? "bg-amber-50 text-amber-700 border-amber-200"
                     : "bg-emerald-50 text-emerald-700 border-emerald-200"
                 )}
-                title={dirty ? "Chưa lưu thay đổi" : "Đã sẵn sàng"}
+                title={dirty ? "Unsaved changes" : "Ready"}
               >
-                {dirty ? "chưa lưu" : "sẵn sàng"}
+                {dirty ? "unsaved" : "ready"}
               </span>
             </div>
           </div>
@@ -358,15 +367,15 @@ export default function CreateChapterPage({
           <section className="flex-1 p-4 flex flex-col">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-slate-900">
-                Danh sách chương
+                Chapter List
               </h3>
               <Link
                 href={`/author/chapter/${mangaId}/textChapter/create`}
-                aria-label="Đi tới trang tạo"
+                aria-label="Go to create page"
                 className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Tạo mới
+                Create New
               </Link>
             </div>
 
@@ -374,9 +383,9 @@ export default function CreateChapterPage({
               {/* Tip */}
               <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/60 p-4">
                 <div className="flex items-center gap-2 text-xs text-blue-800">
-                  <span className="font-medium">Mẹo nhanh</span>
+                  <span className="font-medium">Quick tip</span>
                   <ChevronRight className="h-3 w-3" />
-                  <span>Điền thông tin bên phải rồi bấm “Tạo chương”.</span>
+                  <span>Fill in the information on the right then click "Create chapter".</span>
                 </div>
               </div>
 
@@ -405,11 +414,11 @@ export default function CreateChapterPage({
                             </span>
                             {chapter.isPublished ? (
                               <span className="px-2 py-0.5 text-[10px] rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                Công khai
+                                Published
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 text-[10px] rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                                Nháp
+                                Draft
                               </span>
                             )}
                           </div>
@@ -421,14 +430,14 @@ export default function CreateChapterPage({
                           <Link
                             href={`/author/chapter/${mangaId}/textChapter/edit/${chapter.id}`}
                             className="p-1.5 rounded-lg hover:bg-slate-100"
-                            title="Sửa chương"
+                            title="Edit chapter"
                           >
                             <Edit className="h-4 w-4 text-slate-600" />
                           </Link>
                           <button
                             onClick={() => handleDelete(chapter.id)}
                             className="p-1.5 rounded-lg hover:bg-red-50"
-                            title="Xoá chương"
+                            title="Delete chapter"
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </button>
@@ -452,7 +461,7 @@ export default function CreateChapterPage({
                   className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Bảng điều khiển
+                  Dashboard
                 </button>
               </div>
 
@@ -462,7 +471,7 @@ export default function CreateChapterPage({
                   Ch. {number}
                 </span>
                 {dirty && (
-                  <span className="text-[11px] text-amber-600">• chưa lưu</span>
+                  <span className="text-[11px] text-amber-600">• unsaved</span>
                 )}
               </div>
 
@@ -473,7 +482,7 @@ export default function CreateChapterPage({
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100"
                 >
                   <X className="h-4 w-4" />
-                  Huỷ
+                  Cancel
                 </button>
 
                 <button
@@ -481,13 +490,13 @@ export default function CreateChapterPage({
                   className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 hover:bg-slate-50"
                 >
                   <Save className="h-4 w-4" />
-                  Lưu bản nháp
+                  Save Draft
                 </button>
 
                 <button
                   onClick={handleCreate}
                   disabled={isPending || !mangaId}
-                  title={!mangaId ? "Thêm mangaId vào URL trước" : "Tạo chương"}
+                  title={!mangaId ? "Add mangaId to URL first" : "Create chapter"}
                   className={clsx(
                     "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-white shadow-sm",
                     "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
@@ -501,7 +510,7 @@ export default function CreateChapterPage({
                   ) : (
                     <Check className="h-4 w-4" />
                   )}
-                  {isPending ? "Đang tạo..." : "Tạo chương"}
+                  {isPending ? "Creating..." : "Create Chapter"}
                 </button>
               </div>
             </div>
@@ -514,10 +523,10 @@ export default function CreateChapterPage({
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <div className="p-5 border-b border-slate-200">
                   <h3 className="text-sm font-semibold text-slate-800">
-                    Thông tin chương
+                    Chapter Information
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
-                    Thông tin cơ bản cho chương mới
+                    Basic information for new chapter
                   </p>
                 </div>
 
@@ -525,7 +534,7 @@ export default function CreateChapterPage({
                   {/* Title */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700">
-                      Tiêu đề <span className="text-red-500">*</span>
+                      Title <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -534,7 +543,7 @@ export default function CreateChapterPage({
                         setTitle(e.target.value);
                         setDirty(true);
                       }}
-                      placeholder="Đặt tiêu đề cho chương…"
+                      placeholder="Enter chapter title…"
                       className={clsx(
                         "mt-1 w-full rounded-xl border px-3.5 py-2.5 text-slate-900 placeholder-slate-400",
                         "focus:outline-none focus:ring-2 focus:ring-blue-200",
@@ -543,7 +552,7 @@ export default function CreateChapterPage({
                     />
                     <div className="mt-1 flex items-center justify-between">
                       <p className="text-[11px] text-slate-500">
-                        Ngắn gọn, mô tả đúng nội dung
+                        Brief, accurately describes content
                       </p>
                       {errors.title && (
                         <p className="text-[11px] text-red-600">
@@ -562,7 +571,7 @@ export default function CreateChapterPage({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700">
-                        Số chương
+                        Chapter Number
                       </label>
                       <input
                         type="number"
@@ -598,11 +607,11 @@ export default function CreateChapterPage({
                           setPrice(parseInt(e.target.value || "0", 10));
                           setDirty(true);
                         }}
-                        placeholder="Không bắt buộc"
+                        placeholder="Optional"
                         className="mt-1 w-full rounded-xl border px-3.5 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-200 border-slate-300"
                       />
                       <p className="mt-1 text-[11px] text-slate-500">
-                        Để 0 nếu miễn phí
+                        Set to 0 if free
                       </p>
                     </div>
                   </div>
@@ -613,19 +622,19 @@ export default function CreateChapterPage({
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
                   <div className="text-sm text-slate-700 font-medium">
-                    Nội dung
+                    Content
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-[11px] text-slate-500">
-                      {liveWordCount} từ
+                      {liveWordCount} words
                     </div>
-                    {/* Nút AI check (Create) */}
+                    {/* AI check button (Create) */}
                     <button
                       onClick={handleAiCheckForCreate}
                       className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs hover:bg-slate-50"
-                      title="Chạy kiểm tra Policy (AI)"
+                      title="Run Policy (AI) check"
                     >
-                      Kiểm tra Policy (AI)
+                      Check Policy (AI)
                     </button>
                   </div>
                 </div>
@@ -636,18 +645,18 @@ export default function CreateChapterPage({
                       setContent(html);
                       setDirty(true);
                     }}
-                    placeholder="Bắt đầu viết câu chuyện của bạn…"
+                    placeholder="Start writing your story…"
                     className="w-full"
                     minHeight={320}
                   />
 
                   <div className="mt-2 flex items-center justify-between">
                     <p className="text-[11px] text-slate-500">
-                      Bạn có thể chỉnh sửa hoặc đăng sau ở trang chỉnh sửa.
+                      You can edit or publish later on the edit page.
                     </p>
                     {dirty && (
                       <span className="text-[11px] text-amber-600">
-                        Chưa lưu
+                        Unsaved
                       </span>
                     )}
                   </div>

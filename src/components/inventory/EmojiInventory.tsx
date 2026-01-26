@@ -56,7 +56,7 @@ export default function EmojiInventory({ emojiPacks }: { emojiPacks: any[] }) {
                 })}
             </div>
 
-            {/* Modal hiển thị chi tiết emoji pack */}
+            {/* Modal showing emoji pack details */}
             {selectedPack && (
                 <EmojiPreviewModal
                     pack={selectedPack}
