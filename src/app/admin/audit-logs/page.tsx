@@ -20,28 +20,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 type AuditRisk = "low" | "medium" | "high"
@@ -70,7 +52,6 @@ type AuditLog = {
   seen: boolean
   approval: AuditApproval
 
-  // still keep for debug/export if you want
   targetType?: string
   targetId?: string
 
@@ -135,7 +116,8 @@ export default function AuditLogsPage() {
   const router = useRouter()
 
   const [me, setMe] = useState<Me | null>(null)
-  const isAdmin = useMemo(() => me?.role === "admin", [me?.role])
+  const roleNormalized = useMemo(() => String(me?.role || "").toLowerCase(), [me?.role])
+  const isAdmin = useMemo(() => roleNormalized === "admin", [roleNormalized])
 
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(false)
@@ -174,6 +156,7 @@ export default function AuditLogsPage() {
       action: actionFilter !== "all" ? actionFilter : undefined,
       status: statusFilter !== "all" ? statusFilter : undefined,
       risk: highRiskOnly ? "high" : undefined,
+      // dateFilter: UI only (chưa map BE)
     }
 
     setLoading(true)
@@ -218,7 +201,7 @@ export default function AuditLogsPage() {
     }
   }, [logs, totalRows])
 
-  /** ✅ Actions */
+  /** ✅ Actions (admin-only) */
   const handleMarkAllSeen = async () => {
     if (!API) return
     if (!isAdmin) return
@@ -317,7 +300,7 @@ export default function AuditLogsPage() {
   }
 
   const getRoleColor = (role: string) => {
-    switch (role) {
+    switch (String(role || "").toLowerCase()) {
       case "system":
         return "bg-gray-100 text-gray-800"
       case "content_moderator":
@@ -333,6 +316,7 @@ export default function AuditLogsPage() {
 
   const getActionColor = (action: string) => {
     switch (action) {
+      // report
       case "approve":
       case "report_status_resolved":
         return "bg-green-100 text-green-800"
@@ -341,6 +325,16 @@ export default function AuditLogsPage() {
         return "bg-red-100 text-red-800"
       case "hide_content":
         return "bg-orange-100 text-orange-800"
+
+      // comment/reply (BE mới)
+      case "comment_hidden":
+      case "reply_hidden":
+        return "bg-orange-100 text-orange-800"
+      case "comment_restored":
+      case "reply_restored":
+        return "bg-green-100 text-green-800"
+
+      // legacy
       case "delete_comment":
         return "bg-red-100 text-red-800"
       case "warn_user":
@@ -381,9 +375,7 @@ export default function AuditLogsPage() {
               Admin / <span className="text-gray-700">Audit Logs</span>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mt-2">Audit Logs</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Track moderator actions and approvals
-            </p>
+            <p className="text-sm text-gray-600 mt-1">Track moderator actions and approvals</p>
           </div>
 
           <div className="flex gap-2">
@@ -486,33 +478,51 @@ export default function AuditLogsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-              <Select value={roleFilter} onValueChange={(v) => (setRoleFilter(v), setCurrentPage(1))}>
+              <Select
+                value={roleFilter}
+                onValueChange={(v) => (setRoleFilter(v), setCurrentPage(1))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="content_moderator">Content Moderator</SelectItem>
                   <SelectItem value="community_manager">Community Manager</SelectItem>
                   <SelectItem value="system">System</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select value={actionFilter} onValueChange={(v) => (setActionFilter(v), setCurrentPage(1))}>
+              <Select
+                value={actionFilter}
+                onValueChange={(v) => (setActionFilter(v), setCurrentPage(1))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Action" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Actions</SelectItem>
+
+                  {/* report */}
                   <SelectItem value="report_status_new">Status: New</SelectItem>
                   <SelectItem value="report_status_in-progress">Status: In Progress</SelectItem>
                   <SelectItem value="report_status_resolved">Status: Resolved</SelectItem>
                   <SelectItem value="report_status_rejected">Status: Rejected</SelectItem>
                   <SelectItem value="report_update">Report Update</SelectItem>
+
+                  {/* comment/reply */}
+                  <SelectItem value="comment_hidden">Comment: Hidden</SelectItem>
+                  <SelectItem value="comment_restored">Comment: Restored</SelectItem>
+                  <SelectItem value="reply_hidden">Reply: Hidden</SelectItem>
+                  <SelectItem value="reply_restored">Reply: Restored</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select value={statusFilter} onValueChange={(v) => (setStatusFilter(v), setCurrentPage(1))}>
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => (setStatusFilter(v), setCurrentPage(1))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -525,7 +535,10 @@ export default function AuditLogsPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={dateFilter} onValueChange={(v) => (setDateFilter(v), setCurrentPage(1))}>
+              <Select
+                value={dateFilter}
+                onValueChange={(v) => (setDateFilter(v), setCurrentPage(1))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Date" />
                 </SelectTrigger>
@@ -593,17 +606,20 @@ export default function AuditLogsPage() {
                       >
                         <TableCell className="text-xs whitespace-nowrap">{log.time}</TableCell>
 
-                        <TableCell className="text-xs font-mono">
-                          {log.reportCode ?? "—"}
-                        </TableCell>
+                        <TableCell className="text-xs font-mono">{log.reportCode ?? "—"}</TableCell>
 
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Avatar className="h-6 w-6">
                               <AvatarFallback className="text-xs">
-                                {log.actor.name.split(" ").map((n) => n[0]).join("")}
+                                {log.actor.name
+                                  .split(" ")
+                                  .filter(Boolean)
+                                  .map((n) => n[0])
+                                  .join("")}
                               </AvatarFallback>
                             </Avatar>
+
                             <div className="text-xs">
                               <p className="font-medium">{log.actor.name}</p>
                               <p className="text-gray-500">{log.actor.email}</p>
@@ -611,8 +627,15 @@ export default function AuditLogsPage() {
                                 variant="outline"
                                 className={`text-xs mt-1 ${getRoleColor(log.actor.role)}`}
                               >
-                                {log.actor.role.replace("_", " ")}
+                                {log.actor.role.replaceAll("_", " ")}
                               </Badge>
+
+                              {(log.targetType || log.targetId) && (
+                                <p className="text-[11px] text-gray-500 mt-1">
+                                  Target: {log.targetType ?? "—"} /{" "}
+                                  <span className="font-mono">{log.targetId ?? "—"}</span>
+                                </p>
+                              )}
                             </div>
                           </div>
                         </TableCell>

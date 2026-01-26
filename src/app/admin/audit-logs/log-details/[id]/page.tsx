@@ -110,8 +110,7 @@ export default function AuditLogDetailsPage() {
   const riskBadge = useMemo(() => {
     const risk = log?.risk ?? "low"
     if (risk === "high") return "bg-red-100 text-red-800 border border-red-200"
-    if (risk === "medium")
-      return "bg-yellow-100 text-yellow-800 border border-yellow-200"
+    if (risk === "medium") return "bg-yellow-100 text-yellow-800 border border-yellow-200"
     return "bg-green-100 text-green-800 border border-green-200"
   }, [log?.risk])
 
@@ -187,6 +186,10 @@ export default function AuditLogDetailsPage() {
 
   const handleApprove = async () => {
     if (!API || !id) return
+    if (!isAdmin) {
+      toast.error("Admin only")
+      return
+    }
 
     try {
       setLoading(true)
@@ -198,11 +201,7 @@ export default function AuditLogDetailsPage() {
       setLog(res.data)
       toast.success("Approved")
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        "Approve failed"
-
+      const msg = err?.response?.data?.message || err?.response?.data?.error || "Approve failed"
       toast.error(msg)
       console.error("[AuditLogDetails] APPROVE ERROR", err?.response?.data || err?.message)
     } finally {
@@ -212,6 +211,10 @@ export default function AuditLogDetailsPage() {
 
   const handleMarkSeen = async () => {
     if (!API || !id) return
+    if (!isAdmin) {
+      toast.error("Admin only")
+      return
+    }
 
     try {
       setLoading(true)
@@ -223,11 +226,7 @@ export default function AuditLogDetailsPage() {
       setLog(res.data)
       toast.success("Marked as seen")
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        "Mark seen failed"
-
+      const msg = err?.response?.data?.message || err?.response?.data?.error || "Mark seen failed"
       toast.error(msg)
       console.error("[AuditLogDetails] SEEN ERROR", err?.response?.data || err?.message)
     } finally {
@@ -279,9 +278,12 @@ export default function AuditLogDetailsPage() {
     )
   }
 
-  // ✅ keys union cho before/after nếu bạn muốn match field 2 bên (optional)
   const beforeObj: Record<string, any> = log?.before || {}
   const afterObj: Record<string, any> = log?.after || {}
+
+  const targetType = log?.target_type ? String(log.target_type) : "—"
+  const targetId = log?.target_id ? String(log.target_id) : "—"
+  const reportCode = log?.reportCode ? String(log.reportCode) : "—"
 
   return (
     <AdminLayout>
@@ -320,11 +322,8 @@ export default function AuditLogDetailsPage() {
             </div>
 
             <div className="text-xs text-gray-500">
-              Logged in as{" "}
-              <b className="text-gray-800">{roleNormalized || "unknown"}</b>
-              {meError && (
-                <span className="ml-2 text-red-600">(me API error: {meError})</span>
-              )}
+              Logged in as <b className="text-gray-800">{roleNormalized || "unknown"}</b>
+              {meError && <span className="ml-2 text-red-600">(me API error: {meError})</span>}
             </div>
           </div>
 
@@ -355,6 +354,34 @@ export default function AuditLogDetailsPage() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-gray-500">Report Code</p>
+                    <p className="mt-1 font-mono text-xs">{reportCode}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Target Type</p>
+                    <p className="mt-1 font-medium">{targetType}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Target ID</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="font-mono text-xs bg-gray-50 border px-2 py-1 rounded">
+                        {targetId}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => copyText(String(targetId))}
+                        disabled={!log?.target_id}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
                 <Separator />
 
                 <div>
@@ -364,12 +391,9 @@ export default function AuditLogDetailsPage() {
                   </p>
                 </div>
 
-                {/* ✅ Nếu muốn show note (moderator note) dạng multiline */}
                 {log?.note && (
                   <div className="pt-2">
-                    <p className="text-xs font-semibold text-gray-700 mb-1">
-                      Moderator Note
-                    </p>
+                    <p className="text-xs font-semibold text-gray-700 mb-1">Moderator Note</p>
                     <Textarea
                       value={String(log.note)}
                       readOnly
@@ -411,7 +435,6 @@ export default function AuditLogDetailsPage() {
                     </div>
                   </TabsContent>
 
-                  {/* ✅ UPDATED: Before/After hiển thị multiline dễ đọc */}
                   <TabsContent value="diff" className="mt-4">
                     {log.before || log.after ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -442,16 +465,9 @@ export default function AuditLogDetailsPage() {
                     {Array.isArray(log.evidenceImages) && log.evidenceImages.length > 0 ? (
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {log.evidenceImages.map((src: string, idx: number) => (
-                          <div
-                            key={idx}
-                            className="border rounded-lg overflow-hidden bg-white"
-                          >
+                          <div key={idx} className="border rounded-lg overflow-hidden bg-white">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={src}
-                              alt={`evidence-${idx}`}
-                              className="w-full h-32 object-cover"
-                            />
+                            <img src={src} alt={`evidence-${idx}`} className="w-full h-32 object-cover" />
                           </div>
                         ))}
                       </div>
@@ -482,8 +498,9 @@ export default function AuditLogDetailsPage() {
               <CardContent className="flex items-center gap-3">
                 <Avatar className="h-10 w-10">
                   <AvatarFallback>
-                    {actorName
+                    {String(actorName)
                       .split(" ")
+                      .filter(Boolean)
                       .map((n: string) => n[0])
                       .join("")
                       .slice(0, 2)
@@ -510,12 +527,12 @@ export default function AuditLogDetailsPage() {
                 <Textarea
                   value={adminNote}
                   onChange={(e) => setAdminNote(e.target.value)}
-                  disabled={loading}
+                  disabled={loading || !isAdmin}
                   placeholder={
-                    meError
-                      ? "⚠ Cannot verify role (/me 403), but you can still try actions..."
-                      : isAdmin
-                        ? "Write admin note..."
+                    !isAdmin
+                      ? "Admin only"
+                      : meError
+                        ? "⚠ Cannot verify role (/me 403), backend will decide..."
                         : "Write admin note..."
                   }
                 />
@@ -536,7 +553,8 @@ export default function AuditLogDetailsPage() {
                     variant="outline"
                     className="w-full"
                     onClick={handleMarkSeen}
-                    disabled={loading}
+                    disabled={loading || !isAdmin}
+                    title={!isAdmin ? "Admin only" : ""}
                   >
                     <EyeOff className="h-4 w-4 mr-2" />
                     Mark Seen
@@ -547,29 +565,20 @@ export default function AuditLogDetailsPage() {
                   <Button
                     className="w-full"
                     onClick={handleApprove}
-                    disabled={loading}
+                    disabled={loading || !isAdmin}
+                    title={!isAdmin ? "Admin only" : ""}
                   >
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                     Approve
                   </Button>
                 )}
 
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={fetchLog}
-                  disabled={loading}
-                >
+                <Button variant="outline" className="w-full" onClick={fetchLog} disabled={loading}>
                   <RefreshCcw className="h-4 w-4 mr-2" />
                   Refresh
                 </Button>
 
-                <Button
-                  variant="ghost"
-                  className="w-full"
-                  onClick={fetchMe}
-                  disabled={loading}
-                >
+                <Button variant="ghost" className="w-full" onClick={fetchMe} disabled={loading}>
                   <RefreshCcw className="h-4 w-4 mr-2" />
                   Refresh Role (/me)
                 </Button>
