@@ -1,7 +1,8 @@
 "use client"
 
-import AdminLayout from "../adminLayout/page"
+import AdminLayout from "@/app/admin/adminLayout/page"
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import axios from "axios"
 import {
   FileText,
@@ -15,12 +16,7 @@ import {
   Download,
 } from "lucide-react"
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,44 +37,43 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
 
 type AuditRisk = "low" | "medium" | "high"
 type AuditApproval = "pending" | "approved"
 
+type Me = {
+  userId: string
+  email: string
+  role: string
+}
+
 type AuditLog = {
   id: string
   time: string
+  reportCode?: string
+
   actor: {
     name: string
     email: string
     role: string
   }
+
   action: string
-  target: {
-    type: string
-    id: string
-    reportCode?: string
-  }
   summary: string
   risk: AuditRisk
   seen: boolean
   approval: AuditApproval
+
+  // still keep for debug/export if you want
+  targetType?: string
+  targetId?: string
+
   before?: Record<string, any>
   after?: Record<string, any>
   note?: string
@@ -101,30 +96,32 @@ function safeStr(x: any) {
 /** ✅ mapping BE -> FE UI */
 function mapAuditRowToUI(row: any): AuditLog {
   const actorUsername =
-    row?.actor_id?.username || row?.actor_name || "Unknown"
+    row?.actor_id?.username || row?.actor_name || row?.actorUsername || "Unknown"
   const actorEmail =
-    row?.actor_id?.email || row?.actor_email || "No email"
-  const actorRole =
-    row?.actor_role || row?.actor_id?.role || "system"
+    row?.actor_id?.email || row?.actor_email || row?.actorEmail || "No email"
+  const actorRole = row?.actor_role || row?.actor_id?.role || "system"
 
   return {
     id: String(row?._id ?? row?.id ?? ""),
     time: formatTime(row?.createdAt),
+
+    reportCode: row?.reportCode,
+
     actor: {
       name: actorUsername,
       email: actorEmail,
       role: String(actorRole),
     },
+
     action: String(row?.action ?? "unknown"),
-    target: {
-      type: String(row?.target_type ?? "Report"),
-      id: String(row?.target_id ?? ""),
-      reportCode: row?.reportCode,
-    },
     summary: String(row?.summary ?? ""),
     risk: (row?.risk ?? "low") as AuditRisk,
     seen: Boolean(row?.seen),
     approval: (row?.approval ?? "pending") as AuditApproval,
+
+    targetType: row?.target_type ? String(row.target_type) : undefined,
+    targetId: row?.target_id ? String(row.target_id) : undefined,
+
     before: row?.before,
     after: row?.after,
     note: row?.note,
@@ -135,6 +132,10 @@ function mapAuditRowToUI(row: any): AuditLog {
 
 export default function AuditLogsPage() {
   const API = process.env.NEXT_PUBLIC_API_URL
+  const router = useRouter()
+
+  const [me, setMe] = useState<Me | null>(null)
+  const isAdmin = useMemo(() => me?.role === "admin", [me?.role])
 
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(false)
@@ -143,26 +144,28 @@ export default function AuditLogsPage() {
   const [roleFilter, setRoleFilter] = useState("all")
   const [actionFilter, setActionFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [dateFilter, setDateFilter] = useState("7days") // UI only (BE chưa filter date)
+  const [dateFilter, setDateFilter] = useState("7days") // UI only
   const [highRiskOnly, setHighRiskOnly] = useState(false)
-
-  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
-  const [adminNote, setAdminNote] = useState("")
 
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
   const [totalPages, setTotalPages] = useState(1)
   const [totalRows, setTotalRows] = useState(0)
 
+  // ✅ fetch me (role)
+  useEffect(() => {
+    if (!API) return
+    axios
+      .get(`${API}/api/auth/me`, { withCredentials: true })
+      .then((res) => setMe(res.data))
+      .catch(() => setMe(null))
+  }, [API])
+
   /** ✅ Fetch from BE */
   const fetchLogs = async () => {
-    if (!API) {
-      console.error("Missing NEXT_PUBLIC_API_URL")
-      return
-    }
+    if (!API) return
 
     const endpoint = `${API}/api/audit-logs`
-
     const params: any = {
       page: currentPage,
       limit: itemsPerPage,
@@ -171,29 +174,17 @@ export default function AuditLogsPage() {
       action: actionFilter !== "all" ? actionFilter : undefined,
       status: statusFilter !== "all" ? statusFilter : undefined,
       risk: highRiskOnly ? "high" : undefined,
-      // dateFilter hiện BE chưa hỗ trợ -> giữ UI, không gửi
     }
 
     setLoading(true)
     try {
-      console.log("[AuditLogs] REQUEST", { endpoint, params })
+      const res = await axios.get(endpoint, { params, withCredentials: true })
 
-      const res = await axios.get(endpoint, {
-        params,
-        withCredentials: true,
-      })
+      const rows = Array.isArray(res.data?.rows) ? res.data.rows : []
+      setLogs(rows.map(mapAuditRowToUI))
 
-      console.log("[AuditLogs] RESPONSE", {
-        status: res.status,
-        total: res.data?.total,
-        page: res.data?.page,
-        totalPages: res.data?.totalPages,
-      })
-
-      const items = Array.isArray(res.data?.items) ? res.data.items : []
-      setLogs(items.map(mapAuditRowToUI))
       setTotalPages(res.data?.totalPages ?? 1)
-      setTotalRows(res.data?.total ?? items.length)
+      setTotalRows(res.data?.total ?? rows.length)
     } catch (err: any) {
       console.error("[AuditLogs] FETCH ERROR", err?.response?.data || err?.message)
     } finally {
@@ -217,7 +208,7 @@ export default function AuditLogsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search])
 
-  /** ===== Stats (tạm tính theo list hiện tại) ===== */
+  /** ===== Stats ===== */
   const stats = useMemo(() => {
     return {
       total: totalRows,
@@ -230,13 +221,13 @@ export default function AuditLogsPage() {
   /** ✅ Actions */
   const handleMarkAllSeen = async () => {
     if (!API) return
-    const endpoint = `${API}/api/audit-logs/seen-all`
+    if (!isAdmin) return
 
+    const endpoint = `${API}/api/audit-logs/seen-all`
     try {
       setLoading(true)
       await axios.patch(endpoint, {}, { withCredentials: true })
       await fetchLogs()
-      setSelectedLog(null)
     } catch (err: any) {
       console.error("[AuditLogs] markAllSeen error", err?.response?.data || err?.message)
     } finally {
@@ -246,13 +237,13 @@ export default function AuditLogsPage() {
 
   const handleMarkSeen = async (logId: string) => {
     if (!API) return
-    const endpoint = `${API}/api/audit-logs/${logId}/seen`
+    if (!isAdmin) return
 
+    const endpoint = `${API}/api/audit-logs/${logId}/seen`
     try {
       setLoading(true)
       await axios.patch(endpoint, {}, { withCredentials: true })
       setLogs((prev) => prev.map((l) => (l.id === logId ? { ...l, seen: true } : l)))
-      setSelectedLog((prev) => (prev?.id === logId ? { ...prev, seen: true } : prev))
     } catch (err: any) {
       console.error("[AuditLogs] markSeen error", err?.response?.data || err?.message)
     } finally {
@@ -262,26 +253,16 @@ export default function AuditLogsPage() {
 
   const handleApprove = async (logId: string) => {
     if (!API) return
-    const endpoint = `${API}/api/audit-logs/${logId}/approve`
+    if (!isAdmin) return
 
+    const endpoint = `${API}/api/audit-logs/${logId}/approve`
     try {
       setLoading(true)
-      await axios.patch(
-        endpoint,
-        { adminNote },
-        { withCredentials: true },
-      )
+      await axios.patch(endpoint, { adminNote: "" }, { withCredentials: true })
 
       setLogs((prev) =>
-        prev.map((l) =>
-          l.id === logId ? { ...l, approval: "approved", adminNote } : l,
-        ),
+        prev.map((l) => (l.id === logId ? { ...l, approval: "approved" } : l)),
       )
-      setSelectedLog((prev) =>
-        prev?.id === logId ? { ...prev, approval: "approved", adminNote } : prev,
-      )
-
-      setAdminNote("")
     } catch (err: any) {
       console.error("[AuditLogs] approve error", err?.response?.data || err?.message)
     } finally {
@@ -293,33 +274,33 @@ export default function AuditLogsPage() {
     const headers = [
       "ID",
       "Time",
+      "ReportCode",
       "Actor",
       "Email",
       "Role",
       "Action",
-      "Target Type",
-      "Target ID",
-      "ReportCode",
       "Summary",
       "Risk",
       "Seen",
       "Approval",
+      "TargetType",
+      "TargetID",
     ]
 
     const rows = logs.map((log) => [
       log.id,
       log.time,
+      safeStr(log.reportCode),
       log.actor.name,
       log.actor.email,
       log.actor.role,
       log.action,
-      log.target.type,
-      log.target.id,
-      safeStr(log.target.reportCode),
       log.summary,
       log.risk,
       log.seen ? "Yes" : "No",
       log.approval,
+      safeStr(log.targetType),
+      safeStr(log.targetId),
     ])
 
     const csv = [
@@ -393,7 +374,7 @@ export default function AuditLogsPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Breadcrumb & Header */}
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm text-gray-500">
@@ -406,15 +387,27 @@ export default function AuditLogsPage() {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleMarkAllSeen} disabled={loading}>
+            <Button
+              variant="outline"
+              onClick={handleMarkAllSeen}
+              disabled={loading || !isAdmin}
+              title={!isAdmin ? "Admin only" : ""}
+            >
               Mark all as seen
             </Button>
+
             <Button variant="outline" onClick={handleExportCSV} disabled={loading}>
               <Download className="h-4 w-4 mr-2" />
               Export CSV
             </Button>
           </div>
         </div>
+
+        {!isAdmin && (
+          <p className="text-xs text-gray-500">
+            You are logged in as <b>{me?.role ?? "unknown"}</b>. Approve/Seen actions are admin-only.
+          </p>
+        )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -493,13 +486,7 @@ export default function AuditLogsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-              <Select
-                value={roleFilter}
-                onValueChange={(v) => {
-                  setRoleFilter(v)
-                  setCurrentPage(1)
-                }}
-              >
+              <Select value={roleFilter} onValueChange={(v) => (setRoleFilter(v), setCurrentPage(1))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Role" />
                 </SelectTrigger>
@@ -511,13 +498,7 @@ export default function AuditLogsPage() {
                 </SelectContent>
               </Select>
 
-              <Select
-                value={actionFilter}
-                onValueChange={(v) => {
-                  setActionFilter(v)
-                  setCurrentPage(1)
-                }}
-              >
+              <Select value={actionFilter} onValueChange={(v) => (setActionFilter(v), setCurrentPage(1))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Action" />
                 </SelectTrigger>
@@ -531,13 +512,7 @@ export default function AuditLogsPage() {
                 </SelectContent>
               </Select>
 
-              <Select
-                value={statusFilter}
-                onValueChange={(v) => {
-                  setStatusFilter(v)
-                  setCurrentPage(1)
-                }}
-              >
+              <Select value={statusFilter} onValueChange={(v) => (setStatusFilter(v), setCurrentPage(1))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -550,13 +525,7 @@ export default function AuditLogsPage() {
                 </SelectContent>
               </Select>
 
-              <Select
-                value={dateFilter}
-                onValueChange={(v) => {
-                  setDateFilter(v)
-                  setCurrentPage(1)
-                }}
-              >
+              <Select value={dateFilter} onValueChange={(v) => (setDateFilter(v), setCurrentPage(1))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Date" />
                 </SelectTrigger>
@@ -590,9 +559,9 @@ export default function AuditLogsPage() {
                 <TableHeader>
                   <TableRow className="bg-gray-50">
                     <TableHead className="text-xs font-semibold">Time</TableHead>
+                    <TableHead className="text-xs font-semibold">Report Code</TableHead>
                     <TableHead className="text-xs font-semibold">Actor</TableHead>
                     <TableHead className="text-xs font-semibold">Action</TableHead>
-                    <TableHead className="text-xs font-semibold">Target</TableHead>
                     <TableHead className="text-xs font-semibold">Summary</TableHead>
                     <TableHead className="text-xs font-semibold">Risk</TableHead>
                     <TableHead className="text-xs font-semibold">Status</TableHead>
@@ -622,18 +591,17 @@ export default function AuditLogsPage() {
                           log.risk === "high" ? "border-l-4 border-l-red-500" : ""
                         }`}
                       >
-                        <TableCell className="text-xs whitespace-nowrap">
-                          {log.time}
+                        <TableCell className="text-xs whitespace-nowrap">{log.time}</TableCell>
+
+                        <TableCell className="text-xs font-mono">
+                          {log.reportCode ?? "—"}
                         </TableCell>
 
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Avatar className="h-6 w-6">
                               <AvatarFallback className="text-xs">
-                                {log.actor.name
-                                  .split(" ")
-                                  .map((n) => n[0])
-                                  .join("")}
+                                {log.actor.name.split(" ").map((n) => n[0]).join("")}
                               </AvatarFallback>
                             </Avatar>
                             <div className="text-xs">
@@ -655,16 +623,6 @@ export default function AuditLogsPage() {
                           </Badge>
                         </TableCell>
 
-                        <TableCell className="text-xs">
-                          <div>
-                            <p className="font-medium">{log.target.type}</p>
-                            <p className="text-gray-500">{log.target.id}</p>
-                            {log.target.reportCode && (
-                              <p className="text-gray-500">{log.target.reportCode}</p>
-                            )}
-                          </div>
-                        </TableCell>
-
                         <TableCell className="text-xs max-w-xs">
                           <TooltipProvider>
                             <Tooltip>
@@ -678,9 +636,7 @@ export default function AuditLogsPage() {
 
                         <TableCell>
                           <Badge className={`text-xs ${getRiskColor(log.risk)}`}>
-                            {log.risk === "high" && (
-                              <AlertTriangle className="h-3 w-3 mr-1" />
-                            )}
+                            {log.risk === "high" && <AlertTriangle className="h-3 w-3 mr-1" />}
                             {log.risk}
                           </Badge>
                         </TableCell>
@@ -708,14 +664,12 @@ export default function AuditLogsPage() {
                           </Badge>
                         </TableCell>
 
+                        {/* ✅ Actions */}
                         <TableCell className="text-right space-x-1">
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => {
-                              setSelectedLog(log)
-                              setAdminNote(log.adminNote ?? "")
-                            }}
+                            onClick={() => router.push(`/admin/audit-logs/log-details/${log.id}`)}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -725,7 +679,8 @@ export default function AuditLogsPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => handleMarkSeen(log.id)}
-                              disabled={loading}
+                              disabled={loading || !isAdmin}
+                              title={!isAdmin ? "Admin only" : ""}
                             >
                               <EyeOff className="h-4 w-4" />
                             </Button>
@@ -736,7 +691,8 @@ export default function AuditLogsPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => handleApprove(log.id)}
-                              disabled={loading}
+                              disabled={loading || !isAdmin}
+                              title={!isAdmin ? "Admin only" : ""}
                             >
                               <CheckCircle2 className="h-4 w-4" />
                             </Button>
@@ -777,201 +733,6 @@ export default function AuditLogsPage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Detail Drawer */}
-        {selectedLog && (
-          <Sheet open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
-            <SheetContent className="w-full sm:w-[500px] overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>Log Details</SheetTitle>
-                <SheetDescription>{selectedLog.id}</SheetDescription>
-              </SheetHeader>
-
-              <div className="space-y-6 mt-6">
-                {/* Actor Info */}
-                <div>
-                  <h3 className="font-semibold text-sm mb-3">Actor Information</h3>
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <Avatar>
-                      <AvatarFallback>
-                        {selectedLog.actor.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{selectedLog.actor.name}</p>
-                      <p className="text-xs text-gray-600">{selectedLog.actor.email}</p>
-                    </div>
-                  </div>
-                  <Badge className={`mt-2 ${getRoleColor(selectedLog.actor.role)}`}>
-                    {selectedLog.actor.role.replace("_", " ")}
-                  </Badge>
-                </div>
-
-                <Separator />
-
-                {/* Action Details */}
-                <div>
-                  <h3 className="font-semibold text-sm mb-3">Action Details</h3>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-xs text-gray-600">Action</p>
-                      <Badge className={`${getActionColor(selectedLog.action)}`}>
-                        {selectedLog.action.replaceAll("_", " ")}
-                      </Badge>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600">Time</p>
-                      <p className="text-sm font-medium">{selectedLog.time}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600">Risk Level</p>
-                      <Badge className={getRiskColor(selectedLog.risk)}>
-                        {selectedLog.risk}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Target Info */}
-                <div>
-                  <h3 className="font-semibold text-sm mb-3">Target Information</h3>
-                  <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="text-xs text-gray-600">Type</p>
-                      <p className="text-sm font-medium">{selectedLog.target.type}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600">ID</p>
-                      <p className="text-sm font-medium">{selectedLog.target.id}</p>
-                    </div>
-                    {selectedLog.target.reportCode && (
-                      <div>
-                        <p className="text-xs text-gray-600">Report Code</p>
-                        <p className="text-sm font-medium">{selectedLog.target.reportCode}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Summary */}
-                <div>
-                  <h3 className="font-semibold text-sm mb-3">Summary</h3>
-                  <p className="text-sm text-gray-700">{selectedLog.summary}</p>
-                </div>
-
-                {/* Before/After Diff */}
-                {selectedLog.before && selectedLog.after && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h3 className="font-semibold text-sm mb-3">Before → After</h3>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 bg-red-50 rounded-lg">
-                          <p className="text-xs font-medium text-red-800 mb-2">Before</p>
-                          <pre className="text-xs text-red-700 overflow-auto max-h-32">
-                            {JSON.stringify(selectedLog.before, null, 2)}
-                          </pre>
-                        </div>
-                        <div className="p-3 bg-green-50 rounded-lg">
-                          <p className="text-xs font-medium text-green-800 mb-2">After</p>
-                          <pre className="text-xs text-green-700 overflow-auto max-h-32">
-                            {JSON.stringify(selectedLog.after, null, 2)}
-                          </pre>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Note */}
-                {selectedLog.note && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h3 className="font-semibold text-sm mb-3">Moderator Note</h3>
-                      <p className="text-sm text-gray-700 p-3 bg-blue-50 rounded-lg">
-                        {selectedLog.note}
-                      </p>
-                    </div>
-                  </>
-                )}
-
-                <Separator />
-
-                {/* Approval Status */}
-                <div>
-                  <h3 className="font-semibold text-sm mb-3">Approval Status</h3>
-                  <Badge
-                    className={`text-sm ${
-                      selectedLog.approval === "approved"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {selectedLog.approval}
-                  </Badge>
-                </div>
-
-                <Separator />
-
-                {/* Admin Note Input */}
-                <div>
-                  <h3 className="font-semibold text-sm mb-3">Admin Note</h3>
-                  <Textarea
-                    placeholder="Add your note here…"
-                    value={adminNote}
-                    onChange={(e) => setAdminNote(e.target.value)}
-                    className="text-sm"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    (This note will be saved when you approve)
-                  </p>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-4 border-t">
-                  {!selectedLog.seen && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleMarkSeen(selectedLog.id)}
-                      className="flex-1"
-                      disabled={loading}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Mark as Seen
-                    </Button>
-                  )}
-
-                  {selectedLog.approval === "pending" && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleApprove(selectedLog.id)}
-                      className="flex-1"
-                      disabled={loading}
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Approve Log
-                    </Button>
-                  )}
-
-                  <SheetClose asChild>
-                    <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                      Close
-                    </Button>
-                  </SheetClose>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-        )}
       </div>
     </AdminLayout>
   )

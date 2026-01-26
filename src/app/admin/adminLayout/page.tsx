@@ -133,13 +133,13 @@ const menuItems: MenuItem[] = [
     icon: FileCheck,
     href: "/admin/audit-logs",
   },
-  {
-    kind: "link",
-    id: "logs",
-    label: "Logs",
-    icon: LogSquare,
-    href: "/admin/logs",
-  },
+  // {
+  //   kind: "link",
+  //   id: "logs",
+  //   label: "Logs",
+  //   icon: LogSquare,
+  //   href: "/admin/logs",
+  // },
   {
     kind: "group",
     id: "moderation",
@@ -147,11 +147,11 @@ const menuItems: MenuItem[] = [
     icon: CheckCircle2,
     submenu: [
       { label: "Queue", href: "/admin/moderation/queue", icon: ListTodo },
-      {
-        label: "Workspace",
-        href: "/admin/moderation/workspace",
-        icon: PanelRight,
-      },
+      // {
+      //   label: "Workspace",
+      //   href: "/admin/moderation/workspace",
+      //   icon: PanelRight,
+      // },
     ],
   },
 ];
