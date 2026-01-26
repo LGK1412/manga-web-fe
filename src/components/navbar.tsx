@@ -107,7 +107,7 @@ export function Navbar() {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`,
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       if (res.data.success) {
@@ -137,7 +137,7 @@ export function Navbar() {
     try {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/manga/random`,
-        { withCredentials: true }
+        { withCredentials: true },
       );
       if (res.data?._id) {
         router.push(`/story/${res.data._id}`);
@@ -308,11 +308,13 @@ export function Navbar() {
                         Profile
                       </Link>
                     </DropdownMenuItem>
-                    {user?.role?.trim() !== "admin"  && user &&  (
+                    {user?.role?.trim() !== "admin" && user && (
                       <DropdownMenuItem asChild>
                         <Link
                           href={
-                            user?.user_id ? `/inventory/${user.user_id}` : "/login"
+                            user?.user_id
+                              ? `/inventory/${user.user_id}`
+                              : "/login"
                           }
                           className="flex items-center"
                         >
@@ -324,9 +326,7 @@ export function Navbar() {
                     {user?.role?.trim() !== "admin" && user && (
                       <DropdownMenuItem asChild>
                         <Link
-                          href={
-                            user?.user_id ? `/emoji-pack-shop` : "/login"
-                          }
+                          href={user?.user_id ? `/emoji-pack-shop` : "/login"}
                           className="flex items-center"
                         >
                           <Smile className="mr-2 h-4 w-4" />

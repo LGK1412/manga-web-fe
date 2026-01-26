@@ -18,17 +18,13 @@ interface Bank {
 interface Withdraw {
   _id: string;
   withdraw_point: number;
+  amount: number;
   bankCode: string;
   bankAccount: string;
   accountHolder: string;
   status: string;
   note?: string;
   createdAt: string;
-
-  taxAmount: number;
-  netAmount: number;
-  grossAmount: number;
-  taxRate: number;
 }
 
 export default function WithdrawPage() {
@@ -89,15 +85,15 @@ export default function WithdrawPage() {
     if (authorId) {
       axios
         .get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/withdraw/author/${authorId}?page=${page}&limit=${pageSize}`,
-          { withCredentials: true }
+          `${process.env.NEXT_PUBLIC_API_URL}/api/withdraw/me?page=${page}&limit=${pageSize}`,
+          { withCredentials: true },
         )
         .then((res) => {
           setWithdrawList(res.data.docs);
           setTotal(res.data.totalDocs);
         })
         .catch((err) =>
-          console.error("Không lấy được danh sách rút tiền:", err)
+          console.error("Không lấy được danh sách rút tiền:", err),
         );
     }
   }, [authorId, page]);
@@ -106,8 +102,7 @@ export default function WithdrawPage() {
     if (!authorId) {
       toast({
         title: "Error",
-        description:
-          "Author information not found, please log in again.",
+        description: "Author information not found, please log in again.",
         variant: "destructive",
       });
       return;
@@ -157,7 +152,7 @@ export default function WithdrawPage() {
           bankAccount,
           accountHolder,
         },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       toast({
@@ -172,7 +167,7 @@ export default function WithdrawPage() {
 
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/user/point`,
-        { withCredentials: true }
+        { withCredentials: true },
       );
       setCurrentPoints(res.data.author_point);
     } catch (err: any) {
@@ -283,13 +278,7 @@ export default function WithdrawPage() {
                 >
                   <div>
                     <p className="font-medium text-foreground">
-                      {w.withdraw_point} point →{" "}
-                      {w.grossAmount +
-                        " - " +
-                        w.taxAmount +
-                        " = " +
-                        w.netAmount}{" "}
-                      VND (thuế {w.taxRate * 100}%)
+                      {w.withdraw_point} point → {w.amount} VNĐ
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {w.bankAccount} ({w.accountHolder}) - {w.bankCode}
@@ -303,8 +292,8 @@ export default function WithdrawPage() {
                       w.status === "pending"
                         ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
                         : w.status === "completed"
-                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                        : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                          : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                     }`}
                   >
                     {w.note ? `${w.status} (${w.note})` : w.status}

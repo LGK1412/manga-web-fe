@@ -49,27 +49,18 @@ import AdminLayout from "../adminLayout/page";
 
 interface Withdraw {
   _id: string;
-  author: {
+  authorId: {
     _id: string;
     username: string;
     email: string;
   };
-
   withdraw_point: number;
   amount: number;
-
-  grossAmount: number;
-  taxRate: number;
-  taxAmount: number;
-  netAmount: number;
-
   bankCode: string;
   bankAccount: string;
   accountHolder: string;
-
-  status: "pending" | "completed" | "rejected";
+  status: string;
   note?: string;
-
   createdAt: string;
 }
 
@@ -78,10 +69,10 @@ export default function WithdrawManagement() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedWithdraw, setSelectedWithdraw] = useState<Withdraw | null>(
-    null
+    null,
   );
   const [dialogType, setDialogType] = useState<"approve" | "reject" | null>(
-    null
+    null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -91,10 +82,9 @@ export default function WithdrawManagement() {
         `${process.env.NEXT_PUBLIC_API_URL}/api/withdraw`,
         {
           withCredentials: true,
-        }
+        },
       );
       setWithdraws(res.data);
-      console.log(res.data);
     } catch (err) {
       console.error("Error fetching withdraws:", err);
       toast.error("Không tải được danh sách yêu cầu rút tiền");
@@ -107,8 +97,8 @@ export default function WithdrawManagement() {
 
   const filteredWithdraws = withdraws.filter((w) => {
     const matchesSearch =
-      w.author?.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      w.author?.email.toLowerCase().includes(searchTerm.toLowerCase());
+      w.authorId?.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      w.authorId?.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || w.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -122,7 +112,7 @@ export default function WithdrawManagement() {
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/withdraw/${selectedWithdraw._id}/approve`,
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       toast.success("Đã duyệt yêu cầu rút tiền");
@@ -145,7 +135,7 @@ export default function WithdrawManagement() {
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/withdraw/${selectedWithdraw._id}/reject`,
         { note },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       toast.success("Đã từ chối yêu cầu");
@@ -245,14 +235,14 @@ export default function WithdrawManagement() {
         {/* Search + Filter */}
         <Card>
           <CardHeader>
-            <CardTitle>Tìm kiếm và Lọc</CardTitle>
+            <CardTitle>Search and Filter</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Tìm kiếm theo tên hoặc email..."
+                  placeholder="Search by author name or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -260,13 +250,13 @@ export default function WithdrawManagement() {
               </div>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Trạng thái" />
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
-                  <SelectItem value="pending">Đang chờ</SelectItem>
-                  <SelectItem value="completed">Đã duyệt</SelectItem>
-                  <SelectItem value="rejected">Từ chối</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="rejected">Rejectd</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -287,21 +277,17 @@ export default function WithdrawManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Author</TableHead>
-                  <TableHead className="text-center">Withdraw Point</TableHead>
-                  <TableHead className="text-right">Gross Amount</TableHead>
-                  <TableHead className="text-center">Tax Rate (%)</TableHead>
-                  <TableHead className="text-right">Tax Amount</TableHead>
-                  <TableHead className="text-right">Net Amount</TableHead>
-                  <TableHead>Bank</TableHead>
-                  <TableHead>Bank Account</TableHead>
-                  <TableHead>Account Holder</TableHead>
-                  <TableHead>Date created</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Action</TableHead>
+                  <TableHead>Tác giả</TableHead>
+                  <TableHead>Điểm</TableHead>
+                  <TableHead>Số tiền (VND)</TableHead>
+                  <TableHead>Ngân hàng</TableHead>
+                  <TableHead>Tài khoản</TableHead>
+                  <TableHead>Chủ TK</TableHead>
+                  <TableHead>Ngày tạo</TableHead>
+                  <TableHead>Trạng thái</TableHead>
+                  <TableHead>Hành động</TableHead>
                 </TableRow>
               </TableHeader>
-
               <TableBody>
                 {filteredWithdraws.length === 0 ? (
                   <TableRow>
@@ -316,33 +302,17 @@ export default function WithdrawManagement() {
                   filteredWithdraws.map((w) => (
                     <TableRow key={w._id}>
                       <TableCell>
-                        {w.author?.username} <br />
+                        {w.authorId?.username} <br />
                         <span className="text-xs text-gray-500">
-                          {w.author?.email}
+                          {w.authorId?.email}
                         </span>
                       </TableCell>
                       <TableCell className="text-center">
                         {w.withdraw_point}
                       </TableCell>
-
-                      <TableCell className="text-right">
-                        {w.status === "completed"
-                          ? `${w.grossAmount} ₫`
-                          : `${w.amount} đ`}
-                      </TableCell>
-
                       <TableCell className="text-center">
-                        {w.status === "completed" ? `${w.taxRate}%` : ""}
+                        {w.amount.toLocaleString()}
                       </TableCell>
-
-                      <TableCell className="text-right text-red-600">
-                        {w.status === "completed" ? `-${w.taxAmount} ₫` : ""}
-                      </TableCell>
-
-                      <TableCell className="text-right font-semibold text-green-700">
-                        {w.status === "completed" ? `${w.netAmount} ₫` : ""}
-                      </TableCell>
-
                       <TableCell>{w.bankCode}</TableCell>
                       <TableCell>{w.bankAccount}</TableCell>
                       <TableCell>{w.accountHolder}</TableCell>
@@ -408,7 +378,7 @@ export default function WithdrawManagement() {
                   placeholder="Nhập lý do..."
                   onChange={(e) =>
                     setSelectedWithdraw((prev) =>
-                      prev ? { ...prev, note: e.target.value } : prev
+                      prev ? { ...prev, note: e.target.value } : prev,
                     )
                   }
                 />
