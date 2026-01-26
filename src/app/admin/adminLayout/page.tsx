@@ -100,6 +100,13 @@ const menuItems: MenuItem[] = [
   },
   {
     kind: "link",
+    id: "tax",
+    label: "Tax",
+    icon: Banknote,
+    href: "/admin/tax",
+  },
+  {
+    kind: "link",
     id: "comments",
     label: "Comment",
     icon: MessageSquare,

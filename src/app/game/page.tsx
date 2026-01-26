@@ -5,7 +5,6 @@ import { Play, Pause, RotateCcw, Volume2, VolumeX } from "lucide-react";
 import axios from "axios";
 import GameHistory from "@/components/GameHistory";
 import Leaderboard from "@/components/Leaderboard";
-import { RefreshCcw } from "lucide-react";
 import { GamePointBadge } from "@/components/GamePointBadge";
 
 type BallType = "good" | "bad" | "freeze" | "bonus" | "shrink" | "expand";
@@ -83,7 +82,7 @@ export default function CatchGame() {
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/catch-game/submit-score`,
         { score },
-        { withCredentials: true }
+        { withCredentials: true },
       );
     } catch (e) {
       console.error("Failed to save score", e);
@@ -93,8 +92,9 @@ export default function CatchGame() {
   const ensureAudioCtx = () => {
     if (!audioCtxRef.current) {
       try {
-        audioCtxRef.current = new (window.AudioContext ||
-          (window as any).webkitAudioContext)();
+        audioCtxRef.current = new (
+          window.AudioContext || (window as any).webkitAudioContext
+        )();
       } catch {
         audioCtxRef.current = null;
       }
@@ -104,7 +104,7 @@ export default function CatchGame() {
 
   const playBeep = useCallback(
     (
-      type: "good" | "bad" | "special" | "win" | "freeze" | "bonus" = "good"
+      type: "good" | "bad" | "special" | "win" | "freeze" | "bonus" = "good",
     ) => {
       if (!soundOn) return;
       const ctx = ensureAudioCtx();
@@ -172,7 +172,7 @@ export default function CatchGame() {
       o.start(now);
       o.stop(now + 0.5);
     },
-    [soundOn]
+    [soundOn],
   );
 
   const spawnBall = () => {
@@ -256,7 +256,7 @@ export default function CatchGame() {
     x: number,
     y: number,
     text: string,
-    color = "#10B981"
+    color = "#10B981",
   ) => {
     const id = floatId.current++;
     setFloatTexts((prev) => [
@@ -342,8 +342,8 @@ export default function CatchGame() {
         0,
         Math.min(
           canvasSize.current.w - basketWidthRef.current,
-          localX - basketWidthRef.current / 2
-        )
+          localX - basketWidthRef.current / 2,
+        ),
       );
     };
 
@@ -413,7 +413,7 @@ export default function CatchGame() {
       if (keysPressed.current.right) {
         targetXRef.current = Math.min(
           w - basketWidthRef.current,
-          targetXRef.current + 8
+          targetXRef.current + 8,
         );
       }
 
@@ -470,7 +470,7 @@ export default function CatchGame() {
         h - basketHeight - 15,
         basketWidthRef.current,
         basketHeight,
-        10
+        10,
       );
       ctx.fill();
       ctx.shadowBlur = 0;
@@ -494,7 +494,7 @@ export default function CatchGame() {
           b.radius * 0.3,
           0,
           0,
-          Math.PI * 2
+          Math.PI * 2,
         );
         ctx.fill();
         ctx.restore();
@@ -505,7 +505,7 @@ export default function CatchGame() {
           1,
           b.x,
           b.y,
-          b.radius
+          b.radius,
         );
         gradient.addColorStop(0, lighten(b.color, 0.3));
         gradient.addColorStop(1, b.color);
@@ -523,7 +523,7 @@ export default function CatchGame() {
           b.radius * 0.2,
           0,
           0,
-          Math.PI * 2
+          Math.PI * 2,
         );
         ctx.fill();
 
@@ -607,7 +607,7 @@ export default function CatchGame() {
               b.x,
               b.y - 10,
               gain > 0 ? `+${gain}` : `${gain}`,
-              gain > 0 ? "#10B981" : "#EF4444"
+              gain > 0 ? "#10B981" : "#EF4444",
             );
 
             playBeep(b.type === "good" ? "good" : "bad");
@@ -707,7 +707,7 @@ export default function CatchGame() {
     y: number,
     w: number,
     h: number,
-    r: number
+    r: number,
   ) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);

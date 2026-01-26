@@ -26,61 +26,45 @@ interface Transaction {
 }
 
 export default function TopupPage() {
+  const [user, setUser] = useState<any>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+
   const [packages, setPackages] = useState<TopupPackage[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [showModal, setShowModal] = useState(false);
   const { toast } = useToast();
 
-  const decodeToken = () => {
-    const raw = Cookies.get("user_normal_info");
-    if (!raw) return null;
-    try {
-      return JSON.parse(decodeURIComponent(raw));
-    } catch {
-      return null;
-    }
-  };
-
-  async function fetchPackages() {
-    const raw = Cookies.get("user_normal_info");
-    let userId: string | null = null;
-
-    if (raw) {
-      try {
-        userId = JSON.parse(raw)?.user_id;
-      } catch (e) {
-        console.error("Invalid cookie data");
-      }
-    }
-
-    if (!userId) return;
-
+  async function fetchUser() {
     try {
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/topup/packages?userId=${userId}`,
-        { withCredentials: true }
+        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
+        { withCredentials: true },
+      );
+      setUser(res.data);
+    } catch (error) {
+      console.error("Không lấy được user:", error);
+      setUser(null);
+    } finally {
+      setLoadingUser(false);
+    }
+  }
+
+  async function fetchPackages() {
+    try {
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/topup/packages`,
+        { withCredentials: true },
       );
       setPackages(res.data.packages);
     } catch (error) {
       console.error("Error fetching top-up packages:", error);
     }
   }
-
   async function fetchTransactions() {
-    const raw = Cookies.get("user_normal_info");
-    if (!raw) return;
-
-    let userId: string;
-    try {
-      userId = JSON.parse(raw)?.user_id;
-    } catch {
-      return;
-    }
-
     try {
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/topup/transactions?userId=${userId}`,
-        { withCredentials: true }
+        `${process.env.NEXT_PUBLIC_API_URL}/api/topup/transactions`,
+        { withCredentials: true },
       );
       setTransactions(res.data.transactions);
     } catch (error) {
@@ -88,27 +72,21 @@ export default function TopupPage() {
     }
   }
 
-  useEffect(() => {
-    fetchPackages();
-  }, []);
-
   async function handleBuy(pkg: TopupPackage) {
     try {
-      const tokenPayload = decodeToken();
-      const userId = tokenPayload?.user_id;
-      if (!userId) {
-          toast({
-            title: "Not logged in",
-            description: "Please log in again before purchasing.",
-            variant: "destructive",
-          });
+      if (!user?.user_id) {
+        toast({
+          title: "Lack of login information!",
+          description: "Please login before buying point",
+          variant: "destructive",
+        });
         return;
       }
 
       const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/vnpay/create-payment-url/${userId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/vnpay/create-payment-url/${user.user_id}`,
         { packageId: pkg.id, amount: pkg.price },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       if (res.data?.paymentUrl) {
@@ -121,6 +99,17 @@ export default function TopupPage() {
       );
     }
   }
+
+  useEffect(() => {
+    fetchUser();
+  }, []);
+
+  useEffect(() => {
+    if (user?.user_id) {
+      fetchPackages();
+      fetchTransactions();
+    }
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900 p-6">
@@ -265,8 +254,8 @@ export default function TopupPage() {
                               tx.status === "success"
                                 ? "bg-green-600 text-white"
                                 : tx.status === "failed"
-                                ? "bg-red-600 text-white"
-                                : "bg-yellow-600 text-white"
+                                  ? "bg-red-600 text-white"
+                                  : "bg-yellow-600 text-white"
                             }`}
                           >
                             {tx.status.toUpperCase()}
