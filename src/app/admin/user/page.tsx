@@ -260,7 +260,7 @@ export default function UserManagement() {
     setIsEditDialogOpen(true);
   };
 
-  // Update status API
+  // Update status API (admin endpoint)
   const handleUpdateUserStatus = async (newStatus: UserRow["status"]) => {
     if (!selectedUser) return;
 
@@ -361,6 +361,11 @@ export default function UserManagement() {
       toast.error(prettyMsg ?? "Failed to update role");
     }
   };
+
+  /** ✅ NEW: Admin chỉ được ban/mute Content Moderator & Community Manager */
+  const canAdminEditStatus =
+    selectedUser?.role === "content_moderator" ||
+    selectedUser?.role === "community_manager";
 
   return (
     <AdminLayout>
@@ -515,8 +520,12 @@ export default function UserManagement() {
                       <TableCell className="group-hover:text-slate-900">
                         <div className="flex items-center space-x-3">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={user.avatar || "/placeholder.svg"} />
-                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                            <AvatarImage
+                              src={user.avatar || "/placeholder.svg"}
+                            />
+                            <AvatarFallback>
+                              {user.name.charAt(0)}
+                            </AvatarFallback>
                           </Avatar>
                           <span className="font-medium">{user.name}</span>
                         </div>
@@ -527,7 +536,10 @@ export default function UserManagement() {
                       </TableCell>
 
                       <TableCell>
-                        <Badge className={getRoleColor(user.role)} variant="secondary">
+                        <Badge
+                          className={getRoleColor(user.role)}
+                          variant="secondary"
+                        >
                           <div className="flex items-center space-x-1">
                             {getRoleIcon(user.role)}
                             <span>{formatRoleLabel(user.role)}</span>
@@ -536,7 +548,10 @@ export default function UserManagement() {
                       </TableCell>
 
                       <TableCell>
-                        <Badge className={getStatusColor(user.status)} variant="secondary">
+                        <Badge
+                          className={getStatusColor(user.status)}
+                          variant="secondary"
+                        >
                           {user.status}
                         </Badge>
                       </TableCell>
@@ -610,8 +625,12 @@ export default function UserManagement() {
               <div className="space-y-4">
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage src={selectedUser.avatar || "/placeholder.svg"} />
-                    <AvatarFallback>{selectedUser.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage
+                      src={selectedUser.avatar || "/placeholder.svg"}
+                    />
+                    <AvatarFallback>
+                      {selectedUser.name.charAt(0)}
+                    </AvatarFallback>
                   </Avatar>
                   <div>
                     <h3 className="font-semibold">{selectedUser.name}</h3>
@@ -668,14 +687,24 @@ export default function UserManagement() {
                   )}
                 </div>
 
-                {/* Status */}
+                {/* ✅ Status (UPDATED RULE) */}
                 <div>
                   <Label htmlFor="status">Status</Label>
+
                   <Select
                     value={selectedUser.status}
-                    onValueChange={handleUpdateUserStatus}
+                    onValueChange={(v) => {
+                      if (!canAdminEditStatus) {
+                        toast.error(
+                          "Admin chỉ được ban/mute Content Moderator & Community Manager."
+                        );
+                        return;
+                      }
+                      handleUpdateUserStatus(v as UserRow["status"]);
+                    }}
+                    disabled={!canAdminEditStatus}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger disabled={!canAdminEditStatus}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -684,12 +713,22 @@ export default function UserManagement() {
                       <SelectItem value="Banned">Banned</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  {!canAdminEditStatus && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      * Admin không ban/mute user/author. Việc ban/mute user/author
+                      do Content/Commu thực hiện và được audit log.
+                    </p>
+                  )}
                 </div>
               </div>
             )}
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+              >
                 Cancel
               </Button>
               <Button onClick={() => setIsEditDialogOpen(false)}>Close</Button>
