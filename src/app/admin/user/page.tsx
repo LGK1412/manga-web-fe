@@ -92,7 +92,7 @@ function logAxiosError(tag: string, endpoint: string, err: any, extra?: any) {
   console.groupEnd();
 }
 
-/** ✅ hover border color by role (for “serious / precise” UX) */
+/** ✅ hover border color by role */
 function hoverBorderByRole(role: string) {
   switch (role) {
     case "admin":
@@ -120,6 +120,13 @@ export default function UserManagement() {
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
+  // ✅ who am i
+  const [actorRole, setActorRole] = useState<string>("");
+
+  // ✅ reasons
+  const [resetReason, setResetReason] = useState("");
+  const [moderationReason, setModerationReason] = useState("");
+
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   /** ✅ highlight row when click sendmail */
@@ -132,7 +139,7 @@ export default function UserManagement() {
     };
   }, []);
 
-  /** ✅ highlight then navigate (same logic as report management) */
+  /** ✅ highlight then navigate */
   const highlightThenNavigate = (userId: string, href: string) => {
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
 
@@ -143,7 +150,22 @@ export default function UserManagement() {
     }, 600);
   };
 
-  // Fetch users from backend
+  const fetchMe = async () => {
+    if (!API_URL) return;
+    const endpoint = `${API_URL}/api/auth/me`;
+
+    try {
+      const res = await axios.get(endpoint, { withCredentials: true });
+      const role = res.data?.role || res.data?.user?.role;
+      setActorRole(String(role || ""));
+      console.log("[Fetch Me] role =", role);
+    } catch (err: any) {
+      console.warn("[Fetch Me] failed", err?.response?.data || err?.message);
+      setActorRole("");
+    }
+  };
+
+  // Fetch users
   const fetchUsers = async () => {
     const endpoint = `${API_URL}/api/user/all`;
 
@@ -153,16 +175,8 @@ export default function UserManagement() {
         return;
       }
 
-      console.log("[Admin Fetch Users] REQUEST", { url: endpoint });
-
+      console.log("[Fetch Users] REQUEST", { url: endpoint });
       const res = await axios.get(endpoint, { withCredentials: true });
-
-      console.log("[Admin Fetch Users] RESPONSE", {
-        status: res.status,
-        dataPreview: Array.isArray(res.data)
-          ? `Array(${res.data.length})`
-          : res.data,
-      });
 
       const mappedUsers: UserRow[] = (res.data || []).map((u: any) => ({
         id: u._id,
@@ -183,16 +197,14 @@ export default function UserManagement() {
 
       setUsers(mappedUsers);
     } catch (err: any) {
-      logAxiosError("[Admin Fetch Users]", endpoint, err);
-
+      logAxiosError("[Fetch Users]", endpoint, err);
       const msg = err?.response?.data?.message;
-      toast.error(
-        Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to load users"
-      );
+      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to load users");
     }
   };
 
   useEffect(() => {
+    fetchMe();
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -203,8 +215,7 @@ export default function UserManagement() {
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesRole = filterRole === "all" || user.role === filterRole;
-      const matchesStatus =
-        filterStatus === "all" || user.status === filterStatus;
+      const matchesStatus = filterStatus === "all" || user.status === filterStatus;
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [users, searchTerm, filterRole, filterStatus]);
@@ -255,19 +266,15 @@ export default function UserManagement() {
   };
 
   const handleEditUser = (user: UserRow) => {
-    console.log("[Admin Edit User] OPEN", user);
     setSelectedUser(user);
+    setResetReason("");
+    setModerationReason("");
     setIsEditDialogOpen(true);
   };
 
-  // Update status API (admin endpoint)
+  // ===== ADMIN: update staff status (content_moderator/community_manager) =====
   const handleUpdateUserStatus = async (newStatus: UserRow["status"]) => {
-    if (!selectedUser) return;
-
-    if (!API_URL) {
-      toast.error("Missing NEXT_PUBLIC_API_URL");
-      return;
-    }
+    if (!selectedUser || !API_URL) return;
 
     const endpoint = `${API_URL}/api/user/update-status`;
 
@@ -278,70 +285,57 @@ export default function UserManagement() {
 
       const payload = { userId: selectedUser.id, status: backendStatus };
 
-      console.log("[Admin Update Status] REQUEST", {
-        url: endpoint,
-        payload,
-        selectedUser,
-      });
-
-      const res = await axios.post(endpoint, payload, {
-        withCredentials: true,
-      });
-
-      console.log("[Admin Update Status] RESPONSE", {
-        status: res.status,
-        data: res.data,
-      });
+      const res = await axios.post(endpoint, payload, { withCredentials: true });
+      console.log("[Admin Update Staff Status] RESPONSE", res.data);
 
       toast.success("Status updated successfully");
 
       setUsers((prev) =>
-        prev.map((u) =>
-          u.id === selectedUser.id ? { ...u, status: newStatus } : u
-        )
+        prev.map((u) => (u.id === selectedUser.id ? { ...u, status: newStatus } : u))
       );
       setSelectedUser((prev) => (prev ? { ...prev, status: newStatus } : prev));
     } catch (err: any) {
-      logAxiosError("[Admin Update Status]", endpoint, err, {
-        payload: { userId: selectedUser.id, status: newStatus },
-        selectedUser,
-      });
-
+      logAxiosError("[Admin Update Staff Status]", endpoint, err);
       const msg = err?.response?.data?.message;
-      toast.error(
-        Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to update status"
-      );
+      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to update status");
     }
   };
 
-  // ✅ Admin update role API
-  const handleUpdateUserRole = async (newRole: string) => {
-    if (!selectedUser) return;
+  // ===== ADMIN: reset USER/AUTHOR to NORMAL =====
+  const handleAdminResetUserStatus = async () => {
+    if (!selectedUser || !API_URL) return;
 
-    if (!API_URL) {
-      toast.error("Missing NEXT_PUBLIC_API_URL");
-      return;
+    const endpoint = `${API_URL}/api/user/admin/reset-user-status`;
+
+    try {
+      const payload = { userId: selectedUser.id, reason: resetReason.trim() || undefined };
+      const res = await axios.patch(endpoint, payload, { withCredentials: true });
+      console.log("[Admin Reset] RESPONSE", res.data);
+
+      toast.success("Reset to Normal");
+
+      setUsers((prev) =>
+        prev.map((u) => (u.id === selectedUser.id ? { ...u, status: "Normal" } : u))
+      );
+      setSelectedUser((prev) => (prev ? { ...prev, status: "Normal" } : prev));
+      setResetReason("");
+    } catch (err: any) {
+      logAxiosError("[Admin Reset]", endpoint, err);
+      const msg = err?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to reset status");
     }
+  };
+
+  // ===== ADMIN: set role =====
+  const handleUpdateUserRole = async (newRole: string) => {
+    if (!selectedUser || !API_URL) return;
 
     const endpoint = `${API_URL}/api/user/admin/set-role`;
 
     try {
       const payload = { userId: selectedUser.id, role: newRole };
-
-      console.log("[Admin Set Role] REQUEST", {
-        url: endpoint,
-        payload,
-        selectedUser,
-      });
-
-      const res = await axios.patch(endpoint, payload, {
-        withCredentials: true,
-      });
-
-      console.log("[Admin Set Role] RESPONSE", {
-        status: res.status,
-        data: res.data,
-      });
+      const res = await axios.patch(endpoint, payload, { withCredentials: true });
+      console.log("[Admin Set Role] RESPONSE", res.data);
 
       toast.success("Role updated successfully");
 
@@ -350,32 +344,102 @@ export default function UserManagement() {
       );
       setSelectedUser((prev) => (prev ? { ...prev, role: newRole } : prev));
     } catch (err: any) {
-      logAxiosError("[Admin Set Role]", endpoint, err, {
-        payload: { userId: selectedUser.id, role: newRole },
-        selectedUser,
-      });
-
+      logAxiosError("[Admin Set Role]", endpoint, err);
       const msg = err?.response?.data?.message;
-      const prettyMsg = Array.isArray(msg) ? msg.join(", ") : msg;
-
-      toast.error(prettyMsg ?? "Failed to update role");
+      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to update role");
     }
   };
 
-  /** ✅ NEW: Admin chỉ được ban/mute Content Moderator & Community Manager */
-  const canAdminEditStatus =
-    selectedUser?.role === "content_moderator" ||
-    selectedUser?.role === "community_manager";
+  // ===== CONTENT MOD: BAN user/author =====
+  const handleContentBan = async () => {
+    if (!selectedUser || !API_URL) return;
+
+    const endpoint = `${API_URL}/api/user/moderation/ban`;
+
+    try {
+      const payload = {
+        userId: selectedUser.id,
+        reason: moderationReason.trim() || undefined,
+      };
+
+      const res = await axios.patch(endpoint, payload, { withCredentials: true });
+      console.log("[Content Ban] RESPONSE", res.data);
+
+      toast.success("User banned");
+
+      setUsers((prev) =>
+        prev.map((u) => (u.id === selectedUser.id ? { ...u, status: "Banned" } : u))
+      );
+      setSelectedUser((prev) => (prev ? { ...prev, status: "Banned" } : prev));
+      setModerationReason("");
+    } catch (err: any) {
+      logAxiosError("[Content Ban]", endpoint, err);
+      const msg = err?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to ban user");
+    }
+  };
+
+  // ===== COMMUNITY MANAGER: MUTE user/author =====
+  const handleCommuMute = async () => {
+    if (!selectedUser || !API_URL) return;
+
+    const endpoint = `${API_URL}/api/user/moderation/mute`;
+
+    try {
+      const payload = {
+        userId: selectedUser.id,
+        reason: moderationReason.trim() || undefined,
+      };
+
+      const res = await axios.patch(endpoint, payload, { withCredentials: true });
+      console.log("[Commu Mute] RESPONSE", res.data);
+
+      toast.success("User muted");
+
+      setUsers((prev) =>
+        prev.map((u) => (u.id === selectedUser.id ? { ...u, status: "Muted" } : u))
+      );
+      setSelectedUser((prev) => (prev ? { ...prev, status: "Muted" } : prev));
+      setModerationReason("");
+    } catch (err: any) {
+      logAxiosError("[Commu Mute]", endpoint, err);
+      const msg = err?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to mute user");
+    }
+  };
+
+  // ===== UI permissions =====
+  const isAdmin = actorRole === "admin";
+  const isContentMod = actorRole === "content_moderator";
+  const isCommu = actorRole === "community_manager";
+
+  const isTargetUserOrAuthor =
+    selectedUser?.role === "user" || selectedUser?.role === "author";
+
+  const canAdminEditStaffStatus =
+    selectedUser?.role === "content_moderator" || selectedUser?.role === "community_manager";
+
+  const canAdminResetUserAuthor =
+    isAdmin && isTargetUserOrAuthor && selectedUser?.status !== "Normal";
+
+  const canContentBan =
+    isContentMod && isTargetUserOrAuthor && selectedUser?.status === "Normal";
+
+  const canCommuMute =
+    isCommu && isTargetUserOrAuthor && selectedUser?.status === "Normal";
 
   return (
     <AdminLayout>
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              User Management
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
             <p className="text-gray-600 mt-2">Manage users in the system</p>
+            {actorRole && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Logged in as: <span className="font-medium">{formatRoleLabel(actorRole)}</span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -520,12 +584,8 @@ export default function UserManagement() {
                       <TableCell className="group-hover:text-slate-900">
                         <div className="flex items-center space-x-3">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage
-                              src={user.avatar || "/placeholder.svg"}
-                            />
-                            <AvatarFallback>
-                              {user.name.charAt(0)}
-                            </AvatarFallback>
+                            <AvatarImage src={user.avatar || "/placeholder.svg"} />
+                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                           </Avatar>
                           <span className="font-medium">{user.name}</span>
                         </div>
@@ -536,10 +596,7 @@ export default function UserManagement() {
                       </TableCell>
 
                       <TableCell>
-                        <Badge
-                          className={getRoleColor(user.role)}
-                          variant="secondary"
-                        >
+                        <Badge className={getRoleColor(user.role)} variant="secondary">
                           <div className="flex items-center space-x-1">
                             {getRoleIcon(user.role)}
                             <span>{formatRoleLabel(user.role)}</span>
@@ -548,10 +605,7 @@ export default function UserManagement() {
                       </TableCell>
 
                       <TableCell>
-                        <Badge
-                          className={getStatusColor(user.status)}
-                          variant="secondary"
-                        >
+                        <Badge className={getStatusColor(user.status)} variant="secondary">
                           {user.status}
                         </Badge>
                       </TableCell>
@@ -575,7 +629,6 @@ export default function UserManagement() {
                           <Edit className="h-4 w-4" />
                         </Button>
 
-                        {/* ✅ SendMail (hover mạnh + highlight cả row + delay navigate) */}
                         <Button
                           variant="outline"
                           size="sm"
@@ -625,12 +678,8 @@ export default function UserManagement() {
               <div className="space-y-4">
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage
-                      src={selectedUser.avatar || "/placeholder.svg"}
-                    />
-                    <AvatarFallback>
-                      {selectedUser.name.charAt(0)}
-                    </AvatarFallback>
+                    <AvatarImage src={selectedUser.avatar || "/placeholder.svg"} />
+                    <AvatarFallback>{selectedUser.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div>
                     <h3 className="font-semibold">{selectedUser.name}</h3>
@@ -638,86 +687,178 @@ export default function UserManagement() {
                   </div>
                 </div>
 
-                {/* Role */}
+                {/* ROLE: only admin can change */}
                 <div>
                   <Label htmlFor="role">Role</Label>
 
-                  <Select
-                    value={selectedUser.role}
-                    onValueChange={(value) => {
-                      if (selectedUser.role === "author" && value === "user") {
-                        console.warn("[Admin Set Role] BLOCKED: author -> user", {
-                          selectedUser,
-                          attemptedRole: value,
-                        });
-                        toast.error(
-                          "Cannot downgrade AUTHOR back to USER (blocked by backend)."
-                        );
-                        return;
-                      }
-                      handleUpdateUserRole(value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      {ROLE_OPTIONS.map((r) => {
-                        const disabled =
-                          selectedUser.role === "author" && r.value === "user";
-
-                        return (
-                          <SelectItem
-                            key={r.value}
-                            value={r.value}
-                            disabled={disabled}
-                          >
-                            {r.label}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-
-                  {selectedUser.role === "author" && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      * Backend currently blocks downgrading AUTHOR to USER.
-                    </p>
+                  {isAdmin ? (
+                    <Select
+                      value={selectedUser.role}
+                      onValueChange={(value) => {
+                        if (selectedUser.role === "author" && value === "user") {
+                          toast.error("Cannot downgrade AUTHOR back to USER (blocked by backend).");
+                          return;
+                        }
+                        handleUpdateUserRole(value);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLE_OPTIONS.map((r) => {
+                          const disabled = selectedUser.role === "author" && r.value === "user";
+                          return (
+                            <SelectItem key={r.value} value={r.value} disabled={disabled}>
+                              {r.label}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="mt-2">
+                      <Badge className={getRoleColor(selectedUser.role)} variant="secondary">
+                        {formatRoleLabel(selectedUser.role)}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        * Only admin can change roles.
+                      </p>
+                    </div>
                   )}
                 </div>
 
-                {/* ✅ Status (UPDATED RULE) */}
-                <div>
+                {/* STATUS: depend on actorRole */}
+                <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
 
-                  <Select
-                    value={selectedUser.status}
-                    onValueChange={(v) => {
-                      if (!canAdminEditStatus) {
-                        toast.error(
-                          "Admin chỉ được ban/mute Content Moderator & Community Manager."
-                        );
-                        return;
-                      }
-                      handleUpdateUserStatus(v as UserRow["status"]);
-                    }}
-                    disabled={!canAdminEditStatus}
-                  >
-                    <SelectTrigger disabled={!canAdminEditStatus}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Normal">Normal</SelectItem>
-                      <SelectItem value="Muted">Muted</SelectItem>
-                      <SelectItem value="Banned">Banned</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {/* ADMIN */}
+                  {isAdmin && (
+                    <>
+                      <Select
+                        value={selectedUser.status}
+                        onValueChange={(v) => {
+                          if (!canAdminEditStaffStatus) {
+                            toast.error("Admin chỉ được ban/mute Content Moderator & Community Manager.");
+                            return;
+                          }
+                          handleUpdateUserStatus(v as UserRow["status"]);
+                        }}
+                        disabled={!canAdminEditStaffStatus}
+                      >
+                        <SelectTrigger disabled={!canAdminEditStaffStatus}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Normal">Normal</SelectItem>
+                          <SelectItem value="Muted">Muted</SelectItem>
+                          <SelectItem value="Banned">Banned</SelectItem>
+                        </SelectContent>
+                      </Select>
 
-                  {!canAdminEditStatus && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      * Admin không ban/mute user/author. Việc ban/mute user/author
-                      do Content/Commu thực hiện và được audit log.
+                      {!canAdminEditStaffStatus && (
+                        <p className="text-xs text-muted-foreground">
+                          * Admin không ban/mute user/author. Ban/mute user/author do Content/Commu thực hiện. Admin chỉ reset về Normal khi đã bị xử lý.
+                        </p>
+                      )}
+
+                      {canAdminResetUserAuthor && (
+                        <div className="mt-3 space-y-2 rounded-md border p-3">
+                          <div className="text-sm font-medium">Reset user/author về Normal</div>
+
+                          <div className="space-y-1">
+                            <Label className="text-xs">Reason (optional)</Label>
+                            <Input
+                              value={resetReason}
+                              onChange={(e) => setResetReason(e.target.value)}
+                              placeholder="VD: Reviewed & approved to restore normal..."
+                            />
+                          </div>
+
+                          <Button variant="destructive" onClick={handleAdminResetUserStatus}>
+                            Reset to Normal
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* CONTENT MOD */}
+                  {isContentMod && (
+                    <>
+                      <Badge className={getStatusColor(selectedUser.status)} variant="secondary">
+                        {selectedUser.status}
+                      </Badge>
+
+                      {!isTargetUserOrAuthor ? (
+                        <p className="text-xs text-muted-foreground">
+                          * Content Moderator chỉ có thể BAN user/author.
+                        </p>
+                      ) : selectedUser.status !== "Normal" ? (
+                        <p className="text-xs text-muted-foreground">
+                          * User/author đã bị xử lý ({selectedUser.status}). Bạn không thể chỉnh nữa. Chỉ admin mới reset về Normal.
+                        </p>
+                      ) : (
+                        <div className="mt-3 space-y-2 rounded-md border p-3">
+                          <div className="text-sm font-medium">BAN user/author (Content)</div>
+
+                          <div className="space-y-1">
+                            <Label className="text-xs">Reason (optional)</Label>
+                            <Input
+                              value={moderationReason}
+                              onChange={(e) => setModerationReason(e.target.value)}
+                              placeholder="Reason..."
+                            />
+                          </div>
+
+                          <Button variant="destructive" onClick={handleContentBan} disabled={!canContentBan}>
+                            Ban
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* COMMUNITY MANAGER */}
+                  {isCommu && (
+                    <>
+                      <Badge className={getStatusColor(selectedUser.status)} variant="secondary">
+                        {selectedUser.status}
+                      </Badge>
+
+                      {!isTargetUserOrAuthor ? (
+                        <p className="text-xs text-muted-foreground">
+                          * Community Manager chỉ có thể MUTE user/author.
+                        </p>
+                      ) : selectedUser.status !== "Normal" ? (
+                        <p className="text-xs text-muted-foreground">
+                          * User/author đã bị xử lý ({selectedUser.status}). Bạn không thể chỉnh nữa. Chỉ admin mới reset về Normal.
+                        </p>
+                      ) : (
+                        <div className="mt-3 space-y-2 rounded-md border p-3">
+                          <div className="text-sm font-medium">MUTE user/author (Community)</div>
+
+                          <div className="space-y-1">
+                            <Label className="text-xs">Reason (optional)</Label>
+                            <Input
+                              value={moderationReason}
+                              onChange={(e) => setModerationReason(e.target.value)}
+                              placeholder="Reason..."
+                            />
+                          </div>
+
+                          <Button onClick={handleCommuMute} disabled={!canCommuMute}>
+                            Mute
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* fallback */}
+                  {!actorRole && (
+                    <p className="text-xs text-muted-foreground">
+                      * Không xác định được role người đăng nhập. Kiểm tra endpoint /api/auth/me.
                     </p>
                   )}
                 </div>
@@ -725,10 +866,7 @@ export default function UserManagement() {
             )}
 
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
-              >
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancel
               </Button>
               <Button onClick={() => setIsEditDialogOpen(false)}>Close</Button>
