@@ -1,5 +1,7 @@
 "use client"
 
+// src/app/admin/audit-logs/page.tsx
+
 import AdminLayout from "@/app/admin/adminLayout/page"
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -26,8 +28,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
-type AuditRisk = "low" | "medium" | "high"
-type AuditApproval = "pending" | "approved"
+import {
+  AuditApproval,
+  AuditRisk,
+  buildHumanMessage,
+  prettyAction,
+  prettyRole,
+} from "@/lib/audit-ui"
 
 type Me = {
   userId: string
@@ -35,7 +42,7 @@ type Me = {
   role: string
 }
 
-type AuditLog = {
+type AuditLogUI = {
   id: string
   time: string
   reportCode?: string
@@ -52,6 +59,7 @@ type AuditLog = {
   seen: boolean
   approval: AuditApproval
 
+  // keep for internal use only if needed (do not render)
   targetType?: string
   targetId?: string
 
@@ -74,8 +82,8 @@ function safeStr(x: any) {
   return x === null || x === undefined ? "" : String(x)
 }
 
-/** ✅ mapping BE -> FE UI */
-function mapAuditRowToUI(row: any): AuditLog {
+/** ✅ mapping BE -> FE UI (clean) */
+function mapAuditRowToUI(row: any): AuditLogUI {
   const actorUsername =
     row?.actor_id?.username || row?.actor_name || row?.actorUsername || "Unknown"
   const actorEmail =
@@ -95,11 +103,14 @@ function mapAuditRowToUI(row: any): AuditLog {
     },
 
     action: String(row?.action ?? "unknown"),
-    summary: String(row?.summary ?? ""),
+    // ✅ build human message (no code)
+    summary: buildHumanMessage(row),
+
     risk: (row?.risk ?? "low") as AuditRisk,
     seen: Boolean(row?.seen),
     approval: (row?.approval ?? "pending") as AuditApproval,
 
+    // keep but do not render in UI
     targetType: row?.target_type ? String(row.target_type) : undefined,
     targetId: row?.target_id ? String(row.target_id) : undefined,
 
@@ -119,7 +130,7 @@ export default function AuditLogsPage() {
   const roleNormalized = useMemo(() => String(me?.role || "").toLowerCase(), [me?.role])
   const isAdmin = useMemo(() => roleNormalized === "admin", [roleNormalized])
 
-  const [logs, setLogs] = useState<AuditLog[]>([])
+  const [logs, setLogs] = useState<AuditLogUI[]>([])
   const [loading, setLoading] = useState(false)
 
   const [search, setSearch] = useState("")
@@ -156,13 +167,12 @@ export default function AuditLogsPage() {
       action: actionFilter !== "all" ? actionFilter : undefined,
       status: statusFilter !== "all" ? statusFilter : undefined,
       risk: highRiskOnly ? "high" : undefined,
-      // dateFilter: UI only (chưa map BE)
+      // dateFilter: UI only
     }
 
     setLoading(true)
     try {
       const res = await axios.get(endpoint, { params, withCredentials: true })
-
       const rows = Array.isArray(res.data?.rows) ? res.data.rows : []
       setLogs(rows.map(mapAuditRowToUI))
 
@@ -242,10 +252,7 @@ export default function AuditLogsPage() {
     try {
       setLoading(true)
       await axios.patch(endpoint, { adminNote: "" }, { withCredentials: true })
-
-      setLogs((prev) =>
-        prev.map((l) => (l.id === logId ? { ...l, approval: "approved" } : l)),
-      )
+      setLogs((prev) => prev.map((l) => (l.id === logId ? { ...l, approval: "approved" } : l)))
     } catch (err: any) {
       console.error("[AuditLogs] approve error", err?.response?.data || err?.message)
     } finally {
@@ -253,37 +260,32 @@ export default function AuditLogsPage() {
     }
   }
 
+  /** ✅ CSV: bỏ technical columns */
   const handleExportCSV = () => {
     const headers = [
-      "ID",
       "Time",
       "ReportCode",
       "Actor",
       "Email",
       "Role",
       "Action",
-      "Summary",
+      "Message",
       "Risk",
       "Seen",
       "Approval",
-      "TargetType",
-      "TargetID",
     ]
 
     const rows = logs.map((log) => [
-      log.id,
       log.time,
       safeStr(log.reportCode),
       log.actor.name,
       log.actor.email,
-      log.actor.role,
-      log.action,
+      prettyRole(log.actor.role),
+      prettyAction(log.action),
       log.summary,
       log.risk,
       log.seen ? "Yes" : "No",
       log.approval,
-      safeStr(log.targetType),
-      safeStr(log.targetId),
     ])
 
     const csv = [
@@ -316,7 +318,6 @@ export default function AuditLogsPage() {
 
   const getActionColor = (action: string) => {
     switch (action) {
-      // report
       case "approve":
       case "report_status_resolved":
         return "bg-green-100 text-green-800"
@@ -326,7 +327,6 @@ export default function AuditLogsPage() {
       case "hide_content":
         return "bg-orange-100 text-orange-800"
 
-      // comment/reply (BE mới)
       case "comment_hidden":
       case "reply_hidden":
         return "bg-orange-100 text-orange-800"
@@ -334,7 +334,6 @@ export default function AuditLogsPage() {
       case "reply_restored":
         return "bg-green-100 text-green-800"
 
-      // legacy
       case "delete_comment":
         return "bg-red-100 text-red-800"
       case "warn_user":
@@ -397,7 +396,7 @@ export default function AuditLogsPage() {
 
         {!isAdmin && (
           <p className="text-xs text-gray-500">
-            You are logged in as <b>{me?.role ?? "unknown"}</b>. Approve/Seen actions are admin-only.
+            You are logged in as <b>{prettyRole(me?.role ?? "unknown")}</b>. Approve/Seen actions are admin-only.
           </p>
         )}
 
@@ -466,7 +465,7 @@ export default function AuditLogsPage() {
             <div className="flex gap-4 flex-col lg:flex-row">
               <div className="flex-1">
                 <Input
-                  placeholder="Search by actor, email, report code, summary…"
+                  placeholder="Search by actor, email, report code, message…"
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value)
@@ -478,10 +477,7 @@ export default function AuditLogsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-              <Select
-                value={roleFilter}
-                onValueChange={(v) => (setRoleFilter(v), setCurrentPage(1))}
-              >
+              <Select value={roleFilter} onValueChange={(v) => (setRoleFilter(v), setCurrentPage(1))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Role" />
                 </SelectTrigger>
@@ -494,10 +490,7 @@ export default function AuditLogsPage() {
                 </SelectContent>
               </Select>
 
-              <Select
-                value={actionFilter}
-                onValueChange={(v) => (setActionFilter(v), setCurrentPage(1))}
-              >
+              <Select value={actionFilter} onValueChange={(v) => (setActionFilter(v), setCurrentPage(1))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Action" />
                 </SelectTrigger>
@@ -505,24 +498,21 @@ export default function AuditLogsPage() {
                   <SelectItem value="all">All Actions</SelectItem>
 
                   {/* report */}
-                  <SelectItem value="report_status_new">Status: New</SelectItem>
-                  <SelectItem value="report_status_in-progress">Status: In Progress</SelectItem>
-                  <SelectItem value="report_status_resolved">Status: Resolved</SelectItem>
-                  <SelectItem value="report_status_rejected">Status: Rejected</SelectItem>
-                  <SelectItem value="report_update">Report Update</SelectItem>
+                  <SelectItem value="report_status_new">Report · Status set to New</SelectItem>
+                  <SelectItem value="report_status_in-progress">Report · Status set to In Progress</SelectItem>
+                  <SelectItem value="report_status_resolved">Report · Resolved</SelectItem>
+                  <SelectItem value="report_status_rejected">Report · Rejected</SelectItem>
+                  <SelectItem value="report_update">Report · Updated</SelectItem>
 
                   {/* comment/reply */}
-                  <SelectItem value="comment_hidden">Comment: Hidden</SelectItem>
-                  <SelectItem value="comment_restored">Comment: Restored</SelectItem>
-                  <SelectItem value="reply_hidden">Reply: Hidden</SelectItem>
-                  <SelectItem value="reply_restored">Reply: Restored</SelectItem>
+                  <SelectItem value="comment_hidden">Comment · Hidden</SelectItem>
+                  <SelectItem value="comment_restored">Comment · Restored</SelectItem>
+                  <SelectItem value="reply_hidden">Reply · Hidden</SelectItem>
+                  <SelectItem value="reply_restored">Reply · Restored</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select
-                value={statusFilter}
-                onValueChange={(v) => (setStatusFilter(v), setCurrentPage(1))}
-              >
+              <Select value={statusFilter} onValueChange={(v) => (setStatusFilter(v), setCurrentPage(1))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -535,10 +525,7 @@ export default function AuditLogsPage() {
                 </SelectContent>
               </Select>
 
-              <Select
-                value={dateFilter}
-                onValueChange={(v) => (setDateFilter(v), setCurrentPage(1))}
-              >
+              <Select value={dateFilter} onValueChange={(v) => (setDateFilter(v), setCurrentPage(1))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Date" />
                 </SelectTrigger>
@@ -575,7 +562,7 @@ export default function AuditLogsPage() {
                     <TableHead className="text-xs font-semibold">Report Code</TableHead>
                     <TableHead className="text-xs font-semibold">Actor</TableHead>
                     <TableHead className="text-xs font-semibold">Action</TableHead>
-                    <TableHead className="text-xs font-semibold">Summary</TableHead>
+                    <TableHead className="text-xs font-semibold">Message</TableHead>
                     <TableHead className="text-xs font-semibold">Risk</TableHead>
                     <TableHead className="text-xs font-semibold">Status</TableHead>
                     <TableHead className="text-xs font-semibold">Approval</TableHead>
@@ -627,22 +614,17 @@ export default function AuditLogsPage() {
                                 variant="outline"
                                 className={`text-xs mt-1 ${getRoleColor(log.actor.role)}`}
                               >
-                                {log.actor.role.replaceAll("_", " ")}
+                                {prettyRole(log.actor.role)}
                               </Badge>
 
-                              {(log.targetType || log.targetId) && (
-                                <p className="text-[11px] text-gray-500 mt-1">
-                                  Target: {log.targetType ?? "—"} /{" "}
-                                  <span className="font-mono">{log.targetId ?? "—"}</span>
-                                </p>
-                              )}
+                              {/* ✅ removed target id/type from UI */}
                             </div>
                           </div>
                         </TableCell>
 
                         <TableCell>
                           <Badge className={`text-xs ${getActionColor(log.action)}`}>
-                            {log.action.replaceAll("_", " ")}
+                            {prettyAction(log.action)}
                           </Badge>
                         </TableCell>
 

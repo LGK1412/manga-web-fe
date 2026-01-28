@@ -1,5 +1,7 @@
 "use client"
 
+// src/app/admin/audit-logs/log-details/[id]/page.tsx
+
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import axios from "axios"
@@ -26,13 +28,22 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 
+import {
+  buildHumanMessage,
+  normalizeDiff,
+  prettyAction,
+  prettyFieldLabel,
+  prettyFieldValue,
+  prettyRole,
+} from "@/lib/audit-ui"
+
 type Me = {
   userId?: string
   email?: string
   role?: string
 }
 
-/** ✅ Helper: render value giống ReportModal (multiline friendly) */
+/** ✅ Helper: render value multiline friendly */
 function ValueView({ value }: { value: any }) {
   if (value === null || value === undefined) {
     return <p className="text-xs text-gray-500">—</p>
@@ -40,11 +51,7 @@ function ValueView({ value }: { value: any }) {
 
   if (typeof value === "string") {
     return (
-      <Textarea
-        value={value}
-        readOnly
-        className="text-xs min-h-[120px] resize-none bg-white"
-      />
+      <Textarea value={value} readOnly className="text-xs min-h-[120px] resize-none bg-white" />
     )
   }
 
@@ -62,17 +69,17 @@ function ValueView({ value }: { value: any }) {
   )
 }
 
-/** ✅ Helper: render object fields theo dạng form */
+/** ✅ Helper: render object fields theo dạng form (label hoá + allowlist) */
 function DiffObjectView({ obj }: { obj: Record<string, any> }) {
   const keys = Object.keys(obj || {})
-  if (!keys.length) return <p className="text-sm text-gray-500">No data.</p>
+  if (!keys.length) return <p className="text-sm text-gray-500">—</p>
 
   return (
     <div className="space-y-3">
       {keys.map((k) => (
         <div key={k} className="space-y-1">
-          <p className="text-xs font-semibold text-gray-700">{k}</p>
-          <ValueView value={obj[k]} />
+          <p className="text-xs font-semibold text-gray-700">{prettyFieldLabel(k)}</p>
+          <ValueView value={prettyFieldValue(k, obj[k])} />
         </div>
       ))}
     </div>
@@ -93,10 +100,7 @@ export default function AuditLogDetailsPage() {
   const [error, setError] = useState<string | null>(null)
 
   /** ✅ role normalized */
-  const roleNormalized = useMemo(() => {
-    return String(me?.role || "").toLowerCase()
-  }, [me?.role])
-
+  const roleNormalized = useMemo(() => String(me?.role || "").toLowerCase(), [me?.role])
   const isAdmin = useMemo(() => roleNormalized === "admin", [roleNormalized])
 
   const actorName = log?.actor_id?.username || log?.actor_name || "System"
@@ -131,9 +135,7 @@ export default function AuditLogDetailsPage() {
     if (!API) return
     try {
       setMeError(null)
-      const res = await axios.get(`${API}/api/auth/me`, {
-        withCredentials: true,
-      })
+      const res = await axios.get(`${API}/api/auth/me`, { withCredentials: true })
       setMe(res.data)
     } catch (err: any) {
       const msg =
@@ -141,7 +143,6 @@ export default function AuditLogDetailsPage() {
         err?.response?.data?.error ||
         err?.message ||
         "Cannot fetch /me"
-
       console.error("[ME] FETCH ERROR:", err?.response?.data || err?.message)
       setMe(null)
       setMeError(msg)
@@ -153,9 +154,7 @@ export default function AuditLogDetailsPage() {
     if (!API || !id) return
     try {
       setError(null)
-      const res = await axios.get(`${API}/api/audit-logs/${id}`, {
-        withCredentials: true,
-      })
+      const res = await axios.get(`${API}/api/audit-logs/${id}`, { withCredentials: true })
       setLog(res.data)
       setAdminNote(res.data?.adminNote ?? "")
     } catch (err: any) {
@@ -218,11 +217,7 @@ export default function AuditLogDetailsPage() {
 
     try {
       setLoading(true)
-      const res = await axios.patch(
-        `${API}/api/audit-logs/${id}/seen`,
-        {},
-        { withCredentials: true },
-      )
+      const res = await axios.patch(`${API}/api/audit-logs/${id}/seen`, {}, { withCredentials: true })
       setLog(res.data)
       toast.success("Marked as seen")
     } catch (err: any) {
@@ -278,12 +273,16 @@ export default function AuditLogDetailsPage() {
     )
   }
 
-  const beforeObj: Record<string, any> = log?.before || {}
-  const afterObj: Record<string, any> = log?.after || {}
-
+  // ✅ hide technical id from UI (but keep to navigate internally)
   const targetType = log?.target_type ? String(log.target_type) : "—"
-  const targetId = log?.target_id ? String(log.target_id) : "—"
   const reportCode = log?.reportCode ? String(log.reportCode) : "—"
+
+  // ✅ allowlist diff fields + label hoá
+  const beforeObj: Record<string, any> = normalizeDiff(log, log?.before || {})
+  const afterObj: Record<string, any> = normalizeDiff(log, log?.after || {})
+
+  const canOpenReport =
+    String(log?.target_type || "").toLowerCase() === "report" && Boolean(log?.target_id)
 
   return (
     <AdminLayout>
@@ -307,22 +306,25 @@ export default function AuditLogDetailsPage() {
               </Badge>
             </div>
 
+            {/* ✅ show Report Code (allowed), no log id */}
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <span className="font-mono text-xs bg-gray-50 border px-2 py-1 rounded">
-                {String(log?._id || id)}
+                {reportCode}
               </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => copyText(String(log?._id || id))}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
+              {reportCode !== "—" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => copyText(reportCode)}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              )}
             </div>
 
             <div className="text-xs text-gray-500">
-              Logged in as <b className="text-gray-800">{roleNormalized || "unknown"}</b>
+              Logged in as <b className="text-gray-800">{prettyRole(roleNormalized || "unknown")}</b>
               {meError && <span className="ml-2 text-red-600">(me API error: {meError})</span>}
             </div>
           </div>
@@ -346,7 +348,7 @@ export default function AuditLogDetailsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                   <div>
                     <p className="text-xs text-gray-500">Action</p>
-                    <Badge className="mt-1">{String(log.action)}</Badge>
+                    <Badge className="mt-1">{prettyAction(log.action)}</Badge>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Time</p>
@@ -359,25 +361,32 @@ export default function AuditLogDetailsPage() {
                     <p className="text-xs text-gray-500">Report Code</p>
                     <p className="mt-1 font-mono text-xs">{reportCode}</p>
                   </div>
+
                   <div>
-                    <p className="text-xs text-gray-500">Target Type</p>
-                    <p className="mt-1 font-medium">{targetType}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Target ID</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="font-mono text-xs bg-gray-50 border px-2 py-1 rounded">
-                        {targetId}
-                      </span>
+                    <p className="text-xs text-gray-500">Target</p>
+                    <p className="mt-1 font-medium">
+                      {String(targetType || "—").replaceAll("_", " ")}
+                      {reportCode !== "—" ? ` • ${reportCode}` : ""}
+                    </p>
+
+                    {/* ✅ open report but do NOT show target_id */}
+                    {canOpenReport && (
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => copyText(String(targetId))}
-                        disabled={!log?.target_id}
+                        size="sm"
+                        variant="outline"
+                        className="mt-2"
+                        onClick={() => router.push(`/admin/reports/${log.target_id}`)}
                       >
-                        <Copy className="h-4 w-4" />
+                        Open Report
                       </Button>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500">Status</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge className={seenBadge}>{log.seen ? "Seen" : "Unseen"}</Badge>
+                      <Badge className={approvalBadge}>{String(log.approval ?? "pending")}</Badge>
                     </div>
                   </div>
                 </div>
@@ -386,9 +395,7 @@ export default function AuditLogDetailsPage() {
 
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Message</p>
-                  <p className="text-sm text-gray-800 leading-relaxed">
-                    {String(log.summary ?? "—")}
-                  </p>
+                  <p className="text-sm text-gray-800 leading-relaxed">{buildHumanMessage(log)}</p>
                 </div>
 
                 {log?.note && (
@@ -412,24 +419,18 @@ export default function AuditLogDetailsPage() {
 
               <CardContent>
                 <Tabs defaultValue="overview" className="w-full">
-                  <TabsList className="grid grid-cols-4 w-full">
+                  <TabsList className="grid grid-cols-3 w-full">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="diff">Before/After</TabsTrigger>
                     <TabsTrigger value="evidence">Evidence</TabsTrigger>
-                    <TabsTrigger value="raw">Raw JSON</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="overview" className="mt-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Badge className={seenBadge}>{log.seen ? "Seen" : "Unseen"}</Badge>
-                      <Badge className={approvalBadge}>{String(log.approval ?? "pending")}</Badge>
-                    </div>
-
                     <div className="text-sm text-gray-600">
                       <p>
                         <span className="text-gray-500">Actor:</span>{" "}
                         <span className="font-medium text-gray-900">{actorName}</span>{" "}
-                        <span className="text-gray-400">({actorRole})</span>
+                        <span className="text-gray-400">({prettyRole(actorRole)})</span>
                       </p>
                       <p className="text-xs">{actorEmail}</p>
                     </div>
@@ -457,7 +458,7 @@ export default function AuditLogDetailsPage() {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-500 mt-3">No before/after data.</p>
+                      <p className="text-sm text-gray-500 mt-3">—</p>
                     )}
                   </TabsContent>
 
@@ -467,21 +468,17 @@ export default function AuditLogDetailsPage() {
                         {log.evidenceImages.map((src: string, idx: number) => (
                           <div key={idx} className="border rounded-lg overflow-hidden bg-white">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={src} alt={`evidence-${idx}`} className="w-full h-32 object-cover" />
+                            <img
+                              src={src}
+                              alt={`evidence-${idx}`}
+                              className="w-full h-32 object-cover"
+                            />
                           </div>
                         ))}
                       </div>
                     ) : (
                       <p className="text-sm text-gray-500">No evidence attached.</p>
                     )}
-                  </TabsContent>
-
-                  <TabsContent value="raw" className="mt-4">
-                    <ScrollArea className="h-80 border rounded-lg p-3 bg-gray-50">
-                      <pre className="text-xs text-gray-800 whitespace-pre-wrap break-words">
-                        {JSON.stringify(log, null, 2)}
-                      </pre>
-                    </ScrollArea>
                   </TabsContent>
                 </Tabs>
               </CardContent>
@@ -512,7 +509,7 @@ export default function AuditLogDetailsPage() {
                   <p className="font-semibold text-sm">{actorName}</p>
                   <p className="text-xs text-gray-500">{actorEmail}</p>
                   <Badge variant="outline" className="mt-2 text-xs">
-                    {actorRole}
+                    {prettyRole(actorRole)}
                   </Badge>
                 </div>
               </CardContent>
@@ -528,13 +525,7 @@ export default function AuditLogDetailsPage() {
                   value={adminNote}
                   onChange={(e) => setAdminNote(e.target.value)}
                   disabled={loading || !isAdmin}
-                  placeholder={
-                    !isAdmin
-                      ? "Admin only"
-                      : meError
-                        ? "⚠ Cannot verify role (/me 403), backend will decide..."
-                        : "Write admin note..."
-                  }
+                  placeholder={!isAdmin ? "Admin only" : "Write admin note..."}
                 />
                 <p className="text-xs text-gray-500">
                   * Quyền thật sẽ do backend quyết định khi Approve/Seen.
