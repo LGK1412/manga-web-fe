@@ -252,6 +252,12 @@ export default function AuthorDashboard() {
                     Create Story
                   </Button>
                 </Link>
+                <Link href="/author/license" className="flex-1 sm:flex-none">
+                  <Button className="w-full sm:w-auto gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+                    <Plus className="w-4 h-4" />
+                    Upload License
+                  </Button>
+                </Link>
                 <Link href="/author/static" className="flex-1 sm:flex-none">
                   <Button
                     variant="outline"

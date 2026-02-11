@@ -20,6 +20,7 @@ import {
   PanelRight,
   Banknote,
   FileCheck,
+  FileText
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -140,6 +141,14 @@ const menuItems: MenuItem[] = [
     icon: FileCheck,
     href: "/admin/audit-logs",
   },
+  {
+    kind: "link",
+    id: "license-management",
+    label: "License Management",
+    icon: FileText,
+    href: "/admin/license-management"
+  },
+
   // {
   //   kind: "link",
   //   id: "logs",
@@ -189,9 +198,8 @@ export default function AdminLayout({
       <div className="flex flex-1 pt-16">
         {/* Sidebar */}
         <aside
-          className={`shadow-lg border-r transition-all duration-300 ${
-            open ? "w-64" : "w-16"
-          } flex flex-col`}
+          className={`shadow-lg border-r transition-all duration-300 ${open ? "w-64" : "w-16"
+            } flex flex-col`}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b">
@@ -220,9 +228,8 @@ export default function AdminLayout({
                 return (
                   <div key={item.id} className="space-y-1">
                     <div
-                      className={`flex items-center ${
-                        open ? "gap-3 px-3 justify-start" : "justify-center"
-                      } py-2 rounded-lg text-sm font-medium`}
+                      className={`flex items-center ${open ? "gap-3 px-3 justify-start" : "justify-center"
+                        } py-2 rounded-lg text-sm font-medium`}
                       title={!open ? item.label : ""}
                     >
                       <Icon
@@ -242,10 +249,9 @@ export default function AdminLayout({
                               key={s.href}
                               href={s.href}
                               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm 
-                                ${
-                                  active
-                                    ? "bg-blue-50 text-blue-700"
-                                    : hoverClass
+                                ${active
+                                  ? "bg-blue-50 text-blue-700"
+                                  : hoverClass
                                 }`}
                             >
                               {SubIcon && (
@@ -268,9 +274,8 @@ export default function AdminLayout({
                 <Link
                   key={item.id}
                   href={item.href}
-                  className={`flex items-center ${
-                    open ? "gap-3 px-3 justify-start" : "justify-center"
-                  } py-2 rounded-lg text-sm font-medium transition-colors
+                  className={`flex items-center ${open ? "gap-3 px-3 justify-start" : "justify-center"
+                    } py-2 rounded-lg text-sm font-medium transition-colors
                     ${active ? "bg-blue-100 text-blue-700" : hoverClass}`}
                   title={!open ? item.label : ""}
                 >
