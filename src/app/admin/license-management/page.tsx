@@ -95,8 +95,16 @@ export default function LicenseManagementPage() {
     return `${process.env.NEXT_PUBLIC_API_URL}/${filePath}`
   }
 
-  const currentFile = selectedLicense?.licenseFiles[selectedFileIndex]
-  const isCurrentFilePdf = currentFile?.endsWith(".pdf")
+  // ✅ FIX TYPE SAFE CURRENT FILE
+  const currentFile =
+    selectedLicense &&
+    selectedLicense.licenseFiles.length > 0 &&
+    selectedFileIndex < selectedLicense.licenseFiles.length
+      ? selectedLicense.licenseFiles[selectedFileIndex]
+      : undefined
+
+  const isCurrentFilePdf =
+    typeof currentFile === "string" && currentFile.endsWith(".pdf")
 
   useEffect(() => {
     fetchLicenses()
@@ -242,14 +250,18 @@ export default function LicenseManagementPage() {
                           <div className="border rounded-lg bg-gray-50 p-4 min-h-[400px] flex items-center justify-center overflow-auto">
                             {isCurrentFilePdf ? (
                               <iframe
-                                src={`${getFileUrl(currentFile)}#toolbar=1&navpanes=0&scrollbar=1`}
+                                src={
+                                  currentFile
+                                    ? `${getFileUrl(currentFile)}#toolbar=1&navpanes=0&scrollbar=1`
+                                    : ""
+                                }
                                 className="w-full h-[500px] rounded"
-                                title={`PDF - ${currentFile}`}
+                                title={`PDF - ${currentFile ?? ""}`}
                               />
                             ) : (
                               <img
-                                src={getFileUrl(currentFile || "")}
-                                alt={currentFile}
+                                src={currentFile ? getFileUrl(currentFile) : ""}
+                                alt={currentFile ?? ""}
                                 className="max-w-full max-h-[500px] rounded"
                               />
                             )}
@@ -313,7 +325,7 @@ export default function LicenseManagementPage() {
 
                           {/* Download Link */}
                           <a
-                            href={getFileUrl(currentFile || "")}
+                            href={currentFile ? getFileUrl(currentFile) : "#"}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-block"
