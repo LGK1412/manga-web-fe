@@ -417,7 +417,9 @@ export default function UserManagement() {
     selectedUser?.role === "user" || selectedUser?.role === "author";
 
   const canAdminEditStaffStatus =
-    selectedUser?.role === "content_moderator" || selectedUser?.role === "community_manager";
+  selectedUser?.role === "content_moderator" ||
+  selectedUser?.role === "community_manager" ||
+  selectedUser?.role === "financial_manager";
 
   const canAdminResetUserAuthor =
     isAdmin && isTargetUserOrAuthor && selectedUser?.status !== "Normal";
@@ -756,11 +758,11 @@ export default function UserManagement() {
                         </SelectContent>
                       </Select>
 
-                      {!canAdminEditStaffStatus && (
-                        <p className="text-xs text-muted-foreground">
-                          * Admin không ban/mute user/author. Ban/mute user/author do Content/Commu thực hiện. Admin chỉ reset về Normal khi đã bị xử lý.
-                        </p>
-                      )}
+                      <p className="text-xs text-muted-foreground">
+  * Admin không ban/mute user/author. Ban/mute user/author do Content Moderator / Community Manager thực hiện.
+  Admin chỉ kỷ luật staff gồm Content Moderator, Community Manager, Financial Manager
+  và chỉ reset user/author về Normal khi đã bị xử lý.
+</p>
 
                       {canAdminResetUserAuthor && (
                         <div className="mt-3 space-y-2 rounded-md border p-3">
