@@ -17,7 +17,7 @@ import {
   DotSquare as LogSquare,
   CheckCircle2,
   ListTodo,
-  PanelRight,
+  Book,
   Banknote,
   FileCheck,
   FileText
@@ -170,6 +170,7 @@ const menuItems: MenuItem[] = [
       // },
     ],
   },
+  { kind: "link",id: "manga", label: "Manga Management", icon: Book, href: "/admin/manga" },
 ];
 
 export default function AdminLayout({
