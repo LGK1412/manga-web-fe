@@ -20,7 +20,7 @@ import {
   Book,
   Banknote,
   FileCheck,
-  FileText
+  FileText, PanelRight
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -148,14 +148,6 @@ const menuItems: MenuItem[] = [
     icon: FileText,
     href: "/admin/license-management"
   },
-
-  // {
-  //   kind: "link",
-  //   id: "logs",
-  //   label: "Logs",
-  //   icon: LogSquare,
-  //   href: "/admin/logs",
-  // },
   {
     kind: "group",
     id: "moderation",
@@ -163,11 +155,11 @@ const menuItems: MenuItem[] = [
     icon: CheckCircle2,
     submenu: [
       { label: "Queue", href: "/admin/moderation/queue", icon: ListTodo },
-      // {
-      //   label: "Workspace",
-      //   href: "/admin/moderation/workspace",
-      //   icon: PanelRight,
-      // },
+      {
+        label: "Workspace",
+        href: "/admin/moderation/workspace",
+        icon: PanelRight,
+      },
     ],
   },
   { kind: "link",id: "manga", label: "Manga Management", icon: Book, href: "/admin/manga" },

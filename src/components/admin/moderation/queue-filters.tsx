@@ -1,25 +1,44 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
-import { Search, X } from "lucide-react"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Search, X } from "lucide-react";
+import type { AIStatus } from "@/lib/typesLogs";
 
 interface QueueFiltersProps {
-  onFiltersChange: (filters: any) => void
+  onFiltersChange: (filters: {
+    search: string;
+    status: AIStatus | null;
+    riskRange: [number, number];
+  }) => void;
 }
 
 export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
-  const [search, setSearch] = useState("")
-  const [status, setStatus] = useState("all")
-  const [riskRange, setRiskRange] = useState([0, 100])
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<"all" | AIStatus>("all");
+  const [riskRange, setRiskRange] = useState<[number, number]>([0, 100]);
 
-  const handleFilterChange = () => {
-    onFiltersChange({ search, status: status !== "all" ? status : null, riskRange })
-  }
+  const emitFilters = (
+    nextSearch = search,
+    nextStatus: "all" | AIStatus = status,
+    nextRiskRange: [number, number] = riskRange
+  ) => {
+    onFiltersChange({
+      search: nextSearch,
+      status: nextStatus === "all" ? null : nextStatus,
+      riskRange: nextRiskRange,
+    });
+  };
 
   return (
     <Card className="p-4 space-y-4">
@@ -29,8 +48,9 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
           placeholder="Search by title, author, or chapter ID..."
           value={search}
           onChange={(e) => {
-            setSearch(e.target.value)
-            handleFilterChange()
+            const value = e.target.value;
+            setSearch(value);
+            emitFilters(value, status, riskRange);
           }}
           className="flex-1"
         />
@@ -42,8 +62,9 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
           <Select
             value={status}
             onValueChange={(value) => {
-              setStatus(value)
-              handleFilterChange()
+              const nextStatus = value as "all" | AIStatus;
+              setStatus(nextStatus);
+              emitFilters(search, nextStatus, riskRange);
             }}
           >
             <SelectTrigger>
@@ -69,8 +90,9 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
             step={5}
             value={riskRange}
             onValueChange={(value) => {
-              setRiskRange(value as [number, number])
-              handleFilterChange()
+              const nextRange: [number, number] = [value[0], value[1]];
+              setRiskRange(nextRange);
+              emitFilters(search, status, nextRange);
             }}
             className="w-full"
           />
@@ -80,10 +102,19 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
           <Button
             variant="outline"
             onClick={() => {
-              setSearch("")
-              setStatus("all")
-              setRiskRange([0, 100])
-              onFiltersChange({ search: "", status: null, riskRange: [0, 100] })
+              const resetSearch = "";
+              const resetStatus: "all" = "all";
+              const resetRange: [number, number] = [0, 100];
+
+              setSearch(resetSearch);
+              setStatus(resetStatus);
+              setRiskRange(resetRange);
+
+              onFiltersChange({
+                search: resetSearch,
+                status: null,
+                riskRange: resetRange,
+              });
             }}
           >
             <X className="w-4 h-4 mr-1" />
@@ -92,5 +123,5 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
         </div>
       </div>
     </Card>
-  )
+  );
 }

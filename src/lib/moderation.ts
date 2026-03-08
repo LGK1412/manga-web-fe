@@ -1,95 +1,88 @@
-// lib/moderation.ts
 import axios from "axios";
-import type { AIStatus, QueueItem, ModerationRecord, Decision } from "./typesLogs";
+import type { AIStatus, Decision, ModerationRecord, QueueItem } from "@/lib/typesLogs";
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL, // KHÔNG thêm /api ở đây
-  withCredentials: true,                    // dùng cookie access_token
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
+  withCredentials: true,
 });
 
-// ---- MAPPERS (BE -> FE) ----
-const mapQueueRow = (r: any): QueueItem => ({
-  chapterId: r.chapter_id?.toString?.() ?? r.chapter_id ?? "",
-  title: r.chapterTitle ?? r.title ?? "-",
-  author: r.authorName ?? r.author ?? "-",
-  risk_score: r.risk_score ?? 0,
-  ai_status: r.status as AIStatus,
-  labels: r.labels ?? [],
-  updatedAt: r.updatedAt ?? r.createdAt ?? new Date().toISOString(),
-});
+type QueueApiRow = {
+  chapter_id: string;
+  status: AIStatus;
+  risk_score: number;
+  labels: string[];
+  updatedAt: string;
+  chapterTitle: string;
+  authorName: string;
+};
 
-export const mapModerationRecord = (r: any): ModerationRecord => ({
-  chapterId: r.chapter_id?.toString?.() ?? r.chapterId ?? "",
-  ai_status: r.status as AIStatus,
-  risk_score: r.risk_score ?? 0,
-  labels: r.labels ?? [],
-  policy_version: r.policy_version ?? "1.0.0",
-  ai_findings: (r.ai_findings ?? []).map((f: any) => ({
-    sectionId: f.sectionId ?? f.policy ?? "general",
-    verdict: f.verdict ?? "warn",
-    rationale: f.rationale ?? f.reason ?? "",
-  })),
-  ai_model: r.ai_model ?? undefined,
-  updatedAt: r.updatedAt ?? new Date().toISOString(),
+type RecordApiRow = {
+  chapter_id: string;
+  status: AIStatus;
+  risk_score: number;
+  labels: string[];
+  policy_version: string;
+  ai_findings: ModerationRecord["ai_findings"];
+  ai_model?: string;
+  updatedAt: string;
+  chapterTitle?: string;
+  authorName?: string;
+  contentHtml?: string;
+};
 
-  // 👇 Quan trọng: map thêm các optional field cho Workspace
-  chapterTitle: r.chapterTitle ?? r.title,    // BE record đang trả chapterTitle
-  authorName: r.authorName ?? r.author,       // record hiện CHƯA trả — sẽ fallback bên dưới
-  contentHtml: r.contentHtml ?? r.html ?? r.content, // nếu BE có trả
-});
+export async function fetchQueue(params?: { status?: AIStatus | null }): Promise<QueueItem[]> {
+  const res = await api.get("/moderation/queue", {
+    params: params?.status ? { status: params.status } : {},
+  });
 
-// ---- API CALLS ----
+  const rows: QueueApiRow[] = Array.isArray(res.data) ? res.data : [];
 
-// Hàng chờ moderation
-export async function fetchQueue(params?: { status?: AIStatus; limit?: number }) {
-  const res = await api.get("/moderation/queue", { params });
-  return (res.data ?? []).map(mapQueueRow) as QueueItem[];
+  return rows.map((row) => ({
+    chapterId: row.chapter_id,
+    title: row.chapterTitle || "Untitled",
+    author: row.authorName || "-",
+    risk_score: Number(row.risk_score ?? 0),
+    ai_status: row.status ?? "AI_PENDING",
+    labels: Array.isArray(row.labels) ? row.labels : [],
+    updatedAt: row.updatedAt,
+  }));
 }
 
-// Lấy record moderation 1 chương (xem Workspace)
-// 👉 yêu cầu BE có endpoint này; nếu chưa có, tạm fallback đọc queue rồi find theo chapterId
-export async function fetchModerationRecord(chapterId: string) {
-  // Lấy record chính
+export async function fetchModerationRecord(chapterId: string): Promise<ModerationRecord> {
   const res = await api.get(`/moderation/record/${chapterId}`);
-  let rec = mapModerationRecord(res.data);
+  const row: RecordApiRow = res.data;
 
-  // Fallback: nếu thiếu title/author thì lấy từ hàng chờ (queue)
-  if (!rec.chapterTitle || !rec.authorName) {
-    try {
-      const q = await fetchQueue(); // đã map QueueItem { title, author, ...}
-      const hit = q.find(r => r.chapterId === chapterId);
-      if (hit) {
-        rec = {
-          ...rec,
-          chapterTitle: rec.chapterTitle ?? hit.title,
-          authorName: rec.authorName ?? hit.author,
-        };
-      }
-    } catch { /* kệ – best effort */ }
-  }
-
-  return rec;
+  return {
+    chapterId: row.chapter_id,
+    ai_status: row.status ?? "AI_PENDING",
+    risk_score: Number(row.risk_score ?? 0),
+    labels: Array.isArray(row.labels) ? row.labels : [],
+    policy_version: row.policy_version ?? "",
+    ai_findings: Array.isArray(row.ai_findings) ? row.ai_findings : [],
+    ai_model: row.ai_model,
+    updatedAt: row.updatedAt,
+    chapterTitle: row.chapterTitle ?? "Untitled",
+    authorName: row.authorName ?? "-",
+    contentHtml: row.contentHtml ?? "",
+  };
 }
 
-// Quyết định của admin
-export async function decideModeration(chapterId: string, action: Decision, note?: string) {
-  return api.post("/moderation/decide", { chapterId, action, note });
+export async function decideModeration(
+  chapterId: string,
+  action: Decision,
+  note?: string
+) {
+  const res = await api.post("/moderation/decide", {
+    chapterId,
+    action,
+    note,
+  });
+  return res.data;
 }
 
-// Yêu cầu chạy lại AI
-export async function recheckModeration(chapterId: string, opts?: { policyVersion?: string; contentHash?: string }) {
-  return api.post("/moderation/recheck", { chapterId, ...opts });
-}
-
-// Invalidate khi nội dung đã sửa (tắt kết quả AI cũ)
-export async function invalidateAi(chapterId: string, contentHash: string) {
-  return api.patch("/moderation/invalidate", { chapterId, contentHash });
-}
-
-// (giữ nguyên) Lấy policy TERM/posting cho FE
-export async function fetchPostingPolicies() {
-  const res = await api.get("/api/policies", { params: { mainType: "TERM" } });
-  return (res.data ?? []).filter(
-    (p: any) => p.subCategory === "posting" && p.status === "Active" && p.isPublic
-  );
+export async function recheckModeration(chapterId: string) {
+  const res = await api.post("/moderation/recheck", {
+    chapterId,
+  });
+  return res.data;
 }
