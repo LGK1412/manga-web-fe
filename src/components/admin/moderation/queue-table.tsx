@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { RiskMeter } from "./risk-meter";
 import { StatusBadge } from "./status-badge";
 import type { QueueItem } from "@/lib/typesLogs";
-import { Eye, Edit } from "lucide-react";
+import { Eye, Mail } from "lucide-react";
 import Link from "next/link";
 
 interface QueueTableProps {
@@ -45,6 +45,7 @@ export function QueueTable({ items, onSelect, onAction, loading }: QueueTablePro
               />
             </TableHead>
             <TableHead>Chapter</TableHead>
+            <TableHead>Manga</TableHead>
             <TableHead>Author</TableHead>
             <TableHead>Risk Score</TableHead>
             <TableHead>AI Status</TableHead>
@@ -67,6 +68,7 @@ export function QueueTable({ items, onSelect, onAction, loading }: QueueTablePro
                 </TableCell>
 
                 <TableCell className="font-medium">{item.title}</TableCell>
+                <TableCell>{item.mangaTitle}</TableCell>
                 <TableCell>{item.author}</TableCell>
 
                 <TableCell>
@@ -74,7 +76,6 @@ export function QueueTable({ items, onSelect, onAction, loading }: QueueTablePro
                 </TableCell>
 
                 <TableCell>
-                  {/* Fallback để không crash nếu ai_status chưa có */}
                   <StatusBadge status={item.ai_status ?? "AI_PENDING"} />
                 </TableCell>
 
@@ -102,14 +103,12 @@ export function QueueTable({ items, onSelect, onAction, loading }: QueueTablePro
                         <Eye className="w-4 h-4" />
                       </Button>
                     </Link>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => onAction(item.chapterId, "approve")}
-                      title="Approve"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
+
+                    <Link href={`/admin/notifications/send-policy?chapterId=${item.chapterId}`}>
+  <Button size="sm" variant="ghost" title="Send Policy Notification">
+    <Mail className="w-4 h-4" />
+  </Button>
+</Link>
                   </div>
                 </TableCell>
               </TableRow>
@@ -117,7 +116,7 @@ export function QueueTable({ items, onSelect, onAction, loading }: QueueTablePro
 
           {items.length === 0 && !loading && (
             <TableRow>
-              <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+              <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
                 No items
               </TableCell>
             </TableRow>

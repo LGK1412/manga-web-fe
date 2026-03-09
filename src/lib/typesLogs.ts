@@ -4,7 +4,9 @@ export type Decision = "approve" | "reject" | "request_changes";
 export interface QueueItem {
   chapterId: string;
   title: string;
+  mangaTitle: string;
   author: string;
+  authorEmail?: string;
   risk_score: number;
   ai_status: AIStatus;
   labels: string[];
@@ -26,7 +28,10 @@ export interface ModerationRecord {
   ai_findings: Finding[];
   ai_model?: string;
   updatedAt: string;
+
   chapterTitle?: string;
+  mangaTitle?: string;
   authorName?: string;
+  authorEmail?: string;
   contentHtml?: string;
 }

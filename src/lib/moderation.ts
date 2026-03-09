@@ -13,7 +13,9 @@ type QueueApiRow = {
   labels: string[];
   updatedAt: string;
   chapterTitle: string;
+  mangaTitle: string;
   authorName: string;
+  authorEmail?: string;
 };
 
 type RecordApiRow = {
@@ -26,7 +28,9 @@ type RecordApiRow = {
   ai_model?: string;
   updatedAt: string;
   chapterTitle?: string;
+  mangaTitle?: string;
   authorName?: string;
+  authorEmail?: string;
   contentHtml?: string;
 };
 
@@ -40,7 +44,9 @@ export async function fetchQueue(params?: { status?: AIStatus | null }): Promise
   return rows.map((row) => ({
     chapterId: row.chapter_id,
     title: row.chapterTitle || "Untitled",
+    mangaTitle: row.mangaTitle || "-",
     author: row.authorName || "-",
+    authorEmail: row.authorEmail || "",
     risk_score: Number(row.risk_score ?? 0),
     ai_status: row.status ?? "AI_PENDING",
     labels: Array.isArray(row.labels) ? row.labels : [],
@@ -62,7 +68,9 @@ export async function fetchModerationRecord(chapterId: string): Promise<Moderati
     ai_model: row.ai_model,
     updatedAt: row.updatedAt,
     chapterTitle: row.chapterTitle ?? "Untitled",
+    mangaTitle: row.mangaTitle ?? "-",
     authorName: row.authorName ?? "-",
+    authorEmail: row.authorEmail ?? "",
     contentHtml: row.contentHtml ?? "",
   };
 }

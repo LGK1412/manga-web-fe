@@ -50,12 +50,14 @@ export default function ModerationQueuePage() {
 
     return data.filter((item) => {
       const title = item.title?.toLowerCase?.() || "";
+      const mangaTitle = item.mangaTitle?.toLowerCase?.() || "";
       const author = item.author?.toLowerCase?.() || "";
       const chapterId = item.chapterId?.toLowerCase?.() || "";
 
       const matchesSearch =
         !s ||
         title.includes(s) ||
+        mangaTitle.includes(s) ||
         author.includes(s) ||
         chapterId.includes(s);
 

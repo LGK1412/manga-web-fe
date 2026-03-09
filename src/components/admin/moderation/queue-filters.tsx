@@ -45,7 +45,7 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
       <div className="flex items-center gap-2">
         <Search className="w-4 h-4 text-muted-foreground" />
         <Input
-          placeholder="Search by title, author, or chapter ID..."
+          placeholder="Search by chapter, manga, author, or chapter ID..."
           value={search}
           onChange={(e) => {
             const value = e.target.value;
