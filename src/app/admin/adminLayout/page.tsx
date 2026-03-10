@@ -271,7 +271,7 @@ export default function AdminLayout({
             {open && (
               <div className="flex items-center gap-2">
                 <Shield className="h-6 w-6 text-red-600" />
-                <span className="font-bold text-lg">Admin Tool</span>
+                <span className="font-bold text-lg">Staff Tool</span>
               </div>
             )}
             <Button

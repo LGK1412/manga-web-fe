@@ -68,6 +68,122 @@ type LicenseQueueResponse = {
   stats: Record<MangaLicenseStatus, number>
 }
 
+function normalizePath(path?: string) {
+  if (!path) return ""
+  return path
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^public\//, "")
+    .replace(/^\/+/, "")
+}
+
+function isAbsoluteUrl(path: string) {
+  return /^https?:\/\//i.test(path)
+}
+
+function getAssetCandidates(baseUrl: string, filePath?: string, fallbackFolder?: string) {
+  const cleaned = normalizePath(filePath)
+  if (!cleaned) return []
+
+  if (isAbsoluteUrl(cleaned)) return [cleaned]
+
+  const base = (baseUrl || "").replace(/\/+$/, "")
+
+  const candidates = new Set<string>()
+
+  // path gốc
+  candidates.add(`${base}/${cleaned}`)
+
+  // nếu path đã là assets/...
+  if (cleaned.startsWith("assets/")) {
+    candidates.add(`${base}/${cleaned}`)
+  }
+
+  // nếu path chưa có assets mà chỉ là filename
+  if (fallbackFolder && !cleaned.startsWith("assets/")) {
+    candidates.add(`${base}/${fallbackFolder}/${cleaned}`)
+  }
+
+  // đôi khi backend lưu /assets/... hoặc public/assets/...
+  const withoutAssetsPrefix = cleaned.replace(/^assets\//, "")
+  if (fallbackFolder) {
+    candidates.add(`${base}/${fallbackFolder}/${withoutAssetsPrefix}`)
+  }
+
+  return Array.from(candidates)
+}
+
+function PreviewImage({
+  urls,
+  alt,
+  className,
+  emptyText = "Image not available",
+}: {
+  urls: string[]
+  alt: string
+  className?: string
+  emptyText?: string
+}) {
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    setIndex(0)
+  }, [urls.join("|")])
+
+  if (!urls.length) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">
+        {emptyText}
+      </div>
+    )
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={urls[index]}
+      alt={alt}
+      className={className}
+      onError={() => {
+        if (index < urls.length - 1) setIndex(index + 1)
+      }}
+    />
+  )
+}
+
+function PreviewPdf({
+  urls,
+  title,
+}: {
+  urls: string[]
+  title: string
+}) {
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    setIndex(0)
+  }, [urls.join("|")])
+
+  if (!urls.length) {
+    return (
+      <div className="text-sm text-gray-500">
+        PDF not available
+      </div>
+    )
+  }
+
+  return (
+    <iframe
+      src={`${urls[index]}#toolbar=1&navpanes=0&scrollbar=1`}
+      className="w-full h-[520px] rounded"
+      title={title}
+      onError={() => {
+        if (index < urls.length - 1) setIndex(index + 1)
+      }}
+    />
+  )
+}
+
 export default function ContentManagementPage() {
   const [items, setItems] = useState<LicenseQueueItem[]>([])
   const [selected, setSelected] = useState<LicenseDetail | null>(null)
@@ -94,19 +210,23 @@ export default function ContentManagementPage() {
   const [selectedFileIndex, setSelectedFileIndex] = useState(0)
   const [publishAfterApprove, setPublishAfterApprove] = useState(true)
 
-  const api = useMemo(() => {
-    return axios.create({
-      baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api`,
-      withCredentials: true,
-    })
+  const apiBase = useMemo(() => {
+    return (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "")
   }, [])
 
-  const getFileUrl = (filePath: string) => `${process.env.NEXT_PUBLIC_API_URL}/${filePath}`
+  const api = useMemo(() => {
+    return axios.create({
+      baseURL: `${apiBase}/api`,
+      withCredentials: true,
+    })
+  }, [apiBase])
 
-  const getCoverUrl = (coverImage?: string) => {
-    if (!coverImage) return ""
-    // coverImage lưu filename, upload vào public/assets/coverImages
-    return `${process.env.NEXT_PUBLIC_API_URL}/assets/coverImages/${coverImage}`
+  const getFileUrls = (filePath?: string) => {
+    return getAssetCandidates(apiBase, filePath, "assets/licenses")
+  }
+
+  const getCoverUrls = (coverImage?: string) => {
+    return getAssetCandidates(apiBase, coverImage, "assets/coverImages")
   }
 
   const fetchQueue = async (nextPage = page) => {
@@ -126,7 +246,6 @@ export default function ContentManagementPage() {
       setPage(res.data.page)
       setError(null)
 
-      // auto load detail item đầu tiên nếu chưa có selected hoặc selected không nằm trong list
       if (res.data.data.length > 0) {
         const first = res.data.data[0]
         if (!selected || !res.data.data.some((x) => x._id === selected._id)) {
@@ -160,9 +279,7 @@ export default function ContentManagementPage() {
   }
 
   useEffect(() => {
-    // reset page khi đổi filter/search
     setPage(1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter])
 
   useEffect(() => {
@@ -171,15 +288,12 @@ export default function ContentManagementPage() {
       fetchQueue(1)
     }, 300)
     return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery])
 
   useEffect(() => {
     fetchQueue(1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter])
 
-  // ===== File Preview =====
   const currentFile =
     selected &&
     selected.licenseFiles?.length > 0 &&
@@ -188,6 +302,8 @@ export default function ContentManagementPage() {
       : undefined
 
   const isCurrentFilePdf = typeof currentFile === "string" && currentFile.toLowerCase().endsWith(".pdf")
+
+  const currentFileUrls = getFileUrls(currentFile)
 
   const getLicenseBadgeClass = (s: MangaLicenseStatus) => {
     if (s === "pending") return "bg-yellow-50 text-yellow-700 border border-yellow-200"
@@ -201,7 +317,6 @@ export default function ContentManagementPage() {
     return "bg-gray-50 text-gray-700 border border-gray-200"
   }
 
-  // ===== Actions =====
   const handleReview = async (status: "approved" | "rejected") => {
     if (!selected) return
 
@@ -226,6 +341,7 @@ export default function ContentManagementPage() {
 
   const handleTogglePublish = async (nextPublish: boolean) => {
     if (!selected) return
+    console.log("hhhhhhh")
     try {
       await api.patch(`/manga/admin/story/${selected._id}/publish`, {
         isPublish: nextPublish,
@@ -255,7 +371,6 @@ export default function ContentManagementPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Content Management</h1>
@@ -264,7 +379,6 @@ export default function ContentManagementPage() {
             </p>
           </div>
 
-          {/* Quick stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <div className="rounded-lg border bg-white px-3 py-2">
               <div className="text-xs text-gray-500">Pending</div>
@@ -291,14 +405,12 @@ export default function ContentManagementPage() {
           </div>
         )}
 
-        {/* Main */}
         {loading ? (
           <div className="flex items-center justify-center h-96">
             <p className="text-gray-500">Loading moderation queue...</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* LEFT: Queue */}
             <div className="space-y-4">
               <Card>
                 <CardHeader>
@@ -309,7 +421,6 @@ export default function ContentManagementPage() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {/* Filters */}
                   <div className="flex flex-wrap gap-2">
                     {renderStatusFilterButton("All", "all")}
                     {renderStatusFilterButton("Pending", "pending")}
@@ -342,14 +453,13 @@ export default function ContentManagementPage() {
                             ].join(" ")}
                           >
                             <div className="flex items-center gap-3">
-                              {/* cover thumb */}
                               <div className="relative w-12 h-16 rounded overflow-hidden border bg-gray-100 shrink-0">
                                 {it.coverImage ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={getCoverUrl(it.coverImage)}
+                                  <PreviewImage
+                                    urls={getCoverUrls(it.coverImage)}
                                     alt={it.title}
                                     className="w-full h-full object-cover"
+                                    emptyText="No cover"
                                   />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">
@@ -357,7 +467,6 @@ export default function ContentManagementPage() {
                                   </div>
                                 )}
 
-                                {/* verified tick for admin preview */}
                                 {it.licenseStatus === "approved" && (
                                   <div className="absolute bottom-1 right-1 bg-green-600 text-white rounded-full p-1">
                                     <ShieldCheck className="h-3 w-3" />
@@ -395,7 +504,6 @@ export default function ContentManagementPage() {
                     </div>
                   )}
 
-                  {/* Pagination (simple) */}
                   <div className="flex items-center justify-between pt-2">
                     <Button
                       variant="outline"
@@ -429,7 +537,6 @@ export default function ContentManagementPage() {
               </Card>
             </div>
 
-            {/* RIGHT: Detail */}
             <div className="lg:col-span-2">
               {!selected ? (
                 <Card>
@@ -463,17 +570,15 @@ export default function ContentManagementPage() {
                       <div className="py-12 text-center text-gray-500">Loading detail...</div>
                     ) : (
                       <>
-                        {/* Overview */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {/* Cover */}
                           <div className="md:col-span-1">
                             <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden border bg-gray-100">
                               {selected.coverImage ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={getCoverUrl(selected.coverImage)}
+                                <PreviewImage
+                                  urls={getCoverUrls(selected.coverImage)}
                                   alt={selected.title}
                                   className="w-full h-full object-cover"
+                                  emptyText="No cover"
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">
@@ -481,7 +586,6 @@ export default function ContentManagementPage() {
                                 </div>
                               )}
 
-                              {/* ✅ Verified tick (for user cover card too) */}
                               {selected.licenseStatus === "approved" && (
                                 <div className="absolute bottom-2 right-2 bg-green-600 text-white rounded-full p-2 shadow">
                                   <ShieldCheck className="h-5 w-5" />
@@ -490,7 +594,6 @@ export default function ContentManagementPage() {
                             </div>
                           </div>
 
-                          {/* Meta */}
                           <div className="md:col-span-2 space-y-3">
                             <div>
                               <p className="text-sm font-medium mb-1">Author</p>
@@ -515,59 +618,21 @@ export default function ContentManagementPage() {
                               </div>
                             </div>
 
-                            <div className="p-3 bg-white border rounded space-y-2">
-                              <div className="flex items-center justify-between gap-3">
-                                <div>
-                                  <div className="text-sm font-medium">Publish Control</div>
-                                  <div className="text-xs text-gray-500">
-                                    Only publish when license is approved (recommended).
-                                  </div>
-                                </div>
-                                <Button
-                                  variant={selected.isPublish ? "outline" : "default"}
-                                  onClick={() => handleTogglePublish(!Boolean(selected.isPublish))}
-                                  disabled={selected.licenseStatus !== "approved" && !selected.isPublish}
-                                  title={
-                                    selected.licenseStatus !== "approved" && !selected.isPublish
-                                      ? "Need approved license to publish"
-                                      : ""
-                                  }
-                                >
-                                  {selected.isPublish ? (
-                                    <span className="inline-flex items-center gap-2">
-                                      <EyeOff className="h-4 w-4" />
-                                      Unpublish
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-2">
-                                      <Eye className="h-4 w-4" />
-                                      Publish
-                                    </span>
-                                  )}
-                                </Button>
-                              </div>
-
-                              {selected.licenseStatus !== "approved" && (
-                                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-                                  Tip: Approve license to enable verified badge + safe publishing.
-                                </div>
-                              )}
-                            </div>
+                            
                           </div>
                         </div>
 
                         <Separator />
 
-                        {/* License Files Preview */}
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-medium">
                               License Files ({selected.licenseFiles?.length || 0})
                             </p>
 
-                            {currentFile && (
+                            {currentFileUrls.length > 0 && (
                               <a
-                                href={getFileUrl(currentFile)}
+                                href={currentFileUrls[0]}
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >
@@ -580,25 +645,22 @@ export default function ContentManagementPage() {
 
                           {selected.licenseFiles?.length ? (
                             <div className="space-y-4">
-                              {/* Main Preview */}
                               <div className="border rounded-lg bg-gray-50 p-4 min-h-[420px] flex items-center justify-center overflow-auto">
                                 {isCurrentFilePdf ? (
-                                  <iframe
-                                    src={`${getFileUrl(currentFile!)}#toolbar=1&navpanes=0&scrollbar=1`}
-                                    className="w-full h-[520px] rounded"
+                                  <PreviewPdf
+                                    urls={currentFileUrls}
                                     title={`PDF - ${currentFile ?? ""}`}
                                   />
                                 ) : (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={currentFile ? getFileUrl(currentFile) : ""}
+                                  <PreviewImage
+                                    urls={currentFileUrls}
                                     alt={currentFile ?? ""}
                                     className="max-w-full max-h-[520px] rounded"
+                                    emptyText="Cannot load image"
                                   />
                                 )}
                               </div>
 
-                              {/* File Nav */}
                               <div className="flex items-center justify-between">
                                 <Button
                                   variant="outline"
@@ -627,7 +689,6 @@ export default function ContentManagementPage() {
                                 </Button>
                               </div>
 
-                              {/* Thumbs */}
                               <div className="space-y-2">
                                 <p className="text-xs font-medium text-gray-600">All Files</p>
                                 <div className="grid grid-cols-6 gap-2">
@@ -660,7 +721,6 @@ export default function ContentManagementPage() {
                           )}
                         </div>
 
-                        {/* Author note */}
                         {selected.licenseNote && (
                           <div>
                             <p className="text-sm font-medium mb-2">Author Note</p>
@@ -670,7 +730,6 @@ export default function ContentManagementPage() {
                           </div>
                         )}
 
-                        {/* Reviewed info */}
                         {(selected.licenseReviewedAt || selected.licenseReviewedBy) && (
                           <div className="p-3 bg-gray-50 border rounded text-sm">
                             <div className="text-xs text-gray-500">Reviewed</div>
@@ -683,7 +742,6 @@ export default function ContentManagementPage() {
                           </div>
                         )}
 
-                        {/* Reject reason */}
                         {selected.licenseStatus === "rejected" && selected.licenseRejectReason && (
                           <div>
                             <p className="text-sm font-medium mb-2">Rejection Reason</p>
@@ -695,21 +753,9 @@ export default function ContentManagementPage() {
 
                         <Separator />
 
-                        {/* Actions */}
                         {selected.licenseStatus === "pending" && (
                           <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                              <input
-                                id="publishAfterApprove"
-                                type="checkbox"
-                                className="h-4 w-4"
-                                checked={publishAfterApprove}
-                                onChange={(e) => setPublishAfterApprove(e.target.checked)}
-                              />
-                              <label htmlFor="publishAfterApprove" className="text-sm text-gray-700">
-                                Auto publish after approve (to show ✅ badge to users)
-                              </label>
-                            </div>
+                            
 
                             <div className="grid grid-cols-2 gap-3">
                               <Button

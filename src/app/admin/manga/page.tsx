@@ -944,10 +944,9 @@ export default function MangaManagementPage() {
                 </SheetHeader>
 
                 <Tabs defaultValue="overview" className="mt-6 space-y-4">
-                  <TabsList className="grid w-full grid-cols-4">
+                  <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="license">License</TabsTrigger>
-                    <TabsTrigger value="publication">Publication</TabsTrigger>
                     <TabsTrigger value="enforcement">Enforcement</TabsTrigger>
                   </TabsList>
 
@@ -1197,68 +1196,7 @@ export default function MangaManagementPage() {
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="publication" className="space-y-4">
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-gray-500">
-                          Current State
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className={`mt-1 ${getPublicationStatusColor(
-                            selectedManga.publicationStatus
-                          )}`}
-                        >
-                          {selectedManga.publicationStatus}
-                        </Badge>
-                      </div>
-
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold uppercase text-gray-500">
-                          Publish Rules
-                        </p>
-                        <ul className="text-sm text-gray-700 space-y-1">
-                          <li>
-                            License must be <strong>approved</strong>.
-                          </li>
-                          <li>
-                            Enforcement must be <strong>normal</strong>.
-                          </li>
-                        </ul>
-                      </div>
-
-                      {!canPublish && !selectedManga.isPublish && (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                          <p className="text-sm text-amber-800">
-                            This story cannot be published yet because the
-                            license is not approved or the story is currently
-                            suspended/banned.
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="space-y-2 border-t pt-4">
-                        {!selectedManga.isPublish ? (
-                          <Button
-                            className="w-full"
-                            disabled={!canPublish}
-                            onClick={() => setActionDialog("publish")}
-                          >
-                            Publish
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => setActionDialog("unpublish")}
-                          >
-                            <EyeOff className="h-4 w-4 mr-2" />
-                            Unpublish
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </TabsContent>
+                  
 
                   <TabsContent value="enforcement" className="space-y-4">
                     <div className="space-y-4">

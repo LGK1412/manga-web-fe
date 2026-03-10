@@ -102,7 +102,7 @@ export default function ReportModal({
           <div className="space-y-3 text-sm">
             <p><strong>Report Code:</strong> {report.reportCode}</p>
             {report.target_id?.title && <p><strong>Title:</strong> {report.target_id.title}</p>}
-            {report.target_id?.content && <p><strong>Content:</strong> {report.target_id.content}</p>}
+            {report.target_id?.content && (<div><strong>Content:</strong> <div dangerouslySetInnerHTML={{ __html: report.target_id.content }}/></div>)} 
             <p><strong>Reason:</strong> {report.reason}</p>
             <p><strong>Description:</strong> {report.description ?? "No description"}</p>
             <p>     <strong>Status:</strong>{" "}       <Badge className={statusColor(report.status)}>{report.status}</Badge>       </p>
