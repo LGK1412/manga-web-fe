@@ -224,6 +224,16 @@ const ROLE_MENU_ACCESS: Record<Role, string[]> = {
   user: [],
 };
 
+/** ===== Role -> Tool Title ===== */
+const ROLE_TOOL_LABEL: Record<Role, string> = {
+  admin: "Admin Tool",
+  content_moderator: "Content Tool",
+  community_manager: "Community Tool",
+  financial_manager: "Financial Tool",
+  author: "Author Tool",
+  user: "User Tool",
+};
+
 /** ===== Helpers ===== */
 function isPathActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -267,6 +277,12 @@ export default function AdminLayout({
 
   const [currentRole, setCurrentRole] = useState<Role | null>(null);
   const [loadingRole, setLoadingRole] = useState(true);
+
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    taxonomy: false,
+    notifications: false,
+    moderation: false,
+  });
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -312,6 +328,8 @@ export default function AdminLayout({
     return getVisibleMenuItems(currentRole, menuItems);
   }, [currentRole]);
 
+  const toolTitle = currentRole ? ROLE_TOOL_LABEL[currentRole] : "Staff Tool";
+
   const hoverClass = mounted
     ? theme === "dark"
       ? "hover:bg-gray-100 hover:text-black"
@@ -321,24 +339,21 @@ export default function AdminLayout({
   const isSubmenuActive = useMemo(() => {
     return (submenu: SubmenuItem) => {
       if (pathname === submenu.href) return true;
+
       if (
         submenu.matchPrefixes?.some((prefix) => pathname.startsWith(prefix))
       ) {
         return true;
       }
+
       return false;
     };
   }, [pathname]);
 
   const isGroupActive = useMemo(() => {
-    return (group: GroupItem) => group.submenu.some((sub) => isSubmenuActive(sub));
+    return (group: GroupItem) =>
+      group.submenu.some((sub) => isSubmenuActive(sub));
   }, [isSubmenuActive]);
-
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    taxonomy: false,
-    notifications: false,
-    moderation: false,
-  });
 
   useEffect(() => {
     const activeGroups = visibleMenuItems
@@ -380,7 +395,7 @@ export default function AdminLayout({
             {open && (
               <div className="flex items-center gap-2">
                 <Shield className="h-6 w-6 text-red-600" />
-                <span className="font-bold text-lg">Staff Tool</span>
+                <span className="font-bold text-lg">{toolTitle}</span>
               </div>
             )}
 
@@ -433,7 +448,9 @@ export default function AdminLayout({
 
                         {open && (
                           <>
-                            <span className="flex-1 text-left">{item.label}</span>
+                            <span className="flex-1 text-left">
+                              {item.label}
+                            </span>
                             {expanded ? (
                               <ChevronDown className="h-4 w-4 shrink-0" />
                             ) : (
