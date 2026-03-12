@@ -3,14 +3,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
+  AlertTriangle,
+  BadgeCheck,
+  BookOpen,
+  CalendarDays,
   Download,
   Eye,
   EyeOff,
+  ExternalLink,
   FileCheck,
+  FileText,
   Loader2,
+  MessageSquareText,
   RotateCcw,
   Search,
   ShieldAlert,
+  ShieldCheck,
+  Star,
+  Tags,
+  User2,
   Zap,
 } from "lucide-react";
 
@@ -262,6 +273,36 @@ export default function MangaManagementPage() {
     }
   };
 
+  const getStoryStatusColor = (status: StoryStatus) => {
+    switch (status) {
+      case "ongoing":
+        return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "completed":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "hiatus":
+        return "bg-amber-50 text-amber-700 border-amber-200";
+      default:
+        return "bg-slate-100 text-slate-700 border-slate-200";
+    }
+  };
+
+  const resolveFileUrl = (file: string) => {
+    const normalized = file.replace(/\\/g, "/");
+    if (normalized.startsWith("http")) return normalized;
+    return `${API_URL}${
+      normalized.startsWith("/") ? normalized : `/${normalized}`
+    }`;
+  };
+
+  const resolveImageUrl = (file?: string | null) => {
+    if (!file) return "";
+    const normalized = file.replace(/\\/g, "/");
+    if (normalized.startsWith("http")) return normalized;
+    return `${API_URL}${
+      normalized.startsWith("/") ? normalized : `/${normalized}`
+    }`;
+  };
+
   const fetchManagementList = useCallback(async () => {
     try {
       setLoadingList(true);
@@ -272,8 +313,7 @@ export default function MangaManagementPage() {
           withCredentials: true,
           params: {
             q: searchQuery || undefined,
-            licenseStatus:
-              licenseFilter !== "all" ? licenseFilter : undefined,
+            licenseStatus: licenseFilter !== "all" ? licenseFilter : undefined,
             publicationStatus:
               publicationFilter !== "all" ? publicationFilter : undefined,
             enforcementStatus:
@@ -792,7 +832,7 @@ export default function MangaManagementPage() {
                           <div className="h-14 w-10 shrink-0 overflow-hidden rounded-md border bg-gray-100">
                             {manga.coverImage ? (
                               <img
-                                src={manga.coverImage}
+                                src={resolveImageUrl(manga.coverImage)}
                                 alt={manga.title}
                                 className="h-full w-full object-cover"
                               />
@@ -921,368 +961,880 @@ export default function MangaManagementPage() {
             }
           }}
         >
-          <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetContent className="w-screen max-w-none overflow-y-auto border-l bg-slate-50 p-0 sm:max-w-[92vw] xl:max-w-[86vw] 2xl:max-w-[80vw]">
+            <SheetHeader className="sr-only">
+              <SheetTitle>
+                {selectedManga?.title || "Manga detail workspace"}
+              </SheetTitle>
+              <SheetDescription>
+                Review manga overview, license, publication, and enforcement.
+              </SheetDescription>
+            </SheetHeader>
+
             {loadingDetail ? (
-              <div className="py-12 flex items-center justify-center">
-                <div className="inline-flex items-center gap-2 text-gray-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading detail...
+              <div className="min-h-full bg-slate-50">
+                <div className="grid min-h-full lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
+                  <aside className="border-b bg-white lg:border-b-0 lg:border-r">
+                    <div className="space-y-6 p-6 xl:p-8 animate-pulse">
+                      <div className="h-6 w-40 rounded-full bg-slate-200" />
+                      <div className="aspect-[3/4] rounded-2xl bg-slate-200" />
+                      <div className="space-y-3">
+                        <div className="h-8 w-3/4 rounded-md bg-slate-200" />
+                        <div className="h-5 w-1/2 rounded-md bg-slate-200" />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <div className="h-7 w-24 rounded-full bg-slate-200" />
+                        <div className="h-7 w-28 rounded-full bg-slate-200" />
+                        <div className="h-7 w-24 rounded-full bg-slate-200" />
+                      </div>
+                      <div className="h-40 rounded-2xl bg-slate-100" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="h-24 rounded-2xl bg-slate-100" />
+                        <div className="h-24 rounded-2xl bg-slate-100" />
+                      </div>
+                    </div>
+                  </aside>
+
+                  <section className="min-w-0 animate-pulse">
+                    <div className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95 px-6 py-4 backdrop-blur xl:px-8">
+                      <div className="mb-3 h-6 w-40 rounded-md bg-slate-200" />
+                      <div className="h-14 rounded-2xl bg-white" />
+                    </div>
+
+                    <div className="space-y-6 p-6 xl:p-8">
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {Array.from({ length: 6 }).map((_, idx) => (
+                          <div
+                            key={idx}
+                            className="h-36 rounded-2xl bg-white shadow-sm"
+                          />
+                        ))}
+                      </div>
+
+                      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+                        <div className="h-72 rounded-2xl bg-white shadow-sm" />
+                        <div className="h-72 rounded-2xl bg-white shadow-sm" />
+                      </div>
+                    </div>
+                  </section>
                 </div>
               </div>
             ) : selectedManga ? (
-              <>
-                <SheetHeader className="pr-8">
-                  <SheetTitle
-                    className="text-left leading-tight break-words line-clamp-2"
-                    title={selectedManga.title}
-                  >
-                    {selectedManga.title}
-                  </SheetTitle>
-                  <SheetDescription className="text-left">
-                    Author: {selectedManga.author?.username || "Unknown"}
-                  </SheetDescription>
-                </SheetHeader>
-
-                <Tabs defaultValue="overview" className="mt-6 space-y-4">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="license">License</TabsTrigger>
-                    <TabsTrigger value="enforcement">Enforcement</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="overview" className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-[140px_1fr]">
-                      <div className="aspect-[3/4] overflow-hidden rounded-lg border bg-gray-100">
-                        {selectedManga.coverImage ? (
-                          <img
-                            src={selectedManga.coverImage}
-                            alt={selectedManga.title}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-sm text-gray-400">
-                            No cover
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <p className="text-xs font-semibold uppercase text-gray-500">
-                            Summary
-                          </p>
-                          <p className="mt-1 text-sm text-gray-700 break-words">
-                            {selectedManga.summary || "No summary"}
-                          </p>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 border-t pt-4">
-                          <div>
-                            <p className="text-xs font-semibold uppercase text-gray-500">
-                              Story Status
-                            </p>
-                            <Badge className="mt-1 capitalize">
-                              {selectedManga.status}
-                            </Badge>
+              <div className="min-h-full bg-slate-50">
+                <div className="grid min-h-full lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
+                  <aside className="border-b bg-white lg:border-b-0 lg:border-r">
+                    <div className="lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
+                      <div className="space-y-6 p-6 xl:p-8">
+                        <div className="space-y-4">
+                          <div className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+                            Manga Detail Workspace
                           </div>
 
-                          <div>
-                            <p className="text-xs font-semibold uppercase text-gray-500">
-                              Views
-                            </p>
-                            <p className="mt-1 text-sm font-semibold">
-                              {selectedManga.views.toLocaleString()}
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-xs font-semibold uppercase text-gray-500">
-                              Chapters
-                            </p>
-                            <p className="mt-1 text-sm font-semibold">
-                              {selectedManga.chaptersCount}
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-xs font-semibold uppercase text-gray-500">
-                              Updated At
-                            </p>
-                            <p className="mt-1 text-sm font-semibold">
-                              {formatDate(selectedManga.updatedAt)}
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-xs font-semibold uppercase text-gray-500">
-                              Avg Rating
-                            </p>
-                            <p className="mt-1 text-sm font-semibold">
-                              {selectedManga.ratingSummary?.avgRating?.toFixed?.(
-                                1
-                              ) || "0.0"}{" "}
-                              ({selectedManga.ratingSummary?.count || 0})
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-xs font-semibold uppercase text-gray-500">
-                              Created At
-                            </p>
-                            <p className="mt-1 text-sm font-semibold">
-                              {formatDate(selectedManga.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="border-t pt-4 space-y-3">
-                          <div>
-                            <p className="text-xs font-semibold uppercase text-gray-500">
-                              Genres
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {selectedManga.genres?.length ? (
-                                selectedManga.genres.map((genre) => (
-                                  <Badge key={genre._id} variant="secondary">
-                                    {genre.name}
-                                  </Badge>
-                                ))
+                          <div className="overflow-hidden rounded-2xl border bg-slate-100 shadow-sm">
+                            <div className="aspect-[3/4]">
+                              {selectedManga.coverImage ? (
+                                <img
+                                  src={resolveImageUrl(selectedManga.coverImage)}
+                                  alt={selectedManga.title}
+                                  className="h-full w-full object-cover"
+                                />
                               ) : (
-                                <span className="text-sm text-gray-500">
-                                  No genres
-                                </span>
+                                <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
+                                  No cover
+                                </div>
                               )}
                             </div>
                           </div>
 
                           <div>
-                            <p className="text-xs font-semibold uppercase text-gray-500">
-                              Styles
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {selectedManga.styles?.length ? (
-                                selectedManga.styles.map((style) => (
-                                  <Badge key={style._id} variant="secondary">
-                                    {style.name}
-                                  </Badge>
-                                ))
-                              ) : (
-                                <span className="text-sm text-gray-500">
-                                  No styles
-                                </span>
-                              )}
+                            <h2 className="text-2xl font-bold leading-tight text-slate-900 break-words">
+                              {selectedManga.title}
+                            </h2>
+
+                            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700">
+                              <User2 className="h-4 w-4 text-slate-500" />
+                              {selectedManga.author?.username || "Unknown author"}
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  </TabsContent>
 
-                  <TabsContent value="license" className="space-y-4">
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-gray-500">
-                          License Status
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className={`mt-1 ${getLicenseStatusColor(
-                            selectedManga.licenseStatus
-                          )}`}
-                        >
-                          {selectedManga.licenseStatus}
-                        </Badge>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-gray-500">
-                          Submitted At
-                        </p>
-                        <p className="mt-1 text-sm">
-                          {formatDate(selectedManga.licenseSubmittedAt)}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-gray-500">
-                          License Note
-                        </p>
-                        <p className="mt-1 text-sm text-gray-700 break-words">
-                          {selectedManga.licenseNote || "No note provided"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-gray-500">
-                          License Files
-                        </p>
-                        <div className="mt-2 space-y-2">
-                          {selectedManga.licenseFiles?.length ? (
-                            selectedManga.licenseFiles.map((file, index) => (
-                              <a
-                                key={`${file}-${index}`}
-                                href={
-                                  file.startsWith("http")
-                                    ? file
-                                    : `${API_URL}${
-                                        file.startsWith("/") ? file : `/${file}`
-                                      }`
-                                }
-                                target="_blank"
-                                rel="noreferrer"
-                                className="block text-sm text-blue-600 hover:underline break-all"
-                              >
-                                {file.split("/").pop()}
-                              </a>
-                            ))
-                          ) : (
-                            <p className="text-sm text-gray-500">
-                              No files uploaded
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-4 border-t pt-4 md:grid-cols-2">
-                        <div>
-                          <p className="text-xs font-semibold uppercase text-gray-500">
-                            Reviewed By
-                          </p>
-                          <p className="mt-1 text-sm">
-                            {selectedManga.licenseReviewedBy?.username || "—"}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs font-semibold uppercase text-gray-500">
-                            Reviewed At
-                          </p>
-                          <p className="mt-1 text-sm">
-                            {formatDate(selectedManga.licenseReviewedAt)}
-                          </p>
-                        </div>
-                      </div>
-
-                      {selectedManga.licenseRejectReason && (
-                        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                          <p className="text-xs font-semibold uppercase text-red-600">
-                            Reject Reason
-                          </p>
-                          <p className="mt-1 text-sm text-red-700 break-words">
-                            {selectedManga.licenseRejectReason}
-                          </p>
-                        </div>
-                      )}
-
-                      {selectedManga.licenseStatus === "pending" && (
-                        <div className="space-y-2 border-t pt-4">
-                          <Button
-                            className="w-full"
-                            onClick={() => setActionDialog("approve-license")}
-                          >
-                            <FileCheck className="h-4 w-4 mr-2" />
-                            Approve License
-                          </Button>
-
-                          <Button
+                        <div className="flex flex-wrap gap-2">
+                          <Badge
                             variant="outline"
-                            className="w-full"
-                            onClick={() => setActionDialog("reject-license")}
+                            className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${getLicenseStatusColor(
+                              selectedManga.licenseStatus
+                            )}`}
                           >
-                            Reject License
-                          </Button>
+                            License: {selectedManga.licenseStatus}
+                          </Badge>
+
+                          <Badge
+                            variant="outline"
+                            className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${getPublicationStatusColor(
+                              selectedManga.publicationStatus
+                            )}`}
+                          >
+                            Publication: {selectedManga.publicationStatus}
+                          </Badge>
+
+                          <Badge
+                            variant="outline"
+                            className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${getEnforcementStatusColor(
+                              selectedManga.enforcementStatus
+                            )}`}
+                          >
+                            Enforcement: {selectedManga.enforcementStatus}
+                          </Badge>
                         </div>
-                      )}
+
+                        <Card className="rounded-2xl border-slate-200 shadow-sm">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                              <MessageSquareText className="h-4 w-4 text-slate-500" />
+                              Summary Preview
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm leading-7 text-slate-700">
+                              {selectedManga.summary
+                                ? truncateText(selectedManga.summary, 220)
+                                : "No summary provided for this story."}
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <Card className="rounded-2xl border-slate-200 shadow-sm">
+                            <CardContent className="p-4">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Chapters
+                              </p>
+                              <p className="mt-2 text-xl font-bold text-slate-900">
+                                {selectedManga.chaptersCount}
+                              </p>
+                            </CardContent>
+                          </Card>
+
+                          <Card className="rounded-2xl border-slate-200 shadow-sm">
+                            <CardContent className="p-4">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Updated
+                              </p>
+                              <p className="mt-2 text-sm font-semibold text-slate-900">
+                                {formatDate(selectedManga.updatedAt)}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </div>
                     </div>
-                  </TabsContent>
+                  </aside>
 
-                  
+                  <section className="min-w-0">
+                    <Tabs defaultValue="overview" className="min-h-full">
+                      <div className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95 px-6 py-4 backdrop-blur xl:px-8">
+                        <div className="mb-3">
+                          <h3 className="text-lg font-semibold text-slate-900">
+                            Workspace
+                          </h3>
+                          <p className="text-sm text-slate-500">
+                            Manage overview, license, and enforcement in one
+                            place.
+                          </p>
+                        </div>
 
-                  <TabsContent value="enforcement" className="space-y-4">
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-gray-500">
-                          Current Status
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className={`mt-1 ${getEnforcementStatusColor(
-                            selectedManga.enforcementStatus
-                          )}`}
+                        <TabsList className="grid h-14 w-full grid-cols-3 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+                          <TabsTrigger
+                            value="overview"
+                            className="rounded-xl text-sm font-medium"
+                          >
+                            Overview
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="license"
+                            className="rounded-xl text-sm font-medium"
+                          >
+                            License
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="enforcement"
+                            className="rounded-xl text-sm font-medium"
+                          >
+                            Enforcement
+                          </TabsTrigger>
+                        </TabsList>
+                      </div>
+
+                      <div className="space-y-6 p-6 xl:p-8">
+                        <TabsContent value="overview" className="mt-0 space-y-6">
+                          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            <Card className="rounded-2xl border-slate-200 shadow-sm">
+                              <CardContent className="flex min-h-[140px] items-start gap-3 p-6">
+                                <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600">
+                                  <BookOpen className="h-5 w-5" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                                    Story Status
+                                  </p>
+                                  <Badge
+                                    variant="outline"
+                                    className={`mt-3 capitalize ${getStoryStatusColor(
+                                      selectedManga.status
+                                    )}`}
+                                  >
+                                    {selectedManga.status}
+                                  </Badge>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <Card className="rounded-2xl border-slate-200 shadow-sm">
+                              <CardContent className="flex min-h-[140px] items-start gap-3 p-6">
+                                <div className="rounded-xl bg-amber-50 p-2 text-amber-600">
+                                  <Star className="h-5 w-5" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                                    Avg Rating
+                                  </p>
+                                  <p className="mt-3 text-3xl font-bold text-slate-900">
+                                    {selectedManga.ratingSummary?.avgRating?.toFixed?.(
+                                      1
+                                    ) || "0.0"}
+                                  </p>
+                                  <p className="mt-1 text-sm text-slate-500">
+                                    {selectedManga.ratingSummary?.count || 0}{" "}
+                                    ratings
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <Card className="rounded-2xl border-slate-200 shadow-sm">
+                              <CardContent className="flex min-h-[140px] items-start gap-3 p-6">
+                                <div className="rounded-xl bg-blue-50 p-2 text-blue-600">
+                                  <CalendarDays className="h-5 w-5" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                                    Created At
+                                  </p>
+                                  <p className="mt-3 text-2xl font-bold text-slate-900">
+                                    {formatDate(selectedManga.createdAt)}
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <Card className="rounded-2xl border-slate-200 shadow-sm">
+                              <CardContent className="flex min-h-[140px] items-start gap-3 p-6">
+                                <div className="rounded-xl bg-cyan-50 p-2 text-cyan-600">
+                                  <Eye className="h-5 w-5" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                                    Views
+                                  </p>
+                                  <p className="mt-3 text-3xl font-bold text-slate-900">
+                                    {selectedManga.views.toLocaleString()}
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <Card className="rounded-2xl border-slate-200 shadow-sm">
+                              <CardContent className="flex min-h-[140px] items-start gap-3 p-6">
+                                <div className="rounded-xl bg-violet-50 p-2 text-violet-600">
+                                  <FileText className="h-5 w-5" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                                    Chapters
+                                  </p>
+                                  <p className="mt-3 text-3xl font-bold text-slate-900">
+                                    {selectedManga.chaptersCount}
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <Card className="rounded-2xl border-slate-200 shadow-sm">
+                              <CardContent className="flex min-h-[140px] items-start gap-3 p-6">
+                                <div className="rounded-xl bg-slate-100 p-2 text-slate-600">
+                                  <CalendarDays className="h-5 w-5" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                                    Updated At
+                                  </p>
+                                  <p className="mt-3 text-2xl font-bold text-slate-900">
+                                    {formatDate(selectedManga.updatedAt)}
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+                            <div className="space-y-4">
+                              <Card className="rounded-2xl border-slate-200 shadow-sm">
+                                <CardHeader className="pb-4">
+                                  <CardTitle className="flex items-center gap-2 text-lg">
+                                    <MessageSquareText className="h-5 w-5 text-slate-500" />
+                                    Story Summary
+                                  </CardTitle>
+                                  <CardDescription className="text-sm">
+                                    Main description shown for internal review.
+                                  </CardDescription>
+                                </CardHeader>
+                                <CardContent className="min-h-[220px] p-6 pt-0">
+                                  <p className="text-sm leading-7 text-slate-700 break-words">
+                                    {selectedManga.summary ||
+                                      "No summary provided."}
+                                  </p>
+                                </CardContent>
+                              </Card>
+
+                              <Card className="rounded-2xl border-slate-200 shadow-sm">
+                                <CardHeader className="pb-4">
+                                  <CardTitle className="flex items-center gap-2 text-lg">
+                                    <Tags className="h-5 w-5 text-slate-500" />
+                                    Classification
+                                  </CardTitle>
+                                  <CardDescription className="text-sm">
+                                    Genres and styles associated with this story.
+                                  </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6 p-6 pt-0 min-h-[220px]">
+                                  <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                      Genres
+                                    </p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                      {selectedManga.genres?.length ? (
+                                        selectedManga.genres.map((genre) => (
+                                          <Badge
+                                            key={genre._id}
+                                            variant="secondary"
+                                            className="rounded-full px-3 py-1"
+                                          >
+                                            {genre.name}
+                                          </Badge>
+                                        ))
+                                      ) : (
+                                        <span className="text-sm text-slate-500">
+                                          No genres assigned
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                      Styles
+                                    </p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                      {selectedManga.styles?.length ? (
+                                        selectedManga.styles.map((style) => (
+                                          <Badge
+                                            key={style._id}
+                                            variant="secondary"
+                                            className="rounded-full px-3 py-1"
+                                          >
+                                            {style.name}
+                                          </Badge>
+                                        ))
+                                      ) : (
+                                        <span className="text-sm text-slate-500">
+                                          No styles assigned
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </div>
+
+                            <div className="space-y-4">
+                              <Card className="rounded-2xl border-slate-200 shadow-sm">
+                                <CardHeader className="pb-4">
+                                  <CardTitle className="flex items-center gap-2 text-lg">
+                                    <Eye className="h-5 w-5 text-slate-500" />
+                                    Publication Control
+                                  </CardTitle>
+                                  <CardDescription className="text-sm">
+                                    Control public visibility of this story.
+                                  </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4 p-6 pt-0 min-h-[220px]">
+                                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                      Current Publication Status
+                                    </p>
+                                    <Badge
+                                      variant="outline"
+                                      className={`mt-3 capitalize ${getPublicationStatusColor(
+                                        selectedManga.publicationStatus
+                                      )}`}
+                                    >
+                                      {selectedManga.publicationStatus}
+                                    </Badge>
+                                  </div>
+
+                                  {selectedManga.publicationStatus ===
+                                  "published" ? (
+                                    <Button
+                                      variant="outline"
+                                      className="w-full"
+                                      onClick={() =>
+                                        setActionDialog("unpublish")
+                                      }
+                                    >
+                                      <EyeOff className="mr-2 h-4 w-4" />
+                                      Unpublish Manga
+                                    </Button>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      <Button
+                                        className="w-full"
+                                        disabled={!canPublish}
+                                        onClick={() =>
+                                          setActionDialog("publish")
+                                        }
+                                      >
+                                        <Eye className="mr-2 h-4 w-4" />
+                                        Publish Manga
+                                      </Button>
+                                      {!canPublish && (
+                                        <p className="text-xs leading-5 text-amber-700">
+                                          Publishing requires an approved
+                                          license and normal enforcement status.
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </Card>
+
+                              <Card className="rounded-2xl border-slate-200 shadow-sm">
+                                <CardHeader className="pb-4">
+                                  <CardTitle className="flex items-center gap-2 text-lg">
+                                    <ShieldCheck className="h-5 w-5 text-slate-500" />
+                                    Operational Snapshot
+                                  </CardTitle>
+                                  <CardDescription className="text-sm">
+                                    Key operational fields for quick review.
+                                  </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4 p-6 pt-0 min-h-[220px]">
+                                  <div className="grid gap-3">
+                                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        License
+                                      </p>
+                                      <Badge
+                                        variant="outline"
+                                        className={`mt-2 capitalize ${getLicenseStatusColor(
+                                          selectedManga.licenseStatus
+                                        )}`}
+                                      >
+                                        {selectedManga.licenseStatus}
+                                      </Badge>
+                                    </div>
+
+                                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        Enforcement
+                                      </p>
+                                      <Badge
+                                        variant="outline"
+                                        className={`mt-2 capitalize ${getEnforcementStatusColor(
+                                          selectedManga.enforcementStatus
+                                        )}`}
+                                      >
+                                        {selectedManga.enforcementStatus}
+                                      </Badge>
+                                    </div>
+
+                                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        Last Updated
+                                      </p>
+                                      <p className="mt-2 text-sm font-semibold text-slate-900">
+                                        {formatDate(selectedManga.updatedAt)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </div>
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent value="license" className="mt-0 space-y-4">
+                          <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+                            <Card className="rounded-2xl border-slate-200 shadow-sm">
+                              <CardHeader className="pb-4">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                  <BadgeCheck className="h-5 w-5 text-slate-500" />
+                                  Review Status
+                                </CardTitle>
+                                <CardDescription className="text-sm">
+                                  Approval state and audit information for the
+                                  license submission.
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent className="space-y-4 p-6 pt-0 min-h-[220px]">
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    License Status
+                                  </p>
+                                  <Badge
+                                    variant="outline"
+                                    className={`mt-3 capitalize ${getLicenseStatusColor(
+                                      selectedManga.licenseStatus
+                                    )}`}
+                                  >
+                                    {selectedManga.licenseStatus}
+                                  </Badge>
+                                </div>
+
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                      Submitted At
+                                    </p>
+                                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                                      {formatDate(
+                                        selectedManga.licenseSubmittedAt
+                                      )}
+                                    </p>
+                                  </div>
+
+                                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                      Reviewed At
+                                    </p>
+                                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                                      {formatDate(
+                                        selectedManga.licenseReviewedAt
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Reviewed By
+                                  </p>
+                                  <p className="mt-2 text-sm font-semibold text-slate-900">
+                                    {selectedManga.licenseReviewedBy?.username ||
+                                      "—"}
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <Card className="rounded-2xl border-slate-200 shadow-sm">
+                              <CardHeader className="pb-4">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                  <FileText className="h-5 w-5 text-slate-500" />
+                                  License Note
+                                </CardTitle>
+                                <CardDescription className="text-sm">
+                                  Supporting note provided with the license
+                                  submission.
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent className="p-6 pt-0 min-h-[220px]">
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                  <p className="text-sm leading-7 text-slate-700 break-words">
+                                    {selectedManga.licenseNote ||
+                                      "No note provided."}
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          <Card className="rounded-2xl border-slate-200 shadow-sm">
+                            <CardHeader className="pb-4">
+                              <CardTitle className="flex items-center gap-2 text-lg">
+                                <FileText className="h-5 w-5 text-slate-500" />
+                                License Files
+                              </CardTitle>
+                              <CardDescription className="text-sm">
+                                Uploaded documents attached to this license
+                                review.
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-6 pt-0">
+                              {selectedManga.licenseFiles?.length ? (
+                                <div className="space-y-3">
+                                  {selectedManga.licenseFiles.map(
+                                    (file, index) => {
+                                      const fileName =
+                                        file.split("/").pop() ||
+                                        `license-file-${index + 1}`;
+
+                                      return (
+                                        <a
+                                          key={`${file}-${index}`}
+                                          href={resolveFileUrl(file)}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-4 transition hover:border-slate-300 hover:bg-slate-50"
+                                        >
+                                          <div className="flex min-w-0 items-center gap-3">
+                                            <div className="rounded-xl bg-blue-50 p-2 text-blue-600">
+                                              <FileText className="h-4 w-4" />
+                                            </div>
+                                            <div className="min-w-0">
+                                              <p className="truncate text-sm font-medium text-slate-900">
+                                                {fileName}
+                                              </p>
+                                              <p className="truncate text-xs text-slate-500">
+                                                Open attached license document
+                                              </p>
+                                            </div>
+                                          </div>
+
+                                          <ExternalLink className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-slate-700" />
+                                        </a>
+                                      );
+                                    }
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center">
+                                  <FileText className="mx-auto h-8 w-8 text-slate-400" />
+                                  <p className="mt-3 text-sm font-medium text-slate-700">
+                                    No files uploaded
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    This submission does not contain any license
+                                    attachments.
+                                  </p>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+
+                          {selectedManga.licenseRejectReason && (
+                            <Card className="rounded-2xl border-red-200 bg-red-50 shadow-sm">
+                              <CardHeader className="pb-4">
+                                <CardTitle className="flex items-center gap-2 text-lg text-red-700">
+                                  <AlertTriangle className="h-5 w-5" />
+                                  Reject Reason
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="p-6 pt-0">
+                                <p className="text-sm leading-7 text-red-700 break-words">
+                                  {selectedManga.licenseRejectReason}
+                                </p>
+                              </CardContent>
+                            </Card>
+                          )}
+
+                          {selectedManga.licenseStatus === "pending" && (
+                            <Card className="rounded-2xl border-slate-200 shadow-sm">
+                              <CardHeader className="pb-4">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                  <FileCheck className="h-5 w-5 text-slate-500" />
+                                  Review Actions
+                                </CardTitle>
+                                <CardDescription className="text-sm">
+                                  Choose how to proceed with this pending
+                                  license.
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent className="space-y-3 p-6 pt-0">
+                                <Button
+                                  className="w-full"
+                                  onClick={() =>
+                                    setActionDialog("approve-license")
+                                  }
+                                >
+                                  <FileCheck className="mr-2 h-4 w-4" />
+                                  Approve License
+                                </Button>
+
+                                <Button
+                                  variant="outline"
+                                  className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                  onClick={() =>
+                                    setActionDialog("reject-license")
+                                  }
+                                >
+                                  Reject License
+                                </Button>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent
+                          value="enforcement"
+                          className="mt-0 space-y-4"
                         >
-                          {selectedManga.enforcementStatus}
-                        </Badge>
+                          <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+                            <Card className="rounded-2xl border-slate-200 shadow-sm">
+                              <CardHeader className="pb-4">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                  <ShieldCheck className="h-5 w-5 text-slate-500" />
+                                  Current Enforcement Status
+                                </CardTitle>
+                                <CardDescription className="text-sm">
+                                  Current moderation outcome for this story.
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent className="space-y-4 p-6 pt-0 min-h-[220px]">
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Status
+                                  </p>
+                                  <Badge
+                                    variant="outline"
+                                    className={`mt-3 capitalize ${getEnforcementStatusColor(
+                                      selectedManga.enforcementStatus
+                                    )}`}
+                                  >
+                                    {selectedManga.enforcementStatus}
+                                  </Badge>
+                                </div>
+
+                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Reason
+                                  </p>
+                                  <p className="mt-2 text-sm leading-7 text-slate-700 break-words">
+                                    {selectedManga.enforcementReason ||
+                                      "No enforcement reason recorded."}
+                                  </p>
+                                </div>
+
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                      Updated By
+                                    </p>
+                                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                                      {selectedManga.enforcementUpdatedBy
+                                        ?.username || "—"}
+                                    </p>
+                                  </div>
+
+                                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                      Updated At
+                                    </p>
+                                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                                      {formatDate(
+                                        selectedManga.enforcementUpdatedAt
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <Card className="rounded-2xl border-slate-200 shadow-sm">
+                              <CardHeader className="pb-4">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                  <ShieldAlert className="h-5 w-5 text-slate-500" />
+                                  Moderation Actions
+                                </CardTitle>
+                                <CardDescription className="text-sm">
+                                  Apply temporary or permanent moderation
+                                  actions.
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent className="space-y-4 p-6 pt-0 min-h-[220px]">
+                                {selectedManga.enforcementStatus ===
+                                "normal" ? (
+                                  <>
+                                    <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+                                      <p className="text-sm font-semibold text-orange-800">
+                                        Temporary restriction
+                                      </p>
+                                      <p className="mt-1 text-xs leading-5 text-orange-700">
+                                        Suspend the story when access should be
+                                        limited while the issue is being
+                                        reviewed.
+                                      </p>
+                                      <Button
+                                        variant="outline"
+                                        className="mt-4 w-full border-orange-200 text-orange-700 hover:bg-orange-100"
+                                        onClick={() =>
+                                          setActionDialog("suspend")
+                                        }
+                                      >
+                                        <Zap className="mr-2 h-4 w-4" />
+                                        Suspend Manga
+                                      </Button>
+                                    </div>
+
+                                    <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                                      <p className="text-sm font-semibold text-red-800">
+                                        Permanent restriction
+                                      </p>
+                                      <p className="mt-1 text-xs leading-5 text-red-700">
+                                        Ban the story when it must be fully
+                                        blocked from the platform.
+                                      </p>
+                                      <Button
+                                        variant="destructive"
+                                        className="mt-4 w-full"
+                                        onClick={() => setActionDialog("ban")}
+                                      >
+                                        <ShieldAlert className="mr-2 h-4 w-4" />
+                                        Ban Manga
+                                      </Button>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                                    <p className="text-sm font-semibold text-emerald-800">
+                                      Restore normal access
+                                    </p>
+                                    <p className="mt-1 text-xs leading-5 text-emerald-700">
+                                      Remove the active restriction and return
+                                      this story to normal status.
+                                    </p>
+                                    <Button
+                                      className="mt-4 w-full"
+                                      onClick={() =>
+                                        setActionDialog("clear-enforcement")
+                                      }
+                                    >
+                                      Remove Restriction
+                                    </Button>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </div>
+                        </TabsContent>
                       </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-gray-500">
-                          Reason
-                        </p>
-                        <p className="mt-1 text-sm text-gray-700 break-words">
-                          {selectedManga.enforcementReason ||
-                            "No enforcement reason"}
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-4 border-t pt-4 md:grid-cols-2">
-                        <div>
-                          <p className="text-xs font-semibold uppercase text-gray-500">
-                            Updated By
-                          </p>
-                          <p className="mt-1 text-sm">
-                            {selectedManga.enforcementUpdatedBy?.username ||
-                              "—"}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs font-semibold uppercase text-gray-500">
-                            Updated At
-                          </p>
-                          <p className="mt-1 text-sm">
-                            {formatDate(selectedManga.enforcementUpdatedAt)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 border-t pt-4">
-                        {selectedManga.enforcementStatus === "normal" ? (
-                          <>
-                            <Button
-                              variant="outline"
-                              className="w-full"
-                              onClick={() => setActionDialog("suspend")}
-                            >
-                              <Zap className="h-4 w-4 mr-2" />
-                              Suspend
-                            </Button>
-
-                            <Button
-                              variant="destructive"
-                              className="w-full"
-                              onClick={() => setActionDialog("ban")}
-                            >
-                              <ShieldAlert className="h-4 w-4 mr-2" />
-                              Ban Manga
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            className="w-full"
-                            onClick={() =>
-                              setActionDialog("clear-enforcement")
-                            }
-                          >
-                            Remove Restriction
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </>
+                    </Tabs>
+                  </section>
+                </div>
+              </div>
             ) : (
-              <div className="py-12 text-center text-gray-500">No data</div>
+              <div className="flex min-h-[60vh] items-center justify-center px-6 text-center">
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 shadow-sm">
+                  <BookOpen className="mx-auto h-10 w-10 text-slate-400" />
+                  <p className="mt-4 text-base font-semibold text-slate-900">
+                    No manga detail available
+                  </p>
+                  <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+                    Select a story from the table to review its overview,
+                    license information, publication visibility, and enforcement
+                    status.
+                  </p>
+                </div>
+              </div>
             )}
           </SheetContent>
         </Sheet>
