@@ -1,21 +1,21 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import axios from "axios"
-import AdminLayout from "../../adminLayout/page"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { useState } from "react";
+import axios from "axios";
+import AdminLayout from "../../adminLayout/layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -23,15 +23,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { ArrowLeft, Eye, Info } from "lucide-react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+} from "@/components/ui/dialog";
+import { ArrowLeft, Eye, Info } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-const API_URL = "http://localhost:3333/api/policies"
+const API_URL = "http://localhost:3333/api/policies";
 
 export default function AdminPolicyFormPage() {
-  const router = useRouter()
+  const router = useRouter();
   const [formData, setFormData] = useState({
     title: "",
     mainType: "TERM", // ✅ TERM hoặc PRIVACY
@@ -40,36 +40,39 @@ export default function AdminPolicyFormPage() {
     isPublic: false,
     description: "",
     content: "",
-  })
+  });
 
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   /** 🧠 Gửi dữ liệu thật đến BE */
   const handleSubmit = async (publishNow: boolean) => {
     try {
-      setLoading(true)
+      setLoading(true);
 
       const payload = {
         ...formData,
         status: publishNow ? "Active" : "Draft",
-      }
+      };
 
-      const res = await axios.post(API_URL, payload)
+      const res = await axios.post(API_URL, payload);
 
       if (res.status === 201 || res.status === 200) {
-        console.log("✅ Policy created:", res.data)
-        router.push("/admin/policies")
+        console.log("✅ Policy created:", res.data);
+        router.push("/admin/policies");
       } else {
-        console.warn("⚠️ Unexpected response:", res)
+        console.warn("⚠️ Unexpected response:", res);
       }
     } catch (error: any) {
-      console.error("❌ Error creating policy:", error.response?.data || error.message)
-      alert("Failed to create policy. Check console for details.")
+      console.error(
+        "❌ Error creating policy:",
+        error.response?.data || error.message,
+      );
+      alert("Failed to create policy. Check console for details.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <AdminLayout>
@@ -93,7 +96,9 @@ export default function AdminPolicyFormPage() {
                 Back
               </Button>
             </Link>
-            <h1 className="text-3xl font-bold text-gray-900">Create New Policy</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Create New Policy
+            </h1>
           </div>
         </div>
 
@@ -108,13 +113,19 @@ export default function AdminPolicyFormPage() {
                 </p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>
-                    <strong>TERM</strong> = Điều khoản sử dụng (Usage, Account, Posting…)
+                    <strong>TERM</strong> = Điều khoản sử dụng (Usage, Account,
+                    Posting…)
                   </li>
                   <li>
-                    <strong>PRIVACY</strong> = Chính sách quyền riêng tư (Dữ liệu, Bình luận…)
+                    <strong>PRIVACY</strong> = Chính sách quyền riêng tư (Dữ
+                    liệu, Bình luận…)
                   </li>
-                  <li><strong>Active</strong> = Đang có hiệu lực</li>
-                  <li><strong>Public</strong> = Hiển thị cho người dùng</li>
+                  <li>
+                    <strong>Active</strong> = Đang có hiệu lực
+                  </li>
+                  <li>
+                    <strong>Public</strong> = Hiển thị cho người dùng
+                  </li>
                   <li>Có thể Active nhưng nội bộ (Internal)</li>
                 </ul>
               </div>
@@ -131,8 +142,8 @@ export default function AdminPolicyFormPage() {
             <form
               className="space-y-6"
               onSubmit={(e) => {
-                e.preventDefault()
-                handleSubmit(false)
+                e.preventDefault();
+                handleSubmit(false);
               }}
             >
               <div className="grid md:grid-cols-2 gap-6">
@@ -142,7 +153,9 @@ export default function AdminPolicyFormPage() {
                   <Input
                     required
                     value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
                   />
                 </div>
 
@@ -151,7 +164,9 @@ export default function AdminPolicyFormPage() {
                   <Label>Main Type *</Label>
                   <Select
                     value={formData.mainType}
-                    onValueChange={(v) => setFormData({ ...formData, mainType: v })}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, mainType: v })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -168,7 +183,9 @@ export default function AdminPolicyFormPage() {
                   <Label>Subcategory *</Label>
                   <Select
                     value={formData.subCategory}
-                    onValueChange={(v) => setFormData({ ...formData, subCategory: v })}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, subCategory: v })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -188,7 +205,9 @@ export default function AdminPolicyFormPage() {
                   <Label>Status *</Label>
                   <Select
                     value={formData.status}
-                    onValueChange={(v) => setFormData({ ...formData, status: v })}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, status: v })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -288,7 +307,8 @@ export default function AdminPolicyFormPage() {
             <DialogHeader>
               <DialogTitle>{formData.title || "Untitled"}</DialogTitle>
               <DialogDescription>
-                {formData.mainType} — {formData.subCategory} ({formData.isPublic ? "Public" : "Internal"})
+                {formData.mainType} — {formData.subCategory} (
+                {formData.isPublic ? "Public" : "Internal"})
               </DialogDescription>
             </DialogHeader>
             <div className="bg-gray-50 p-6 rounded-lg whitespace-pre-wrap text-gray-800">
@@ -301,5 +321,5 @@ export default function AdminPolicyFormPage() {
         </Dialog>
       </div>
     </AdminLayout>
-  )
+  );
 }

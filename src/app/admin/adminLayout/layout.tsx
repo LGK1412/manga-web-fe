@@ -93,17 +93,17 @@ const menuItems: MenuItem[] = [
   },
   {
     kind: "link",
+    id: "payoutProfile",
+    label: "Payout Profile",
+    icon: Banknote,
+    href: "/admin/payout-profile",
+  },
+  {
+    kind: "link",
     id: "withdraw",
     label: "Withdraw",
     icon: Banknote,
     href: "/admin/withdraw",
-  },
-  {
-    kind: "link",
-    id: "tax",
-    label: "Tax",
-    icon: Banknote,
-    href: "/admin/tax",
   },
   {
     kind: "link",

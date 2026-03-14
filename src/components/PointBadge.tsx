@@ -75,7 +75,7 @@ export function PointBadge() {
             className="h-7 w-7 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
             asChild
           >
-            <Link href="/withdraw">→</Link>
+            <Link href="/withdraw/request">→</Link>
           </Button>
         </div>
       )}

@@ -20,7 +20,7 @@ interface UserPointContextType {
 }
 
 const UserPointContext = createContext<UserPointContextType | undefined>(
-  undefined
+  undefined,
 );
 
 export const UserPointProvider = ({ children }: { children: ReactNode }) => {
@@ -54,18 +54,33 @@ export const UserPointProvider = ({ children }: { children: ReactNode }) => {
         `${process.env.NEXT_PUBLIC_API_URL}/api/user/point`,
         {
           withCredentials: true,
-        }
+        },
       );
       console.log("Point API response:", res.data);
       console.log("Full response:", res);
       const pointValue = Number(res.data?.point) || 0;
       const authorPointValue = Number(res.data?.author_point) || 0;
-      console.log("Setting point to:", pointValue, "authorPoint to:", authorPointValue);
-      console.log("Current state before update - point:", point, "authorPoint:", authorPoint);
+      console.log(
+        "Setting point to:",
+        pointValue,
+        "authorPoint to:",
+        authorPointValue,
+      );
+      console.log(
+        "Current state before update - point:",
+        point,
+        "authorPoint:",
+        authorPoint,
+      );
       setPoint(pointValue);
       setAuthorPoint(authorPointValue);
       setRole(res.data?.role || "");
-      console.log("State updated - point should be:", pointValue, "authorPoint should be:", authorPointValue);
+      console.log(
+        "State updated - point should be:",
+        pointValue,
+        "authorPoint should be:",
+        authorPointValue,
+      );
     } catch (err: any) {
       console.error("Error fetching points:", err);
       console.error("Error response:", err?.response?.data);

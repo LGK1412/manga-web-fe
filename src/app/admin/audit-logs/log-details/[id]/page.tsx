@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
 // src/app/admin/audit-logs/log-details/[id]/page.tsx
 
-import { useEffect, useMemo, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
-import axios from "axios"
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import axios from "axios";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -14,19 +14,19 @@ import {
   ShieldAlert,
   Copy,
   RefreshCcw,
-} from "lucide-react"
+} from "lucide-react";
 
-import AdminLayout from "@/app/admin/adminLayout/page"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Skeleton } from "@/components/ui/skeleton"
-import { toast } from "sonner"
+import AdminLayout from "@/app/admin/adminLayout/layout";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 import {
   buildHumanMessage,
@@ -35,28 +35,32 @@ import {
   prettyFieldLabel,
   prettyFieldValue,
   prettyRole,
-} from "@/lib/audit-ui"
+} from "@/lib/audit-ui";
 
 type Me = {
-  userId?: string
-  email?: string
-  role?: string
-}
+  userId?: string;
+  email?: string;
+  role?: string;
+};
 
 /** ✅ Helper: render value multiline friendly */
 function ValueView({ value }: { value: any }) {
   if (value === null || value === undefined) {
-    return <p className="text-xs text-gray-500">—</p>
+    return <p className="text-xs text-gray-500">—</p>;
   }
 
   if (typeof value === "string") {
     return (
-      <Textarea value={value} readOnly className="text-xs min-h-[120px] resize-none bg-white" />
-    )
+      <Textarea
+        value={value}
+        readOnly
+        className="text-xs min-h-[120px] resize-none bg-white"
+      />
+    );
   }
 
   if (typeof value === "number" || typeof value === "boolean") {
-    return <p className="text-sm text-gray-800">{String(value)}</p>
+    return <p className="text-sm text-gray-800">{String(value)}</p>;
   }
 
   // object / array
@@ -66,168 +70,198 @@ function ValueView({ value }: { value: any }) {
         {JSON.stringify(value, null, 2)}
       </pre>
     </ScrollArea>
-  )
+  );
 }
 
 /** ✅ Helper: render object fields theo dạng form (label hoá + allowlist) */
 function DiffObjectView({ obj }: { obj: Record<string, any> }) {
-  const keys = Object.keys(obj || {})
-  if (!keys.length) return <p className="text-sm text-gray-500">—</p>
+  const keys = Object.keys(obj || {});
+  if (!keys.length) return <p className="text-sm text-gray-500">—</p>;
 
   return (
     <div className="space-y-3">
       {keys.map((k) => (
         <div key={k} className="space-y-1">
-          <p className="text-xs font-semibold text-gray-700">{prettyFieldLabel(k)}</p>
+          <p className="text-xs font-semibold text-gray-700">
+            {prettyFieldLabel(k)}
+          </p>
           <ValueView value={prettyFieldValue(k, obj[k])} />
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 export default function AuditLogDetailsPage() {
-  const { id } = useParams<{ id: string }>()
-  const router = useRouter()
-  const API = process.env.NEXT_PUBLIC_API_URL
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const API = process.env.NEXT_PUBLIC_API_URL;
 
-  const [log, setLog] = useState<any>(null)
-  const [adminNote, setAdminNote] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [log, setLog] = useState<any>(null);
+  const [adminNote, setAdminNote] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const [me, setMe] = useState<Me | null>(null)
-  const [meError, setMeError] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [me, setMe] = useState<Me | null>(null);
+  const [meError, setMeError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   /** ✅ role normalized */
-  const roleNormalized = useMemo(() => String(me?.role || "").toLowerCase(), [me?.role])
-  const isAdmin = useMemo(() => roleNormalized === "admin", [roleNormalized])
+  const roleNormalized = useMemo(
+    () => String(me?.role || "").toLowerCase(),
+    [me?.role],
+  );
+  const isAdmin = useMemo(() => roleNormalized === "admin", [roleNormalized]);
 
-  const actorName = log?.actor_id?.username || log?.actor_name || "System"
-  const actorEmail = log?.actor_id?.email || log?.actor_email || "—"
-  const actorRole = log?.actor_role || log?.actor_id?.role || "system"
+  const actorName = log?.actor_id?.username || log?.actor_name || "System";
+  const actorEmail = log?.actor_id?.email || log?.actor_email || "—";
+  const actorRole = log?.actor_role || log?.actor_id?.role || "system";
 
   const timeText = log?.createdAt
     ? new Date(log.createdAt).toLocaleString("vi-VN", { hour12: false })
-    : "—"
+    : "—";
 
   const riskBadge = useMemo(() => {
-    const risk = log?.risk ?? "low"
-    if (risk === "high") return "bg-red-100 text-red-800 border border-red-200"
-    if (risk === "medium") return "bg-yellow-100 text-yellow-800 border border-yellow-200"
-    return "bg-green-100 text-green-800 border border-green-200"
-  }, [log?.risk])
+    const risk = log?.risk ?? "low";
+    if (risk === "high") return "bg-red-100 text-red-800 border border-red-200";
+    if (risk === "medium")
+      return "bg-yellow-100 text-yellow-800 border border-yellow-200";
+    return "bg-green-100 text-green-800 border border-green-200";
+  }, [log?.risk]);
 
   const approvalBadge = useMemo(() => {
     return log?.approval === "approved"
       ? "bg-green-100 text-green-800 border border-green-200"
-      : "bg-yellow-100 text-yellow-800 border border-yellow-200"
-  }, [log?.approval])
+      : "bg-yellow-100 text-yellow-800 border border-yellow-200";
+  }, [log?.approval]);
 
   const seenBadge = useMemo(() => {
     return log?.seen
       ? "bg-slate-100 text-slate-700 border border-slate-200"
-      : "bg-orange-100 text-orange-800 border border-orange-200"
-  }, [log?.seen])
+      : "bg-orange-100 text-orange-800 border border-orange-200";
+  }, [log?.seen]);
 
   /** ✅ fetch me (role) */
   const fetchMe = async () => {
-    if (!API) return
+    if (!API) return;
     try {
-      setMeError(null)
-      const res = await axios.get(`${API}/api/auth/me`, { withCredentials: true })
-      setMe(res.data)
+      setMeError(null);
+      const res = await axios.get(`${API}/api/auth/me`, {
+        withCredentials: true,
+      });
+      setMe(res.data);
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         err?.message ||
-        "Cannot fetch /me"
-      console.error("[ME] FETCH ERROR:", err?.response?.data || err?.message)
-      setMe(null)
-      setMeError(msg)
+        "Cannot fetch /me";
+      console.error("[ME] FETCH ERROR:", err?.response?.data || err?.message);
+      setMe(null);
+      setMeError(msg);
     }
-  }
+  };
 
   /** ✅ fetch log detail */
   const fetchLog = async () => {
-    if (!API || !id) return
+    if (!API || !id) return;
     try {
-      setError(null)
-      const res = await axios.get(`${API}/api/audit-logs/${id}`, { withCredentials: true })
-      setLog(res.data)
-      setAdminNote(res.data?.adminNote ?? "")
+      setError(null);
+      const res = await axios.get(`${API}/api/audit-logs/${id}`, {
+        withCredentials: true,
+      });
+      setLog(res.data);
+      setAdminNote(res.data?.adminNote ?? "");
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || "Fetch failed"
-      setError(msg)
-      console.error("[AuditLogDetails] FETCH ERROR", err?.response?.data || err?.message)
+      const msg =
+        err?.response?.data?.message || err?.message || "Fetch failed";
+      setError(msg);
+      console.error(
+        "[AuditLogDetails] FETCH ERROR",
+        err?.response?.data || err?.message,
+      );
     }
-  }
+  };
 
   useEffect(() => {
-    fetchMe()
+    fetchMe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [API])
+  }, [API]);
 
   useEffect(() => {
-    fetchLog()
+    fetchLog();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [API, id])
+  }, [API, id]);
 
   const copyText = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text)
-      toast.success("Copied")
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied");
     } catch {
-      toast.error("Copy failed")
+      toast.error("Copy failed");
     }
-  }
+  };
 
   const handleApprove = async () => {
-    if (!API || !id) return
+    if (!API || !id) return;
     if (!isAdmin) {
-      toast.error("Admin only")
-      return
+      toast.error("Admin only");
+      return;
     }
 
     try {
-      setLoading(true)
+      setLoading(true);
       const res = await axios.patch(
         `${API}/api/audit-logs/${id}/approve`,
         { adminNote },
         { withCredentials: true },
-      )
-      setLog(res.data)
-      toast.success("Approved")
+      );
+      setLog(res.data);
+      toast.success("Approved");
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.response?.data?.error || "Approve failed"
-      toast.error(msg)
-      console.error("[AuditLogDetails] APPROVE ERROR", err?.response?.data || err?.message)
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "Approve failed";
+      toast.error(msg);
+      console.error(
+        "[AuditLogDetails] APPROVE ERROR",
+        err?.response?.data || err?.message,
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleMarkSeen = async () => {
-    if (!API || !id) return
+    if (!API || !id) return;
     if (!isAdmin) {
-      toast.error("Admin only")
-      return
+      toast.error("Admin only");
+      return;
     }
 
     try {
-      setLoading(true)
-      const res = await axios.patch(`${API}/api/audit-logs/${id}/seen`, {}, { withCredentials: true })
-      setLog(res.data)
-      toast.success("Marked as seen")
+      setLoading(true);
+      const res = await axios.patch(
+        `${API}/api/audit-logs/${id}/seen`,
+        {},
+        { withCredentials: true },
+      );
+      setLog(res.data);
+      toast.success("Marked as seen");
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.response?.data?.error || "Mark seen failed"
-      toast.error(msg)
-      console.error("[AuditLogDetails] SEEN ERROR", err?.response?.data || err?.message)
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "Mark seen failed";
+      toast.error(msg);
+      console.error(
+        "[AuditLogDetails] SEEN ERROR",
+        err?.response?.data || err?.message,
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   if (!log && !error) {
     return (
@@ -240,7 +274,7 @@ export default function AuditLogDetailsPage() {
           </div>
         </div>
       </AdminLayout>
-    )
+    );
   }
 
   if (error) {
@@ -270,19 +304,20 @@ export default function AuditLogDetailsPage() {
           </Card>
         </div>
       </AdminLayout>
-    )
+    );
   }
 
   // ✅ hide technical id from UI (but keep to navigate internally)
-  const targetType = log?.target_type ? String(log.target_type) : "—"
-  const reportCode = log?.reportCode ? String(log.reportCode) : "—"
+  const targetType = log?.target_type ? String(log.target_type) : "—";
+  const reportCode = log?.reportCode ? String(log.reportCode) : "—";
 
   // ✅ allowlist diff fields + label hoá
-  const beforeObj: Record<string, any> = normalizeDiff(log, log?.before || {})
-  const afterObj: Record<string, any> = normalizeDiff(log, log?.after || {})
+  const beforeObj: Record<string, any> = normalizeDiff(log, log?.before || {});
+  const afterObj: Record<string, any> = normalizeDiff(log, log?.after || {});
 
   const canOpenReport =
-    String(log?.target_type || "").toLowerCase() === "report" && Boolean(log?.target_id)
+    String(log?.target_type || "").toLowerCase() === "report" &&
+    Boolean(log?.target_id);
 
   return (
     <AdminLayout>
@@ -291,7 +326,8 @@ export default function AuditLogDetailsPage() {
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="text-xs text-gray-500">
-              Admin / Audit Logs / <span className="text-gray-800">Details</span>
+              Admin / Audit Logs /{" "}
+              <span className="text-gray-800">Details</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -324,12 +360,23 @@ export default function AuditLogDetailsPage() {
             </div>
 
             <div className="text-xs text-gray-500">
-              Logged in as <b className="text-gray-800">{prettyRole(roleNormalized || "unknown")}</b>
-              {meError && <span className="ml-2 text-red-600">(me API error: {meError})</span>}
+              Logged in as{" "}
+              <b className="text-gray-800">
+                {prettyRole(roleNormalized || "unknown")}
+              </b>
+              {meError && (
+                <span className="ml-2 text-red-600">
+                  (me API error: {meError})
+                </span>
+              )}
             </div>
           </div>
 
-          <Button variant="outline" onClick={() => router.back()} className="gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.back()}
+            className="gap-2"
+          >
             <ArrowLeft className="h-4 w-4" /> Back
           </Button>
         </div>
@@ -375,7 +422,9 @@ export default function AuditLogDetailsPage() {
                         size="sm"
                         variant="outline"
                         className="mt-2"
-                        onClick={() => router.push(`/admin/reports/${log.target_id}`)}
+                        onClick={() =>
+                          router.push(`/admin/reports/${log.target_id}`)
+                        }
                       >
                         Open Report
                       </Button>
@@ -385,8 +434,12 @@ export default function AuditLogDetailsPage() {
                   <div>
                     <p className="text-xs text-gray-500">Status</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <Badge className={seenBadge}>{log.seen ? "Seen" : "Unseen"}</Badge>
-                      <Badge className={approvalBadge}>{String(log.approval ?? "pending")}</Badge>
+                      <Badge className={seenBadge}>
+                        {log.seen ? "Seen" : "Unseen"}
+                      </Badge>
+                      <Badge className={approvalBadge}>
+                        {String(log.approval ?? "pending")}
+                      </Badge>
                     </div>
                   </div>
                 </div>
@@ -395,12 +448,16 @@ export default function AuditLogDetailsPage() {
 
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Message</p>
-                  <p className="text-sm text-gray-800 leading-relaxed">{buildHumanMessage(log)}</p>
+                  <p className="text-sm text-gray-800 leading-relaxed">
+                    {buildHumanMessage(log)}
+                  </p>
                 </div>
 
                 {log?.note && (
                   <div className="pt-2">
-                    <p className="text-xs font-semibold text-gray-700 mb-1">Moderator Note</p>
+                    <p className="text-xs font-semibold text-gray-700 mb-1">
+                      Moderator Note
+                    </p>
                     <Textarea
                       value={String(log.note)}
                       readOnly
@@ -429,8 +486,12 @@ export default function AuditLogDetailsPage() {
                     <div className="text-sm text-gray-600">
                       <p>
                         <span className="text-gray-500">Actor:</span>{" "}
-                        <span className="font-medium text-gray-900">{actorName}</span>{" "}
-                        <span className="text-gray-400">({prettyRole(actorRole)})</span>
+                        <span className="font-medium text-gray-900">
+                          {actorName}
+                        </span>{" "}
+                        <span className="text-gray-400">
+                          ({prettyRole(actorRole)})
+                        </span>
                       </p>
                       <p className="text-xs">{actorEmail}</p>
                     </div>
@@ -463,10 +524,14 @@ export default function AuditLogDetailsPage() {
                   </TabsContent>
 
                   <TabsContent value="evidence" className="mt-4">
-                    {Array.isArray(log.evidenceImages) && log.evidenceImages.length > 0 ? (
+                    {Array.isArray(log.evidenceImages) &&
+                    log.evidenceImages.length > 0 ? (
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {log.evidenceImages.map((src: string, idx: number) => (
-                          <div key={idx} className="border rounded-lg overflow-hidden bg-white">
+                          <div
+                            key={idx}
+                            className="border rounded-lg overflow-hidden bg-white"
+                          >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={src}
@@ -477,7 +542,9 @@ export default function AuditLogDetailsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-500">No evidence attached.</p>
+                      <p className="text-sm text-gray-500">
+                        No evidence attached.
+                      </p>
                     )}
                   </TabsContent>
                 </Tabs>
@@ -564,12 +631,22 @@ export default function AuditLogDetailsPage() {
                   </Button>
                 )}
 
-                <Button variant="outline" className="w-full" onClick={fetchLog} disabled={loading}>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={fetchLog}
+                  disabled={loading}
+                >
                   <RefreshCcw className="h-4 w-4 mr-2" />
                   Refresh
                 </Button>
 
-                <Button variant="ghost" className="w-full" onClick={fetchMe} disabled={loading}>
+                <Button
+                  variant="ghost"
+                  className="w-full"
+                  onClick={fetchMe}
+                  disabled={loading}
+                >
                   <RefreshCcw className="h-4 w-4 mr-2" />
                   Refresh Role (/me)
                 </Button>
@@ -579,5 +656,5 @@ export default function AuditLogDetailsPage() {
         </div>
       </div>
     </AdminLayout>
-  )
+  );
 }

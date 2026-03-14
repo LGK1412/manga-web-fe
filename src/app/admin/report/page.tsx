@@ -41,7 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import AdminLayout from "../adminLayout/page";
+import AdminLayout from "../adminLayout/layout";
 import ReportModal from "@/components/ui/report-modal";
 
 interface Report {
@@ -182,7 +182,7 @@ export default function ReportsPage() {
   const handleUpdateStatus = async (
     id: string,
     newStatus?: string,
-    note?: string
+    note?: string,
   ) => {
     if (!API) {
       console.error("Missing NEXT_PUBLIC_API_URL");
@@ -212,8 +212,8 @@ export default function ReportsPage() {
                 status: newStatus ?? r.status,
                 resolution_note: note ?? r.resolution_note,
               }
-            : r
-        )
+            : r,
+        ),
       );
 
       setIsModalOpen(false);
@@ -334,8 +334,9 @@ export default function ReportsPage() {
 
   const totalReports = reports.length;
   const newReports = reports.filter((r) => r.status === "new").length;
-  const unresolvedReports = reports.filter((r) => r.status === "in-progress")
-    .length;
+  const unresolvedReports = reports.filter(
+    (r) => r.status === "in-progress",
+  ).length;
 
   return (
     <AdminLayout>
@@ -373,7 +374,9 @@ export default function ReportsPage() {
               <Clock className="h-5 w-5 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-600">{newReports}</div>
+              <div className="text-3xl font-bold text-red-600">
+                {newReports}
+              </div>
               <p className="text-xs text-gray-600 mt-1">
                 Require immediate attention
               </p>
@@ -555,7 +558,9 @@ export default function ReportsPage() {
                             </div>
                           </TableCell>
 
-                          <TableCell>{targetTypeBadge(r.target_type)}</TableCell>
+                          <TableCell>
+                            {targetTypeBadge(r.target_type)}
+                          </TableCell>
 
                           <TableCell className="group-hover:text-slate-900">
                             {targetTitle}
@@ -573,7 +578,9 @@ export default function ReportsPage() {
 
                           <TableCell className="group-hover:text-slate-900">
                             {r.createdAt
-                              ? new Date(r.createdAt).toLocaleDateString("en-GB")
+                              ? new Date(r.createdAt).toLocaleDateString(
+                                  "en-GB",
+                                )
                               : "—"}
                           </TableCell>
 
@@ -637,7 +644,7 @@ export default function ReportsPage() {
                   >
                     {page}
                   </Button>
-                )
+                ),
               )}
             </div>
           </CardContent>

@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Users, BookOpen, AlertCircle, Bell, Eye, TrendingUp } from "lucide-react";
+import {
+  Users,
+  BookOpen,
+  AlertCircle,
+  Bell,
+  Eye,
+  TrendingUp,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,7 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Link from "next/link";
-import AdminLayout from "../adminLayout/page";
+import AdminLayout from "../adminLayout/layout";
 import {
   LineChart,
   Line,
@@ -95,7 +102,9 @@ export default function AdminDashboard() {
   const [recentUsers, setRecentUsers] = useState<RecentUserRow[]>([]);
 
   // ===== Report state
-  const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
+  const [reportSummary, setReportSummary] = useState<ReportSummary | null>(
+    null,
+  );
 
   // ===== MANGA states
   const [mangaSummary, setMangaSummary] = useState<MangaSummary | null>(null);
@@ -138,12 +147,16 @@ export default function AdminDashboard() {
     // ====== Users
     const fetchSummary = async () => {
       try {
-        const res = await axios.get<UserSummary>(`${API}/api/user/admin/summary`, {
-          withCredentials: true,
-        });
+        const res = await axios.get<UserSummary>(
+          `${API}/api/user/admin/summary`,
+          {
+            withCredentials: true,
+          },
+        );
         if (mounted) setSummary(res.data);
       } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, summary: e?.message || "Error" }));
+        if (mounted)
+          setError((s) => ({ ...s, summary: e?.message || "Error" }));
       } finally {
         if (mounted) setLoading((s) => ({ ...s, summary: false }));
       }
@@ -153,7 +166,7 @@ export default function AdminDashboard() {
       try {
         const res = await axios.get<UsersWeeklyPoint[]>(
           `${API}/api/user/admin/charts/weekly-new?weeks=4`,
-          { withCredentials: true }
+          { withCredentials: true },
         );
         if (mounted) setWeeklyNew(res.data || []);
       } catch (e: any) {
@@ -167,7 +180,7 @@ export default function AdminDashboard() {
       try {
         const res = await axios.get<RecentUserRow[]>(
           `${API}/api/user/admin/recent?limit=5`,
-          { withCredentials: true }
+          { withCredentials: true },
         );
         if (mounted) setRecentUsers(res.data || []);
       } catch (e: any) {
@@ -180,9 +193,12 @@ export default function AdminDashboard() {
     // ====== Reports
     const fetchReportSummary = async () => {
       try {
-        const res = await axios.get<ReportSummary>(`${API}/api/reports/admin/summary`, {
-          withCredentials: true,
-        });
+        const res = await axios.get<ReportSummary>(
+          `${API}/api/reports/admin/summary`,
+          {
+            withCredentials: true,
+          },
+        );
         if (mounted) setReportSummary(res.data);
       } catch (e: any) {
         if (mounted) setError((s) => ({ ...s, report: e?.message || "Error" }));
@@ -194,9 +210,12 @@ export default function AdminDashboard() {
     // ====== MANGA
     const fetchMangaSummary = async () => {
       try {
-        const res = await axios.get<MangaSummary>(`${API}/api/manga/admin/summary`, {
-          withCredentials: true,
-        });
+        const res = await axios.get<MangaSummary>(
+          `${API}/api/manga/admin/summary`,
+          {
+            withCredentials: true,
+          },
+        );
         if (mounted) setMangaSummary(res.data);
       } catch (e: any) {
         if (mounted)
@@ -213,11 +232,12 @@ export default function AdminDashboard() {
       try {
         const res = await axios.get<MangaGrowthPoint[]>(
           `${API}/api/manga/admin/charts/monthly-growth?months=6`,
-          { withCredentials: true }
+          { withCredentials: true },
         );
         if (mounted) setMangaGrowth(res.data || []);
       } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, mangaGrowth: e?.message || "Error" }));
+        if (mounted)
+          setError((s) => ({ ...s, mangaGrowth: e?.message || "Error" }));
       } finally {
         if (mounted) setLoading((s) => ({ ...s, mangaGrowth: false }));
       }
@@ -225,12 +245,16 @@ export default function AdminDashboard() {
 
     const fetchTopStories = async () => {
       try {
-        const res = await axios.get<TopStory[]>(`${API}/api/manga/admin/top?limit=5&by=views`, {
-          withCredentials: true,
-        });
+        const res = await axios.get<TopStory[]>(
+          `${API}/api/manga/admin/top?limit=5&by=views`,
+          {
+            withCredentials: true,
+          },
+        );
         if (mounted) setTopStories(res.data || []);
       } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, topStories: e?.message || "Error" }));
+        if (mounted)
+          setError((s) => ({ ...s, topStories: e?.message || "Error" }));
       } finally {
         if (mounted) setLoading((s) => ({ ...s, topStories: false }));
       }
@@ -239,12 +263,16 @@ export default function AdminDashboard() {
     // 🔔 Notifications stats
     const fetchNotiStats = async () => {
       try {
-        const res = await axios.get<NotiStats>(`${API}/api/admin/notifications/stats`, {
-          withCredentials: true,
-        });
+        const res = await axios.get<NotiStats>(
+          `${API}/api/admin/notifications/stats`,
+          {
+            withCredentials: true,
+          },
+        );
         if (mounted) setNotiStats(res.data);
       } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, notiStats: e?.message || "Error" }));
+        if (mounted)
+          setError((s) => ({ ...s, notiStats: e?.message || "Error" }));
       } finally {
         if (mounted) setLoading((s) => ({ ...s, notiStats: false }));
       }
@@ -256,7 +284,8 @@ export default function AdminDashboard() {
         const rows: QueueItem[] = await fetchQueue({ limit: 200 });
         if (!mounted) return;
 
-        const buckets: Record<string, { totalRisk: number; count: number }> = {};
+        const buckets: Record<string, { totalRisk: number; count: number }> =
+          {};
 
         rows.forEach((item) => {
           const key = getWeekLabel(item.updatedAt);
@@ -275,7 +304,8 @@ export default function AdminDashboard() {
 
         setModWeekly(list);
       } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, modWeekly: e?.message || "Error" }));
+        if (mounted)
+          setError((s) => ({ ...s, modWeekly: e?.message || "Error" }));
       } finally {
         if (mounted) setLoading((s) => ({ ...s, modWeekly: false }));
       }
@@ -305,11 +335,13 @@ export default function AdminDashboard() {
         new: p.new,
         returning: 0,
       })),
-    [weeklyNew]
+    [weeklyNew],
   );
 
   // ====== derived UI values
-  const totalUsers = loading.summary ? "…" : (summary?.total ?? 0).toLocaleString();
+  const totalUsers = loading.summary
+    ? "…"
+    : (summary?.total ?? 0).toLocaleString();
   const deltaUsers = loading.summary
     ? "…"
     : `${(summary?.deltaPctMoM ?? 0) >= 0 ? "+" : ""}${(summary?.deltaPctMoM ?? 0).toFixed(2)}%`;
@@ -321,18 +353,30 @@ export default function AdminDashboard() {
     ? "…"
     : `${(mangaSummary?.deltaPctMoM ?? 0) >= 0 ? "+" : ""}${(mangaSummary?.deltaPctMoM ?? 0).toFixed(2)}%`;
 
-  const openReports = loading.report ? "…" : (reportSummary?.open ?? 0).toString();
-  const newReports7d = loading.report ? "…" : (reportSummary?.new7d ?? 0).toString();
+  const openReports = loading.report
+    ? "…"
+    : (reportSummary?.open ?? 0).toString();
+  const newReports7d = loading.report
+    ? "…"
+    : (reportSummary?.new7d ?? 0).toString();
 
   // 🔔 derive noti numbers
-  const totalNotifications = loading.notiStats ? "…" : (notiStats?.total ?? 0).toString();
-  const unreadNotifications = loading.notiStats ? "…" : (notiStats?.unread ?? 0).toString();
-  const readNotifications = loading.notiStats ? "…" : (notiStats?.read ?? 0).toString();
+  const totalNotifications = loading.notiStats
+    ? "…"
+    : (notiStats?.total ?? 0).toString();
+  const unreadNotifications = loading.notiStats
+    ? "…"
+    : (notiStats?.unread ?? 0).toString();
+  const readNotifications = loading.notiStats
+    ? "…"
+    : (notiStats?.read ?? 0).toString();
 
   return (
     <AdminLayout>
       <div className="mb-10">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Dashboard Overview
+        </h1>
         <p className="text-sm text-gray-500 mb-6">Admin / Dashboard</p>
 
         {/* Statistic Cards */}
@@ -358,7 +402,9 @@ export default function AdminDashboard() {
                 from last month
               </p>
               {!loading.summary && error.summary && (
-                <p className="text-xs text-red-600 mt-1">Error: {error.summary}</p>
+                <p className="text-xs text-red-600 mt-1">
+                  Error: {error.summary}
+                </p>
               )}
             </CardContent>
           </Card>
@@ -366,7 +412,9 @@ export default function AdminDashboard() {
           {/* Stories */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Stories</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Stories
+              </CardTitle>
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -374,7 +422,8 @@ export default function AdminDashboard() {
               <p className="text-xs text-muted-foreground">
                 <span
                   className={`font-semibold ${
-                    !loading.mangaSummary && (mangaSummary?.deltaPctMoM ?? 0) >= 0
+                    !loading.mangaSummary &&
+                    (mangaSummary?.deltaPctMoM ?? 0) >= 0
                       ? "text-green-600"
                       : "text-red-600"
                   }`}
@@ -384,7 +433,9 @@ export default function AdminDashboard() {
                 from last month
               </p>
               {!loading.mangaSummary && error.mangaSummary && (
-                <p className="text-xs text-red-600 mt-1">Error: {error.mangaSummary}</p>
+                <p className="text-xs text-red-600 mt-1">
+                  Error: {error.mangaSummary}
+                </p>
               )}
             </CardContent>
           </Card>
@@ -392,17 +443,25 @@ export default function AdminDashboard() {
           {/* Reports */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Reports</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Pending Reports
+              </CardTitle>
               <AlertCircle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{openReports}</div>
+              <div className="text-2xl font-bold text-red-600">
+                {openReports}
+              </div>
               <p className="text-xs text-muted-foreground">
-                <span className="text-red-600 font-semibold">+{newReports7d}</span>{" "}
+                <span className="text-red-600 font-semibold">
+                  +{newReports7d}
+                </span>{" "}
                 new reports (7 days)
               </p>
               {!loading.report && error.report && (
-                <p className="text-xs text-red-600 mt-1">Error: {error.report}</p>
+                <p className="text-xs text-red-600 mt-1">
+                  Error: {error.report}
+                </p>
               )}
             </CardContent>
           </Card>
@@ -410,7 +469,9 @@ export default function AdminDashboard() {
           {/* Notifications */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Notifications Activity</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Notifications Activity
+              </CardTitle>
               <Bell className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -420,15 +481,21 @@ export default function AdminDashboard() {
                   "Loading stats..."
                 ) : (
                   <>
-                    <span className="font-semibold text-blue-600">{unreadNotifications}</span>{" "}
+                    <span className="font-semibold text-blue-600">
+                      {unreadNotifications}
+                    </span>{" "}
                     unread ·{" "}
-                    <span className="font-semibold text-gray-600">{readNotifications}</span>{" "}
+                    <span className="font-semibold text-gray-600">
+                      {readNotifications}
+                    </span>{" "}
                     read
                   </>
                 )}
               </p>
               {!loading.notiStats && error.notiStats && (
-                <p className="text-xs text-red-600 mt-1">Error: {error.notiStats}</p>
+                <p className="text-xs text-red-600 mt-1">
+                  Error: {error.notiStats}
+                </p>
               )}
             </CardContent>
           </Card>
@@ -450,12 +517,26 @@ export default function AdminDashboard() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="new" stroke="#3b82f6" strokeWidth={2} name="New Users" />
-                  <Line type="monotone" dataKey="returning" stroke="#10b981" strokeWidth={2} name="Returning Users" />
+                  <Line
+                    type="monotone"
+                    dataKey="new"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    name="New Users"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="returning"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    name="Returning Users"
+                  />
                 </LineChart>
               </ResponsiveContainer>
               {!loading.weekly && error.weekly && (
-                <p className="text-xs text-red-600 mt-2">Error: {error.weekly}</p>
+                <p className="text-xs text-red-600 mt-2">
+                  Error: {error.weekly}
+                </p>
               )}
             </CardContent>
           </Card>
@@ -465,7 +546,8 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle>Moderation Risk per Week</CardTitle>
               <CardDescription>
-                Chapters count and average risk score by week (from moderation queue)
+                Chapters count and average risk score by week (from moderation
+                queue)
               </CardDescription>
             </CardHeader>
             <CardContent className="h-[250px]">
@@ -476,16 +558,30 @@ export default function AdminDashboard() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="chapters" name="Chapters" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="avgRisk" name="Avg Risk" fill="#f97316" radius={[8, 8, 0, 0]} />
+                  <Bar
+                    dataKey="chapters"
+                    name="Chapters"
+                    fill="#8b5cf6"
+                    radius={[8, 8, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="avgRisk"
+                    name="Avg Risk"
+                    fill="#f97316"
+                    radius={[8, 8, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
 
               {!loading.modWeekly && error.modWeekly && (
-                <p className="text-xs text-red-600 mt-2">Error: {error.modWeekly}</p>
+                <p className="text-xs text-red-600 mt-2">
+                  Error: {error.modWeekly}
+                </p>
               )}
               {loading.modWeekly && (
-                <p className="text-xs text-muted-foreground mt-2">Loading moderation stats…</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Loading moderation stats…
+                </p>
               )}
             </CardContent>
           </Card>
@@ -504,11 +600,19 @@ export default function AdminDashboard() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Area type="monotone" dataKey="stories" stroke="#14b8a6" fill="#14b8a6" fillOpacity={0.3} />
+                  <Area
+                    type="monotone"
+                    dataKey="stories"
+                    stroke="#14b8a6"
+                    fill="#14b8a6"
+                    fillOpacity={0.3}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
               {!loading.mangaGrowth && error.mangaGrowth && (
-                <p className="text-xs text-red-600 mt-2">Error: {error.mangaGrowth}</p>
+                <p className="text-xs text-red-600 mt-2">
+                  Error: {error.mangaGrowth}
+                </p>
               )}
             </CardContent>
           </Card>
@@ -544,15 +648,23 @@ export default function AdminDashboard() {
                   {(recentUsers ?? []).map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell className="text-sm text-gray-600">{user.email}</TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {user.email}
+                      </TableCell>
                       <TableCell>
                         <Badge
-                          variant={user.role?.toLowerCase() === "author" ? "default" : "secondary"}
+                          variant={
+                            user.role?.toLowerCase() === "author"
+                              ? "default"
+                              : "secondary"
+                          }
                         >
                           {user.role}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600">{user.joinDate}</TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {user.joinDate}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -603,8 +715,12 @@ export default function AdminDashboard() {
                     !error.topStories &&
                     topStories.map((story) => (
                       <TableRow key={story.id}>
-                        <TableCell className="font-medium">{story.title}</TableCell>
-                        <TableCell className="text-sm text-gray-600">{story.author}</TableCell>
+                        <TableCell className="font-medium">
+                          {story.title}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {story.author}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center">
                             <TrendingUp className="h-4 w-4 text-green-500 mr-1" />

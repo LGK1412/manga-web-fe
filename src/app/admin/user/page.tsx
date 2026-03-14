@@ -40,7 +40,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import AdminLayout from "../adminLayout/page";
+import AdminLayout from "../adminLayout/layout";
 import Link from "next/link";
 
 /** ===== Role options (raw values from backend) ===== */
@@ -54,7 +54,7 @@ const ROLE_OPTIONS = [
 ] as const;
 
 const ROLE_LABEL: Record<string, string> = Object.fromEntries(
-  ROLE_OPTIONS.map((r) => [r.value, r.label])
+  ROLE_OPTIONS.map((r) => [r.value, r.label]),
 );
 
 const formatRoleLabel = (role: string) => ROLE_LABEL[role] ?? role;
@@ -187,8 +187,8 @@ export default function UserManagement() {
           u.status === "normal"
             ? "Normal"
             : u.status === "ban"
-            ? "Banned"
-            : "Muted",
+              ? "Banned"
+              : "Muted",
         joinDate: new Date(u.createdAt).toISOString().split("T")[0],
         avatar: u.avatar
           ? `${API_URL}/uploads/${u.avatar}`
@@ -199,7 +199,9 @@ export default function UserManagement() {
     } catch (err: any) {
       logAxiosError("[Fetch Users]", endpoint, err);
       const msg = err?.response?.data?.message;
-      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to load users");
+      toast.error(
+        Array.isArray(msg) ? msg.join(", ") : (msg ?? "Failed to load users"),
+      );
     }
   };
 
@@ -215,7 +217,8 @@ export default function UserManagement() {
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesRole = filterRole === "all" || user.role === filterRole;
-      const matchesStatus = filterStatus === "all" || user.status === filterStatus;
+      const matchesStatus =
+        filterStatus === "all" || user.status === filterStatus;
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [users, searchTerm, filterRole, filterStatus]);
@@ -285,19 +288,27 @@ export default function UserManagement() {
 
       const payload = { userId: selectedUser.id, status: backendStatus };
 
-      const res = await axios.post(endpoint, payload, { withCredentials: true });
+      const res = await axios.post(endpoint, payload, {
+        withCredentials: true,
+      });
       console.log("[Admin Update Staff Status] RESPONSE", res.data);
 
       toast.success("Status updated successfully");
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === selectedUser.id ? { ...u, status: newStatus } : u))
+        prev.map((u) =>
+          u.id === selectedUser.id ? { ...u, status: newStatus } : u,
+        ),
       );
       setSelectedUser((prev) => (prev ? { ...prev, status: newStatus } : prev));
     } catch (err: any) {
       logAxiosError("[Admin Update Staff Status]", endpoint, err);
       const msg = err?.response?.data?.message;
-      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to update status");
+      toast.error(
+        Array.isArray(msg)
+          ? msg.join(", ")
+          : (msg ?? "Failed to update status"),
+      );
     }
   };
 
@@ -308,21 +319,30 @@ export default function UserManagement() {
     const endpoint = `${API_URL}/api/user/admin/reset-user-status`;
 
     try {
-      const payload = { userId: selectedUser.id, reason: resetReason.trim() || undefined };
-      const res = await axios.patch(endpoint, payload, { withCredentials: true });
+      const payload = {
+        userId: selectedUser.id,
+        reason: resetReason.trim() || undefined,
+      };
+      const res = await axios.patch(endpoint, payload, {
+        withCredentials: true,
+      });
       console.log("[Admin Reset] RESPONSE", res.data);
 
       toast.success("Reset to Normal");
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === selectedUser.id ? { ...u, status: "Normal" } : u))
+        prev.map((u) =>
+          u.id === selectedUser.id ? { ...u, status: "Normal" } : u,
+        ),
       );
       setSelectedUser((prev) => (prev ? { ...prev, status: "Normal" } : prev));
       setResetReason("");
     } catch (err: any) {
       logAxiosError("[Admin Reset]", endpoint, err);
       const msg = err?.response?.data?.message;
-      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to reset status");
+      toast.error(
+        Array.isArray(msg) ? msg.join(", ") : (msg ?? "Failed to reset status"),
+      );
     }
   };
 
@@ -334,19 +354,25 @@ export default function UserManagement() {
 
     try {
       const payload = { userId: selectedUser.id, role: newRole };
-      const res = await axios.patch(endpoint, payload, { withCredentials: true });
+      const res = await axios.patch(endpoint, payload, {
+        withCredentials: true,
+      });
       console.log("[Admin Set Role] RESPONSE", res.data);
 
       toast.success("Role updated successfully");
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === selectedUser.id ? { ...u, role: newRole } : u))
+        prev.map((u) =>
+          u.id === selectedUser.id ? { ...u, role: newRole } : u,
+        ),
       );
       setSelectedUser((prev) => (prev ? { ...prev, role: newRole } : prev));
     } catch (err: any) {
       logAxiosError("[Admin Set Role]", endpoint, err);
       const msg = err?.response?.data?.message;
-      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to update role");
+      toast.error(
+        Array.isArray(msg) ? msg.join(", ") : (msg ?? "Failed to update role"),
+      );
     }
   };
 
@@ -362,20 +388,26 @@ export default function UserManagement() {
         reason: moderationReason.trim() || undefined,
       };
 
-      const res = await axios.patch(endpoint, payload, { withCredentials: true });
+      const res = await axios.patch(endpoint, payload, {
+        withCredentials: true,
+      });
       console.log("[Content Ban] RESPONSE", res.data);
 
       toast.success("User banned");
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === selectedUser.id ? { ...u, status: "Banned" } : u))
+        prev.map((u) =>
+          u.id === selectedUser.id ? { ...u, status: "Banned" } : u,
+        ),
       );
       setSelectedUser((prev) => (prev ? { ...prev, status: "Banned" } : prev));
       setModerationReason("");
     } catch (err: any) {
       logAxiosError("[Content Ban]", endpoint, err);
       const msg = err?.response?.data?.message;
-      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to ban user");
+      toast.error(
+        Array.isArray(msg) ? msg.join(", ") : (msg ?? "Failed to ban user"),
+      );
     }
   };
 
@@ -391,20 +423,26 @@ export default function UserManagement() {
         reason: moderationReason.trim() || undefined,
       };
 
-      const res = await axios.patch(endpoint, payload, { withCredentials: true });
+      const res = await axios.patch(endpoint, payload, {
+        withCredentials: true,
+      });
       console.log("[Commu Mute] RESPONSE", res.data);
 
       toast.success("User muted");
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === selectedUser.id ? { ...u, status: "Muted" } : u))
+        prev.map((u) =>
+          u.id === selectedUser.id ? { ...u, status: "Muted" } : u,
+        ),
       );
       setSelectedUser((prev) => (prev ? { ...prev, status: "Muted" } : prev));
       setModerationReason("");
     } catch (err: any) {
       logAxiosError("[Commu Mute]", endpoint, err);
       const msg = err?.response?.data?.message;
-      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Failed to mute user");
+      toast.error(
+        Array.isArray(msg) ? msg.join(", ") : (msg ?? "Failed to mute user"),
+      );
     }
   };
 
@@ -417,7 +455,8 @@ export default function UserManagement() {
     selectedUser?.role === "user" || selectedUser?.role === "author";
 
   const canAdminEditStaffStatus =
-    selectedUser?.role === "content_moderator" || selectedUser?.role === "community_manager";
+    selectedUser?.role === "content_moderator" ||
+    selectedUser?.role === "community_manager";
 
   const canAdminResetUserAuthor =
     isAdmin && isTargetUserOrAuthor && selectedUser?.status !== "Normal";
@@ -433,11 +472,16 @@ export default function UserManagement() {
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              User Management
+            </h1>
             <p className="text-gray-600 mt-2">Manage users in the system</p>
             {actorRole && (
               <p className="text-xs text-muted-foreground mt-1">
-                Logged in as: <span className="font-medium">{formatRoleLabel(actorRole)}</span>
+                Logged in as:{" "}
+                <span className="font-medium">
+                  {formatRoleLabel(actorRole)}
+                </span>
               </p>
             )}
           </div>
@@ -469,7 +513,9 @@ export default function UserManagement() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Active Users
+              </CardTitle>
               <Shield className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
@@ -481,7 +527,9 @@ export default function UserManagement() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Banned Users</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Banned Users
+              </CardTitle>
               <Shield className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
@@ -561,7 +609,7 @@ export default function UserManagement() {
               <TableBody>
                 {filteredUsers.map((user) => {
                   const href = `/admin/notifications?receiverEmail=${encodeURIComponent(
-                    user.email
+                    user.email,
                   )}`;
 
                   const isHighlighted = highlightId === user.id;
@@ -584,8 +632,12 @@ export default function UserManagement() {
                       <TableCell className="group-hover:text-slate-900">
                         <div className="flex items-center space-x-3">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={user.avatar || "/placeholder.svg"} />
-                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                            <AvatarImage
+                              src={user.avatar || "/placeholder.svg"}
+                            />
+                            <AvatarFallback>
+                              {user.name.charAt(0)}
+                            </AvatarFallback>
                           </Avatar>
                           <span className="font-medium">{user.name}</span>
                         </div>
@@ -596,7 +648,10 @@ export default function UserManagement() {
                       </TableCell>
 
                       <TableCell>
-                        <Badge className={getRoleColor(user.role)} variant="secondary">
+                        <Badge
+                          className={getRoleColor(user.role)}
+                          variant="secondary"
+                        >
                           <div className="flex items-center space-x-1">
                             {getRoleIcon(user.role)}
                             <span>{formatRoleLabel(user.role)}</span>
@@ -605,7 +660,10 @@ export default function UserManagement() {
                       </TableCell>
 
                       <TableCell>
-                        <Badge className={getStatusColor(user.status)} variant="secondary">
+                        <Badge
+                          className={getStatusColor(user.status)}
+                          variant="secondary"
+                        >
                           {user.status}
                         </Badge>
                       </TableCell>
@@ -678,8 +736,12 @@ export default function UserManagement() {
               <div className="space-y-4">
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage src={selectedUser.avatar || "/placeholder.svg"} />
-                    <AvatarFallback>{selectedUser.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage
+                      src={selectedUser.avatar || "/placeholder.svg"}
+                    />
+                    <AvatarFallback>
+                      {selectedUser.name.charAt(0)}
+                    </AvatarFallback>
                   </Avatar>
                   <div>
                     <h3 className="font-semibold">{selectedUser.name}</h3>
@@ -695,8 +757,13 @@ export default function UserManagement() {
                     <Select
                       value={selectedUser.role}
                       onValueChange={(value) => {
-                        if (selectedUser.role === "author" && value === "user") {
-                          toast.error("Cannot downgrade AUTHOR back to USER (blocked by backend).");
+                        if (
+                          selectedUser.role === "author" &&
+                          value === "user"
+                        ) {
+                          toast.error(
+                            "Cannot downgrade AUTHOR back to USER (blocked by backend).",
+                          );
                           return;
                         }
                         handleUpdateUserRole(value);
@@ -707,9 +774,15 @@ export default function UserManagement() {
                       </SelectTrigger>
                       <SelectContent>
                         {ROLE_OPTIONS.map((r) => {
-                          const disabled = selectedUser.role === "author" && r.value === "user";
+                          const disabled =
+                            selectedUser.role === "author" &&
+                            r.value === "user";
                           return (
-                            <SelectItem key={r.value} value={r.value} disabled={disabled}>
+                            <SelectItem
+                              key={r.value}
+                              value={r.value}
+                              disabled={disabled}
+                            >
                               {r.label}
                             </SelectItem>
                           );
@@ -718,7 +791,10 @@ export default function UserManagement() {
                     </Select>
                   ) : (
                     <div className="mt-2">
-                      <Badge className={getRoleColor(selectedUser.role)} variant="secondary">
+                      <Badge
+                        className={getRoleColor(selectedUser.role)}
+                        variant="secondary"
+                      >
                         {formatRoleLabel(selectedUser.role)}
                       </Badge>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -739,7 +815,9 @@ export default function UserManagement() {
                         value={selectedUser.status}
                         onValueChange={(v) => {
                           if (!canAdminEditStaffStatus) {
-                            toast.error("Admin chỉ được ban/mute Content Moderator & Community Manager.");
+                            toast.error(
+                              "Admin chỉ được ban/mute Content Moderator & Community Manager.",
+                            );
                             return;
                           }
                           handleUpdateUserStatus(v as UserRow["status"]);
@@ -758,13 +836,17 @@ export default function UserManagement() {
 
                       {!canAdminEditStaffStatus && (
                         <p className="text-xs text-muted-foreground">
-                          * Admin không ban/mute user/author. Ban/mute user/author do Content/Commu thực hiện. Admin chỉ reset về Normal khi đã bị xử lý.
+                          * Admin không ban/mute user/author. Ban/mute
+                          user/author do Content/Commu thực hiện. Admin chỉ
+                          reset về Normal khi đã bị xử lý.
                         </p>
                       )}
 
                       {canAdminResetUserAuthor && (
                         <div className="mt-3 space-y-2 rounded-md border p-3">
-                          <div className="text-sm font-medium">Reset user/author về Normal</div>
+                          <div className="text-sm font-medium">
+                            Reset user/author về Normal
+                          </div>
 
                           <div className="space-y-1">
                             <Label className="text-xs">Reason (optional)</Label>
@@ -775,7 +857,10 @@ export default function UserManagement() {
                             />
                           </div>
 
-                          <Button variant="destructive" onClick={handleAdminResetUserStatus}>
+                          <Button
+                            variant="destructive"
+                            onClick={handleAdminResetUserStatus}
+                          >
                             Reset to Normal
                           </Button>
                         </div>
@@ -786,7 +871,10 @@ export default function UserManagement() {
                   {/* CONTENT MOD */}
                   {isContentMod && (
                     <>
-                      <Badge className={getStatusColor(selectedUser.status)} variant="secondary">
+                      <Badge
+                        className={getStatusColor(selectedUser.status)}
+                        variant="secondary"
+                      >
                         {selectedUser.status}
                       </Badge>
 
@@ -796,22 +884,31 @@ export default function UserManagement() {
                         </p>
                       ) : selectedUser.status !== "Normal" ? (
                         <p className="text-xs text-muted-foreground">
-                          * User/author đã bị xử lý ({selectedUser.status}). Bạn không thể chỉnh nữa. Chỉ admin mới reset về Normal.
+                          * User/author đã bị xử lý ({selectedUser.status}). Bạn
+                          không thể chỉnh nữa. Chỉ admin mới reset về Normal.
                         </p>
                       ) : (
                         <div className="mt-3 space-y-2 rounded-md border p-3">
-                          <div className="text-sm font-medium">BAN user/author (Content)</div>
+                          <div className="text-sm font-medium">
+                            BAN user/author (Content)
+                          </div>
 
                           <div className="space-y-1">
                             <Label className="text-xs">Reason (optional)</Label>
                             <Input
                               value={moderationReason}
-                              onChange={(e) => setModerationReason(e.target.value)}
+                              onChange={(e) =>
+                                setModerationReason(e.target.value)
+                              }
                               placeholder="Reason..."
                             />
                           </div>
 
-                          <Button variant="destructive" onClick={handleContentBan} disabled={!canContentBan}>
+                          <Button
+                            variant="destructive"
+                            onClick={handleContentBan}
+                            disabled={!canContentBan}
+                          >
                             Ban
                           </Button>
                         </div>
@@ -822,7 +919,10 @@ export default function UserManagement() {
                   {/* COMMUNITY MANAGER */}
                   {isCommu && (
                     <>
-                      <Badge className={getStatusColor(selectedUser.status)} variant="secondary">
+                      <Badge
+                        className={getStatusColor(selectedUser.status)}
+                        variant="secondary"
+                      >
                         {selectedUser.status}
                       </Badge>
 
@@ -832,22 +932,30 @@ export default function UserManagement() {
                         </p>
                       ) : selectedUser.status !== "Normal" ? (
                         <p className="text-xs text-muted-foreground">
-                          * User/author đã bị xử lý ({selectedUser.status}). Bạn không thể chỉnh nữa. Chỉ admin mới reset về Normal.
+                          * User/author đã bị xử lý ({selectedUser.status}). Bạn
+                          không thể chỉnh nữa. Chỉ admin mới reset về Normal.
                         </p>
                       ) : (
                         <div className="mt-3 space-y-2 rounded-md border p-3">
-                          <div className="text-sm font-medium">MUTE user/author (Community)</div>
+                          <div className="text-sm font-medium">
+                            MUTE user/author (Community)
+                          </div>
 
                           <div className="space-y-1">
                             <Label className="text-xs">Reason (optional)</Label>
                             <Input
                               value={moderationReason}
-                              onChange={(e) => setModerationReason(e.target.value)}
+                              onChange={(e) =>
+                                setModerationReason(e.target.value)
+                              }
                               placeholder="Reason..."
                             />
                           </div>
 
-                          <Button onClick={handleCommuMute} disabled={!canCommuMute}>
+                          <Button
+                            onClick={handleCommuMute}
+                            disabled={!canCommuMute}
+                          >
                             Mute
                           </Button>
                         </div>
@@ -858,7 +966,8 @@ export default function UserManagement() {
                   {/* fallback */}
                   {!actorRole && (
                     <p className="text-xs text-muted-foreground">
-                      * Không xác định được role người đăng nhập. Kiểm tra endpoint /api/auth/me.
+                      * Không xác định được role người đăng nhập. Kiểm tra
+                      endpoint /api/auth/me.
                     </p>
                   )}
                 </div>
@@ -866,7 +975,10 @@ export default function UserManagement() {
             )}
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+              >
                 Cancel
               </Button>
               <Button onClick={() => setIsEditDialogOpen(false)}>Close</Button>

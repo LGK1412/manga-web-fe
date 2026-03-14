@@ -1,16 +1,22 @@
-"use client"
+"use client";
 
-import { use } from "react"
-import { useState, useEffect } from "react"
-import axios from "axios"
-import AdminLayout from "../../adminLayout/page"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
+import { use } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
+import AdminLayout from "../../adminLayout/layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -18,52 +24,63 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { ArrowLeft, Eye, Info } from "lucide-react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+} from "@/components/ui/dialog";
+import { ArrowLeft, Eye, Info } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-const API_URL = "http://localhost:3333/api/policies"
+const API_URL = "http://localhost:3333/api/policies";
 
-export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
-  const router = useRouter()
-  const [formData, setFormData] = useState<any>(null)
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
+export default function AdminPolicyEditPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const router = useRouter();
+  const [formData, setFormData] = useState<any>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // 🔹 Fetch policy by ID
   useEffect(() => {
     const fetchPolicy = async () => {
       try {
-        const res = await axios.get(`${API_URL}/${id}`)
-        setFormData(res.data)
+        const res = await axios.get(`${API_URL}/${id}`);
+        setFormData(res.data);
       } catch (error: any) {
-        console.error("❌ Failed to load policy:", error.response?.data || error.message)
-        alert("Cannot load policy details.")
+        console.error(
+          "❌ Failed to load policy:",
+          error.response?.data || error.message,
+        );
+        alert("Cannot load policy details.");
       }
-    }
-    fetchPolicy()
-  }, [id])
+    };
+    fetchPolicy();
+  }, [id]);
 
   // 🔹 Update (PUT)
   const handleSubmit = async () => {
     try {
-      setLoading(true)
-      const res = await axios.put(`${API_URL}/${id}`, formData)
+      setLoading(true);
+      const res = await axios.put(`${API_URL}/${id}`, formData);
       if (res.status === 200) {
-        console.log("✅ Policy updated:", res.data)
-        router.push("/admin/policies")
+        console.log("✅ Policy updated:", res.data);
+        router.push("/admin/policies");
       }
     } catch (error: any) {
-      console.error("❌ Error updating policy:", error.response?.data || error.message)
-      alert("Failed to update policy.")
+      console.error(
+        "❌ Error updating policy:",
+        error.response?.data || error.message,
+      );
+      alert("Failed to update policy.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  if (!formData) return <p className="p-6 text-gray-500">Loading policy details...</p>
+  if (!formData)
+    return <p className="p-6 text-gray-500">Loading policy details...</p>;
 
   return (
     <AdminLayout>
@@ -98,8 +115,14 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
               <div className="space-y-1 text-sm text-gray-700">
                 <p className="font-semibold text-blue-900">Policy Structure</p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li><strong>mainType:</strong> TERM (Điều khoản) hoặc PRIVACY (Bảo mật)</li>
-                  <li><strong>subCategory:</strong> posting, comment, account, data_usage, general</li>
+                  <li>
+                    <strong>mainType:</strong> TERM (Điều khoản) hoặc PRIVACY
+                    (Bảo mật)
+                  </li>
+                  <li>
+                    <strong>subCategory:</strong> posting, comment, account,
+                    data_usage, general
+                  </li>
                 </ul>
               </div>
             </div>
@@ -108,13 +131,15 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
 
         {/* Form */}
         <Card>
-          <CardHeader><CardTitle>Policy Details</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Policy Details</CardTitle>
+          </CardHeader>
           <CardContent>
             <form
               className="space-y-6"
               onSubmit={(e) => {
-                e.preventDefault()
-                handleSubmit()
+                e.preventDefault();
+                handleSubmit();
               }}
             >
               <div className="grid md:grid-cols-2 gap-6">
@@ -124,7 +149,9 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
                   <Input
                     required
                     value={formData.title || ""}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
                   />
                 </div>
 
@@ -133,7 +160,9 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
                   <Label>Slug</Label>
                   <Input
                     value={formData.slug || ""}
-                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, slug: e.target.value })
+                    }
                     placeholder="auto-generated if blank"
                   />
                 </div>
@@ -143,12 +172,18 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
                   <Label>Main Type *</Label>
                   <Select
                     value={formData.mainType}
-                    onValueChange={(v) => setFormData({ ...formData, mainType: v })}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, mainType: v })
+                    }
                   >
-                    <SelectTrigger><SelectValue placeholder="Select main type" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select main type" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="TERM">TERM (Terms of Use)</SelectItem>
-                      <SelectItem value="PRIVACY">PRIVACY (Privacy Policy)</SelectItem>
+                      <SelectItem value="PRIVACY">
+                        PRIVACY (Privacy Policy)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -158,9 +193,13 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
                   <Label>Sub Category</Label>
                   <Select
                     value={formData.subCategory}
-                    onValueChange={(v) => setFormData({ ...formData, subCategory: v })}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, subCategory: v })
+                    }
                   >
-                    <SelectTrigger><SelectValue placeholder="Select subcategory" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select subcategory" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="general">General</SelectItem>
                       <SelectItem value="posting">Posting</SelectItem>
@@ -176,9 +215,13 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
                   <Label>Status *</Label>
                   <Select
                     value={formData.status}
-                    onValueChange={(v) => setFormData({ ...formData, status: v })}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, status: v })
+                    }
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Draft">Draft</SelectItem>
                       <SelectItem value="Active">Active</SelectItem>
@@ -193,7 +236,9 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
                   <div className="flex items-center gap-2 pt-2">
                     <Checkbox
                       checked={formData.isPublic || false}
-                      onCheckedChange={(c) => setFormData({ ...formData, isPublic: c as boolean })}
+                      onCheckedChange={(c) =>
+                        setFormData({ ...formData, isPublic: c as boolean })
+                      }
                     />
                     <span className="text-sm">Make this policy public</span>
                   </div>
@@ -204,16 +249,31 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
                   <Label>Effective From</Label>
                   <Input
                     type="date"
-                    value={formData.effective_from ? formData.effective_from.slice(0, 10) : ""}
-                    onChange={(e) => setFormData({ ...formData, effective_from: e.target.value })}
+                    value={
+                      formData.effective_from
+                        ? formData.effective_from.slice(0, 10)
+                        : ""
+                    }
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        effective_from: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Effective To</Label>
                   <Input
                     type="date"
-                    value={formData.effective_to ? formData.effective_to.slice(0, 10) : ""}
-                    onChange={(e) => setFormData({ ...formData, effective_to: e.target.value })}
+                    value={
+                      formData.effective_to
+                        ? formData.effective_to.slice(0, 10)
+                        : ""
+                    }
+                    onChange={(e) =>
+                      setFormData({ ...formData, effective_to: e.target.value })
+                    }
                   />
                 </div>
               </div>
@@ -224,7 +284,9 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
                 <Textarea
                   rows={3}
                   value={formData.description || ""}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                 />
               </div>
 
@@ -235,7 +297,9 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
                   required
                   rows={10}
                   value={formData.content || ""}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, content: e.target.value })
+                  }
                 />
               </div>
 
@@ -245,7 +309,9 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
                   {loading ? "Saving..." : "Save Changes"}
                 </Button>
                 <Link href="/admin/policies">
-                  <Button type="button" variant="ghost">Cancel</Button>
+                  <Button type="button" variant="ghost">
+                    Cancel
+                  </Button>
                 </Link>
                 <Button
                   variant="secondary"
@@ -265,16 +331,19 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
             <DialogHeader>
               <DialogTitle>{formData.title}</DialogTitle>
               <DialogDescription>
-                {formData.mainType} — {formData.subCategory} | {formData.isPublic ? "Public" : "Internal"} | {formData.status}
+                {formData.mainType} — {formData.subCategory} |{" "}
+                {formData.isPublic ? "Public" : "Internal"} | {formData.status}
               </DialogDescription>
             </DialogHeader>
             <div className="bg-gray-50 p-6 rounded-lg whitespace-pre-wrap text-gray-800">
               {formData.content || "No content yet..."}
             </div>
-            <DialogFooter><Button onClick={() => setIsPreviewOpen(false)}>Close</Button></DialogFooter>
+            <DialogFooter>
+              <Button onClick={() => setIsPreviewOpen(false)}>Close</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
     </AdminLayout>
-  )
+  );
 }

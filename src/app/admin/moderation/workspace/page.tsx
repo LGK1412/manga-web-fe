@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import AdminLayout from "@/app/admin/adminLayout/page";
+import AdminLayout from "@/app/admin/adminLayout/layout";
 import { Card } from "@/components/ui/card";
 import { ChapterSummary } from "@/components/admin/moderation/workspace/chapter-summary";
 import { FindingsPanel } from "@/components/admin/moderation/workspace/findings-panel";
 import { ContentViewer } from "@/components/admin/moderation/workspace/content-viewer";
 import type { Decision, ModerationRecord } from "@/lib/typesLogs";
-import { fetchModerationRecord, decideModeration, recheckModeration } from "@/lib/moderation";
+import {
+  fetchModerationRecord,
+  decideModeration,
+  recheckModeration,
+} from "@/lib/moderation";
 
 export default function ModerationWorkspacePage() {
   const searchParams = useSearchParams();
@@ -20,7 +24,8 @@ export default function ModerationWorkspacePage() {
 
   const load = async () => {
     if (!chapterId) return;
-    setLoading(true); setErr(null);
+    setLoading(true);
+    setErr(null);
     try {
       const r = await fetchModerationRecord(chapterId);
       setRecord(r);
@@ -31,7 +36,9 @@ export default function ModerationWorkspacePage() {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [chapterId]);
+  useEffect(() => {
+    load(); /* eslint-disable-next-line */
+  }, [chapterId]);
 
   const onDecision = async (action: Decision, note?: string) => {
     if (!record) return;
@@ -64,7 +71,11 @@ export default function ModerationWorkspacePage() {
       <div className="p-6 space-y-6">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>Admin</span><span>/</span><span>Moderation</span><span>/</span><span className="text-foreground">Workspace</span>
+          <span>Admin</span>
+          <span>/</span>
+          <span>Moderation</span>
+          <span>/</span>
+          <span className="text-foreground">Workspace</span>
         </div>
 
         <h1 className="text-2xl font-bold">Moderation Workspace</h1>
@@ -76,7 +87,12 @@ export default function ModerationWorkspacePage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left: Summary & Actions */}
             <div className="lg:col-span-1">
-              <ChapterSummary record={record} onDecision={onDecision} onRecheck={onRecheck} loading={actLoading} />
+              <ChapterSummary
+                record={record}
+                onDecision={onDecision}
+                onRecheck={onRecheck}
+                loading={actLoading}
+              />
             </div>
 
             {/* Right: Content & Findings */}
@@ -84,7 +100,10 @@ export default function ModerationWorkspacePage() {
               <ContentViewer
                 title={record.chapterTitle ?? "Untitled"}
                 author={record.authorName ?? "-"}
-                html={record.contentHtml ?? "<p><i>(Không có nội dung hiển thị)</i></p>"}
+                html={
+                  record.contentHtml ??
+                  "<p><i>(Không có nội dung hiển thị)</i></p>"
+                }
                 updatedAt={record.updatedAt}
               />
               <FindingsPanel record={record} />

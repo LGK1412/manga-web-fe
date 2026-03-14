@@ -8,12 +8,16 @@ import { QueueFilters } from "@/components/admin/moderation/queue-filters";
 import { QueueTable } from "@/components/admin/moderation/queue-table";
 import type { AIStatus, QueueItem } from "@/lib/typesLogs";
 import { Download } from "lucide-react";
-import AdminLayout from "@/app/admin/adminLayout/page";
+import AdminLayout from "@/app/admin/adminLayout/layout";
 import { fetchQueue } from "@/lib/moderation";
 
 export default function ModerationQueuePage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [filters, setFilters] = useState<{ search: string; status: AIStatus | null; riskRange: [number, number] }>({
+  const [filters, setFilters] = useState<{
+    search: string;
+    status: AIStatus | null;
+    riskRange: [number, number];
+  }>({
     search: "",
     status: null,
     riskRange: [0, 100],
@@ -28,7 +32,9 @@ export default function ModerationQueuePage() {
       setErr(null);
       try {
         // fetchQueue đã return QueueItem[]
-        const rows = await fetchQueue(filters.status ? { status: filters.status } : undefined);
+        const rows = await fetchQueue(
+          filters.status ? { status: filters.status } : undefined,
+        );
         setData(rows);
       } catch (e: any) {
         setErr(e?.message || "Load queue failed");
@@ -47,7 +53,9 @@ export default function ModerationQueuePage() {
         item.author.toLowerCase().includes(s) ||
         item.chapterId.toLowerCase().includes(s);
 
-      const matchesRisk = item.risk_score >= filters.riskRange[0] && item.risk_score <= filters.riskRange[1];
+      const matchesRisk =
+        item.risk_score >= filters.riskRange[0] &&
+        item.risk_score <= filters.riskRange[1];
       return matchesSearch && matchesRisk;
     });
   }, [data, filters]);
@@ -60,14 +68,20 @@ export default function ModerationQueuePage() {
     <AdminLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>Admin</span><span>/</span><span>Moderation</span><span>/</span><span className="text-foreground">Queue</span>
+          <span>Admin</span>
+          <span>/</span>
+          <span>Moderation</span>
+          <span>/</span>
+          <span className="text-foreground">Queue</span>
         </div>
 
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Moderation Queue</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {loading ? "Loading..." : `${filteredItems.length} of ${data.length} items`}
+              {loading
+                ? "Loading..."
+                : `${filteredItems.length} of ${data.length} items`}
               {err && <span className="text-red-600 ml-2">{err}</span>}
             </p>
           </div>
@@ -83,11 +97,16 @@ export default function ModerationQueuePage() {
           <Card className="p-4 bg-blue-50 border-blue-200">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">
-                {selectedItems.size} item{selectedItems.size !== 1 ? "s" : ""} selected
+                {selectedItems.size} item{selectedItems.size !== 1 ? "s" : ""}{" "}
+                selected
               </span>
               <div className="flex gap-2">
-                <Button size="sm" variant="default">Approve Selected</Button>
-                <Button size="sm" variant="destructive">Reject Selected</Button>
+                <Button size="sm" variant="default">
+                  Approve Selected
+                </Button>
+                <Button size="sm" variant="destructive">
+                  Reject Selected
+                </Button>
               </div>
             </div>
           </Card>

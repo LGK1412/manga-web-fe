@@ -5,7 +5,7 @@ import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import AdminLayout from "../adminLayout/page";
+import AdminLayout from "../adminLayout/layout";
 import { useToast } from "@/hooks/use-toast";
 import AddEmojiPackDialog from "@/components/emoji/AddEmojiPackDialog";
 import EditEmojiPackDialog from "@/components/emoji/EditEmojiPackDialog";
@@ -25,7 +25,7 @@ export default function EmojiPackManagement() {
         `${process.env.NEXT_PUBLIC_API_URL}/api/emoji-pack`,
         {
           withCredentials: true,
-        }
+        },
       );
       setPacks(res.data);
     } catch (err) {
@@ -59,7 +59,7 @@ export default function EmojiPackManagement() {
             try {
               await axios.delete(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/emoji-pack/delete-pack/${id}`,
-                { withCredentials: true }
+                { withCredentials: true },
               );
 
               toast({
@@ -86,7 +86,7 @@ export default function EmojiPackManagement() {
   };
 
   const filteredPacks = packs.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (

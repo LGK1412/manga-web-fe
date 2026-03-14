@@ -38,7 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import AdminLayout from "../adminLayout/page";
+import AdminLayout from "../adminLayout/layout";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 
@@ -54,7 +54,7 @@ export default function GenreManagement() {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "normal" | "hide">(
-    "all"
+    "all",
   );
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -69,7 +69,7 @@ export default function GenreManagement() {
         `${process.env.NEXT_PUBLIC_API_URL}/api/genre`,
         {
           withCredentials: true,
-        }
+        },
       );
       setGenres(res.data);
     } catch (error) {
@@ -94,7 +94,7 @@ export default function GenreManagement() {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/genre`,
         { ...newGenre, status: "active" },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       setGenres([...genres, res.data]);
@@ -123,7 +123,7 @@ export default function GenreManagement() {
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/genre/${editGenre._id}`,
         editGenre,
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       toast({ title: "Cập nhật thành công" });
@@ -147,11 +147,11 @@ export default function GenreManagement() {
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/genre/${id}/toggle-status`,
         { status: newStatus },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       setGenres(
-        genres.map((g) => (g._id === id ? { ...g, status: newStatus } : g))
+        genres.map((g) => (g._id === id ? { ...g, status: newStatus } : g)),
       );
 
       toast({

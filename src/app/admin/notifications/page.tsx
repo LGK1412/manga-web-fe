@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import AdminLayout from "../adminLayout/page";
+import AdminLayout from "../adminLayout/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NotificationTable } from "@/components/notifications/notification-table";
@@ -75,14 +75,21 @@ export default function AdminNotificationsPage() {
   const searchParams = useSearchParams();
 
   const [notifications, setNotifications] = useState<NotificationVM[]>([]);
-  const [filteredNotifications, setFilteredNotifications] = useState<NotificationVM[]>([]);
-  const [selectedNotification, setSelectedNotification] = useState<NotificationVM | null>(null);
+  const [filteredNotifications, setFilteredNotifications] = useState<
+    NotificationVM[]
+  >([]);
+  const [selectedNotification, setSelectedNotification] =
+    useState<NotificationVM | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [filters, setFilters] = useState({ status: "All", search: "" });
-  const [stats, setStats] = useState<{ total: number; read: number; unread: number } | null>(null);
+  const [stats, setStats] = useState<{
+    total: number;
+    read: number;
+    unread: number;
+  } | null>(null);
 
   // ✅ id -> email map (for display)
   const [usersMap, setUsersMap] = useState<Record<string, string>>({});
@@ -103,7 +110,10 @@ export default function AdminNotificationsPage() {
   useEffect(() => {
     const receiverEmail = searchParams.get("receiverEmail")?.trim() ?? "";
     if (receiverEmail) {
-      console.log("[Admin Notifications] Prefill receiverEmail from query", receiverEmail);
+      console.log(
+        "[Admin Notifications] Prefill receiverEmail from query",
+        receiverEmail,
+      );
       setPrefillEmail(receiverEmail);
       setIsFormOpen(true);
     }
@@ -116,7 +126,11 @@ export default function AdminNotificationsPage() {
       });
 
       if (!sResp.ok) {
-        await logFetchError("[Admin Noti Stats]", `${API}/api/admin/notifications/stats`, sResp);
+        await logFetchError(
+          "[Admin Noti Stats]",
+          `${API}/api/admin/notifications/stats`,
+          sResp,
+        );
         return;
       }
 
@@ -129,7 +143,9 @@ export default function AdminNotificationsPage() {
 
   const fetchUsersMap = useCallback(async () => {
     try {
-      const resp = await fetch(`${API}/api/user/all`, { credentials: "include" });
+      const resp = await fetch(`${API}/api/user/all`, {
+        credentials: "include",
+      });
       if (!resp.ok) return;
 
       const users = await resp.json(); // [{ _id, email, ... }]
@@ -150,13 +166,18 @@ export default function AdminNotificationsPage() {
       setLoading(true);
 
       const url = new URL(`${API}/api/admin/notifications/sent`);
-      if (filters.status !== "All") url.searchParams.set("status", filters.status as "Read" | "Unread");
+      if (filters.status !== "All")
+        url.searchParams.set("status", filters.status as "Read" | "Unread");
       if (filters.search) url.searchParams.set("q", filters.search);
 
       const resp = await fetch(url.toString(), { credentials: "include" });
 
       if (!resp.ok) {
-        const data = await logFetchError("[Admin Fetch Notifications]", url.toString(), resp);
+        const data = await logFetchError(
+          "[Admin Fetch Notifications]",
+          url.toString(),
+          resp,
+        );
         toast.error(data?.message ?? "Failed to load notifications.");
         setNotifications([]);
         setFilteredNotifications([]);
@@ -194,7 +215,11 @@ export default function AdminNotificationsPage() {
     setIsModalOpen(true);
   };
 
-  const handleMarkAsRead = async (id: string, status: "Read" | "Unread", receiver_id?: string) => {
+  const handleMarkAsRead = async (
+    id: string,
+    status: "Read" | "Unread",
+    receiver_id?: string,
+  ) => {
     try {
       if (status !== "Read") return;
 
@@ -207,15 +232,24 @@ export default function AdminNotificationsPage() {
       });
 
       if (!resp.ok) {
-        const data = await logFetchError("[Admin Mark Noti As Read]", url, resp);
+        const data = await logFetchError(
+          "[Admin Mark Noti As Read]",
+          url,
+          resp,
+        );
         toast.error(data?.message ?? "Failed to update notification status.");
         return;
       }
 
-      setNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, status } : n)));
-      setFilteredNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, status } : n)));
+      setNotifications((prev) =>
+        prev.map((n) => (n._id === id ? { ...n, status } : n)),
+      );
+      setFilteredNotifications((prev) =>
+        prev.map((n) => (n._id === id ? { ...n, status } : n)),
+      );
 
-      if (selectedNotification?._id === id) setSelectedNotification({ ...selectedNotification, status });
+      if (selectedNotification?._id === id)
+        setSelectedNotification({ ...selectedNotification, status });
 
       fetchStats();
     } catch (error) {
@@ -240,7 +274,11 @@ export default function AdminNotificationsPage() {
       });
 
       if (!resp.ok) {
-        const data = await logFetchError("[Admin Resend Notification]", url, resp);
+        const data = await logFetchError(
+          "[Admin Resend Notification]",
+          url,
+          resp,
+        );
         toast.error(data?.message ?? "Failed to resend notification.");
         return;
       }
@@ -253,7 +291,11 @@ export default function AdminNotificationsPage() {
     }
   };
 
-  const handleCreateNotification = async (formData: { receiver_email: string; title: string; body: string }) => {
+  const handleCreateNotification = async (formData: {
+    receiver_email: string;
+    title: string;
+    body: string;
+  }) => {
     const url = `${API}/api/admin/notifications/send`;
 
     try {
@@ -287,7 +329,11 @@ export default function AdminNotificationsPage() {
       });
 
       if (!response.ok) {
-        const data = await logFetchError("[Admin Create Notification]", url, response);
+        const data = await logFetchError(
+          "[Admin Create Notification]",
+          url,
+          response,
+        );
         toast.error(data?.message ?? "Failed to send notification.");
         return;
       }
@@ -314,7 +360,11 @@ export default function AdminNotificationsPage() {
       });
 
       if (!resp.ok) {
-        const data = await logFetchError("[Admin Delete Notification]", url, resp);
+        const data = await logFetchError(
+          "[Admin Delete Notification]",
+          url,
+          resp,
+        );
         toast.error(data?.message ?? "Failed to delete notification.");
         return;
       }
@@ -349,10 +399,10 @@ export default function AdminNotificationsPage() {
       }
 
       setNotifications((prev) =>
-        prev.map((n) => (n._id === id ? { ...n, is_save: !n.is_save } : n))
+        prev.map((n) => (n._id === id ? { ...n, is_save: !n.is_save } : n)),
       );
       setFilteredNotifications((prev) =>
-        prev.map((n) => (n._id === id ? { ...n, is_save: !n.is_save } : n))
+        prev.map((n) => (n._id === id ? { ...n, is_save: !n.is_save } : n)),
       );
     } catch (e) {
       console.error("❌ Toggle save failed:", e);
@@ -394,7 +444,9 @@ export default function AdminNotificationsPage() {
               <CardTitle>Total Notifications</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{stats?.total ?? notifications.length}</p>
+              <p className="text-3xl font-bold">
+                {stats?.total ?? notifications.length}
+              </p>
             </CardContent>
           </Card>
 
@@ -403,7 +455,9 @@ export default function AdminNotificationsPage() {
               <CardTitle>Unread</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-blue-600">{stats?.unread ?? unreadCount}</p>
+              <p className="text-3xl font-bold text-blue-600">
+                {stats?.unread ?? unreadCount}
+              </p>
             </CardContent>
           </Card>
 
@@ -429,7 +483,9 @@ export default function AdminNotificationsPage() {
 
         {/* Table */}
         {loading ? (
-          <div className="text-center py-12 text-gray-600">Loading notifications...</div>
+          <div className="text-center py-12 text-gray-600">
+            Loading notifications...
+          </div>
         ) : (
           <NotificationTable
             notifications={filteredNotifications}

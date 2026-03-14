@@ -16,7 +16,7 @@ import {
   Play,
 } from "lucide-react";
 
-import AdminLayout from "../adminLayout/page";
+import AdminLayout from "../adminLayout/layout";
 import { useToast } from "@/hooks/use-toast";
 
 import { Button } from "@/components/ui/button";
@@ -202,8 +202,11 @@ export default function StyleManagement() {
   }, [total, limit]);
 
   const selectedIds = useMemo(
-    () => Object.entries(selected).filter(([, v]) => v).map(([k]) => k),
-    [selected]
+    () =>
+      Object.entries(selected)
+        .filter(([, v]) => v)
+        .map(([k]) => k),
+    [selected],
   );
 
   const allPageSelected = useMemo(() => {
@@ -281,8 +284,7 @@ export default function StyleManagement() {
           (s.name || "").toLowerCase().includes(q.toLowerCase()) ||
           (s.description || "").toLowerCase().includes(q.toLowerCase());
 
-        const ms =
-          filterStatus === "all" ? true : s.status === filterStatus;
+        const ms = filterStatus === "all" ? true : s.status === filterStatus;
 
         const mc =
           filterCategory === "all" ? true : s.category === filterCategory;
@@ -340,8 +342,7 @@ export default function StyleManagement() {
 
   // ===== Add style =====
   const canAdd =
-    newStyle.name.trim().length > 0 &&
-    newStyle.description.trim().length >= 10;
+    newStyle.name.trim().length > 0 && newStyle.description.trim().length >= 10;
 
   const handleAddStyle = async () => {
     if (!API) return;
@@ -352,7 +353,7 @@ export default function StyleManagement() {
       await axios.post(
         `${API}/api/styles`,
         { ...newStyle, status: "normal" as const },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       toast({ title: "Style added successfully" });
@@ -407,14 +408,16 @@ export default function StyleManagement() {
 
     // optimistic update
     const prevItems = items;
-    setItems((cur) => cur.map((s) => (s._id === id ? { ...s, status: next } : s)));
+    setItems((cur) =>
+      cur.map((s) => (s._id === id ? { ...s, status: next } : s)),
+    );
 
     try {
       // dùng PUT endpoint sẵn có (không cần PATCH /status)
       await axios.put(
         `${API}/api/styles/${id}`,
         { status: next },
-        { withCredentials: true }
+        { withCredentials: true },
       );
       toast({ title: "Status updated" });
     } catch (e) {
@@ -432,7 +435,9 @@ export default function StyleManagement() {
 
     // optimistic
     const prevItems = items;
-    setItems((cur) => cur.map((s) => (ids.includes(s._id) ? { ...s, status: next } : s)));
+    setItems((cur) =>
+      cur.map((s) => (ids.includes(s._id) ? { ...s, status: next } : s)),
+    );
 
     try {
       await Promise.all(
@@ -440,9 +445,9 @@ export default function StyleManagement() {
           axios.put(
             `${API}/api/styles/${id}`,
             { status: next },
-            { withCredentials: true }
-          )
-        )
+            { withCredentials: true },
+          ),
+        ),
       );
 
       toast({ title: `Updated ${ids.length} item(s)` });
@@ -616,7 +621,9 @@ export default function StyleManagement() {
                   title="Refresh"
                   disabled={loading || fetching}
                 >
-                  <RefreshCcw className={cn("h-4 w-4", fetching && "animate-spin")} />
+                  <RefreshCcw
+                    className={cn("h-4 w-4", fetching && "animate-spin")}
+                  />
                 </Button>
 
                 {/* Column visibility (no dropdown component, dùng details) */}
@@ -644,7 +651,10 @@ export default function StyleManagement() {
                           type="checkbox"
                           checked={(colVis as any)[key]}
                           onChange={(e) =>
-                            setColVis((prev) => ({ ...prev, [key]: e.target.checked }))
+                            setColVis((prev) => ({
+                              ...prev,
+                              [key]: e.target.checked,
+                            }))
                           }
                         />
                         {label}
@@ -668,7 +678,10 @@ export default function StyleManagement() {
                   />
                 </div>
 
-                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <Select
+                  value={filterCategory}
+                  onValueChange={setFilterCategory}
+                >
                   <SelectTrigger className="w-full sm:w-[200px]">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
@@ -682,7 +695,10 @@ export default function StyleManagement() {
                   </SelectContent>
                 </Select>
 
-                <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
+                <Select
+                  value={filterStatus}
+                  onValueChange={(v) => setFilterStatus(v as any)}
+                >
                   <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
@@ -693,16 +709,25 @@ export default function StyleManagement() {
                   </SelectContent>
                 </Select>
 
-                <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+                <Select
+                  value={sort}
+                  onValueChange={(v) => setSort(v as SortKey)}
+                >
                   <SelectTrigger className="w-full sm:w-[220px]">
                     <SelectValue placeholder="Sort" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="updatedAt.desc">Updated: newest</SelectItem>
+                    <SelectItem value="updatedAt.desc">
+                      Updated: newest
+                    </SelectItem>
                     <SelectItem value="name.asc">Name: A → Z</SelectItem>
                     <SelectItem value="name.desc">Name: Z → A</SelectItem>
-                    <SelectItem value="storiesCount.desc">Stories: high → low</SelectItem>
-                    <SelectItem value="storiesCount.asc">Stories: low → high</SelectItem>
+                    <SelectItem value="storiesCount.desc">
+                      Stories: high → low
+                    </SelectItem>
+                    <SelectItem value="storiesCount.asc">
+                      Stories: low → high
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -710,7 +735,10 @@ export default function StyleManagement() {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Rows</span>
-                  <Select value={String(limit)} onValueChange={(v) => setLimit(Number(v))}>
+                  <Select
+                    value={String(limit)}
+                    onValueChange={(v) => setLimit(Number(v))}
+                  >
                     <SelectTrigger className="w-[110px]">
                       <SelectValue />
                     </SelectTrigger>
@@ -749,10 +777,15 @@ export default function StyleManagement() {
             {error && (
               <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 flex items-center justify-between gap-3">
                 <div>
-                  <div className="font-medium text-destructive">Failed to load styles</div>
+                  <div className="font-medium text-destructive">
+                    Failed to load styles
+                  </div>
                   <div className="text-sm text-destructive/90">{error}</div>
                 </div>
-                <Button variant="outline" onClick={() => fetchStyles({ hard: true })}>
+                <Button
+                  variant="outline"
+                  onClick={() => fetchStyles({ hard: true })}
+                >
                   Retry
                 </Button>
               </div>
@@ -765,7 +798,10 @@ export default function StyleManagement() {
                 <div className="text-sm text-muted-foreground">
                   Try adjusting filters or create a new style.
                 </div>
-                <Button className="mt-2" onClick={() => setIsAddDialogOpen(true)}>
+                <Button
+                  className="mt-2"
+                  onClick={() => setIsAddDialogOpen(true)}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Style
                 </Button>
@@ -798,29 +834,101 @@ export default function StyleManagement() {
                           />
                         </th>
 
-                        {colVis.icon && <th className="p-3 text-left font-medium">Icon</th>}
-                        {colVis.name && <th className="p-3 text-left font-medium">Name</th>}
-                        {colVis.category && <th className="p-3 text-left font-medium">Category</th>}
-                        {colVis.status && <th className="p-3 text-left font-medium">Status</th>}
-                        {colVis.stories && <th className="p-3 text-left font-medium">Stories</th>}
-                        {colVis.updated && <th className="p-3 text-left font-medium">Updated</th>}
-                        {colVis.actions && <th className="p-3 text-left font-medium">Actions</th>}
+                        {colVis.icon && (
+                          <th className="p-3 text-left font-medium">Icon</th>
+                        )}
+                        {colVis.name && (
+                          <th className="p-3 text-left font-medium">Name</th>
+                        )}
+                        {colVis.category && (
+                          <th className="p-3 text-left font-medium">
+                            Category
+                          </th>
+                        )}
+                        {colVis.status && (
+                          <th className="p-3 text-left font-medium">Status</th>
+                        )}
+                        {colVis.stories && (
+                          <th className="p-3 text-left font-medium">Stories</th>
+                        )}
+                        {colVis.updated && (
+                          <th className="p-3 text-left font-medium">Updated</th>
+                        )}
+                        {colVis.actions && (
+                          <th className="p-3 text-left font-medium">Actions</th>
+                        )}
                       </tr>
                     </thead>
 
                     <tbody>
                       {loading ? (
                         <>
-                          <SkeletonRow cols={1 + (colVis.icon ? 1 : 0) + (colVis.name ? 1 : 0) + (colVis.category ? 1 : 0) + (colVis.status ? 1 : 0) + (colVis.stories ? 1 : 0) + (colVis.updated ? 1 : 0) + (colVis.actions ? 1 : 0)} />
-                          <SkeletonRow cols={1 + (colVis.icon ? 1 : 0) + (colVis.name ? 1 : 0) + (colVis.category ? 1 : 0) + (colVis.status ? 1 : 0) + (colVis.stories ? 1 : 0) + (colVis.updated ? 1 : 0) + (colVis.actions ? 1 : 0)} />
-                          <SkeletonRow cols={1 + (colVis.icon ? 1 : 0) + (colVis.name ? 1 : 0) + (colVis.category ? 1 : 0) + (colVis.status ? 1 : 0) + (colVis.stories ? 1 : 0) + (colVis.updated ? 1 : 0) + (colVis.actions ? 1 : 0)} />
-                          <SkeletonRow cols={1 + (colVis.icon ? 1 : 0) + (colVis.name ? 1 : 0) + (colVis.category ? 1 : 0) + (colVis.status ? 1 : 0) + (colVis.stories ? 1 : 0) + (colVis.updated ? 1 : 0) + (colVis.actions ? 1 : 0)} />
-                          <SkeletonRow cols={1 + (colVis.icon ? 1 : 0) + (colVis.name ? 1 : 0) + (colVis.category ? 1 : 0) + (colVis.status ? 1 : 0) + (colVis.stories ? 1 : 0) + (colVis.updated ? 1 : 0) + (colVis.actions ? 1 : 0)} />
+                          <SkeletonRow
+                            cols={
+                              1 +
+                              (colVis.icon ? 1 : 0) +
+                              (colVis.name ? 1 : 0) +
+                              (colVis.category ? 1 : 0) +
+                              (colVis.status ? 1 : 0) +
+                              (colVis.stories ? 1 : 0) +
+                              (colVis.updated ? 1 : 0) +
+                              (colVis.actions ? 1 : 0)
+                            }
+                          />
+                          <SkeletonRow
+                            cols={
+                              1 +
+                              (colVis.icon ? 1 : 0) +
+                              (colVis.name ? 1 : 0) +
+                              (colVis.category ? 1 : 0) +
+                              (colVis.status ? 1 : 0) +
+                              (colVis.stories ? 1 : 0) +
+                              (colVis.updated ? 1 : 0) +
+                              (colVis.actions ? 1 : 0)
+                            }
+                          />
+                          <SkeletonRow
+                            cols={
+                              1 +
+                              (colVis.icon ? 1 : 0) +
+                              (colVis.name ? 1 : 0) +
+                              (colVis.category ? 1 : 0) +
+                              (colVis.status ? 1 : 0) +
+                              (colVis.stories ? 1 : 0) +
+                              (colVis.updated ? 1 : 0) +
+                              (colVis.actions ? 1 : 0)
+                            }
+                          />
+                          <SkeletonRow
+                            cols={
+                              1 +
+                              (colVis.icon ? 1 : 0) +
+                              (colVis.name ? 1 : 0) +
+                              (colVis.category ? 1 : 0) +
+                              (colVis.status ? 1 : 0) +
+                              (colVis.stories ? 1 : 0) +
+                              (colVis.updated ? 1 : 0) +
+                              (colVis.actions ? 1 : 0)
+                            }
+                          />
+                          <SkeletonRow
+                            cols={
+                              1 +
+                              (colVis.icon ? 1 : 0) +
+                              (colVis.name ? 1 : 0) +
+                              (colVis.category ? 1 : 0) +
+                              (colVis.status ? 1 : 0) +
+                              (colVis.stories ? 1 : 0) +
+                              (colVis.updated ? 1 : 0) +
+                              (colVis.actions ? 1 : 0)
+                            }
+                          />
                         </>
                       ) : (
                         items.map((style) => {
                           const IconComponent =
-                            iconMap[style.icon as keyof typeof iconMap] || BookOpen;
+                            iconMap[style.icon as keyof typeof iconMap] ||
+                            BookOpen;
 
                           return (
                             <tr
@@ -852,7 +960,9 @@ export default function StyleManagement() {
                               {colVis.name && (
                                 <td className="p-3 align-middle">
                                   <div className="min-w-[240px]">
-                                    <div className="font-medium">{style.name}</div>
+                                    <div className="font-medium">
+                                      {style.name}
+                                    </div>
                                     <div className="text-sm text-muted-foreground line-clamp-1">
                                       {style.description}
                                     </div>
@@ -862,7 +972,12 @@ export default function StyleManagement() {
 
                               {colVis.category && (
                                 <td className="p-3 align-middle">
-                                  <Badge className={cn("font-normal", getCategoryColor(style.category))}>
+                                  <Badge
+                                    className={cn(
+                                      "font-normal",
+                                      getCategoryColor(style.category),
+                                    )}
+                                  >
                                     {style.category}
                                   </Badge>
                                 </td>
@@ -875,15 +990,24 @@ export default function StyleManagement() {
                                       "inline-flex items-center gap-2 rounded-md border px-2 py-1 text-sm hover:bg-muted",
                                       style.status === "normal"
                                         ? "border-green-200"
-                                        : "border-red-200"
+                                        : "border-red-200",
                                     )}
                                     onClick={() =>
-                                      toggleStatus(style._id, style.status === "normal" ? "hide" : "normal")
+                                      toggleStatus(
+                                        style._id,
+                                        style.status === "normal"
+                                          ? "hide"
+                                          : "normal",
+                                      )
                                     }
                                     title="Click to toggle"
                                   >
-                                    <Badge className={getStatusColor(style.status)}>
-                                      {style.status === "normal" ? "Normal" : "Hidden"}
+                                    <Badge
+                                      className={getStatusColor(style.status)}
+                                    >
+                                      {style.status === "normal"
+                                        ? "Normal"
+                                        : "Hidden"}
                                     </Badge>
                                     <span className="text-muted-foreground">
                                       (toggle)
@@ -934,7 +1058,9 @@ export default function StyleManagement() {
                 <div className="text-sm text-muted-foreground">
                   Page{" "}
                   <span className="font-medium text-foreground">{page}</span> of{" "}
-                  <span className="font-medium text-foreground">{pageCount}</span>{" "}
+                  <span className="font-medium text-foreground">
+                    {pageCount}
+                  </span>{" "}
                   · <span className="font-medium text-foreground">{total}</span>{" "}
                   total
                 </div>
@@ -983,7 +1109,9 @@ export default function StyleManagement() {
                       }
                     />
                     {editStyle.name.trim().length === 0 && (
-                      <p className="text-sm text-destructive">Name is required.</p>
+                      <p className="text-sm text-destructive">
+                        Name is required.
+                      </p>
                     )}
                   </div>
 
@@ -1084,7 +1212,10 @@ export default function StyleManagement() {
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleUpdateStyle} disabled={!canEdit || savingEdit}>
+                <Button
+                  onClick={handleUpdateStyle}
+                  disabled={!canEdit || savingEdit}
+                >
                   {savingEdit ? "Saving..." : "Update"}
                 </Button>
               </DialogFooter>
