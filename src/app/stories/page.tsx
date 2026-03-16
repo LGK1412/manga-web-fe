@@ -17,7 +17,6 @@ type MangaRaw = {
   title?: string;
   name?: string;
 
-  // cover variants
   coverUrl?: string;
   cover?: string;
   coverImage?: string;
@@ -41,6 +40,7 @@ type MangaRaw = {
 
   chapters_count?: number;
   rating_avg?: number;
+  isPublish?: boolean;
 };
 
 type CardItem = {
@@ -57,7 +57,6 @@ type CardItem = {
   rating: number;
   updatedAtMs?: number;
 
-  // private fields for local filter/sort
   _genreIds?: string[];
   _styleIds?: string[];
   _views?: number;
@@ -75,29 +74,60 @@ function normalizeToArray<T = unknown>(input: any): T[] {
   if (Array.isArray(input?.results)) return input.results;
   return [];
 }
+
 function toNumber(n: any): number | undefined {
   const x = typeof n === "string" ? Number(n) : n;
   return Number.isFinite(x) ? (x as number) : undefined;
 }
+
+function normalizePath(path?: string) {
+  if (!path) return "";
+  return path
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^public\//, "")
+    .replace(/^\/+/, "");
+}
+
+function isAbsoluteUrl(path: string) {
+  return /^https?:\/\//i.test(path);
+}
+
 function buildCoverUrl(filename?: string) {
   if (!filename) return undefined;
-  if (/^https?:\/\//i.test(filename)) return filename;
-  const api = process.env.NEXT_PUBLIC_API_URL || "";
-  return `${api}/assets/coverImages/${filename}`.replace(/([^:]\/)\/+/g, "$1");
+
+  const cleaned = normalizePath(filename);
+  if (!cleaned) return undefined;
+
+  if (isAbsoluteUrl(cleaned)) return cleaned;
+
+  if (cleaned.startsWith("assets/")) {
+    return `${API_BASE}/${cleaned}`.replace(/([^:]\/)\/+/g, "$1");
+  }
+
+  return `${API_BASE}/assets/coverImages/${cleaned}`.replace(
+    /([^:]\/)\/+/g,
+    "$1"
+  );
 }
+
 function getTitle(x: MangaRaw) {
   return (x.title || x.name || "Unknown title").toString();
 }
+
 function getKey(x: MangaRaw) {
   return String(x._id ?? x.id ?? x.slug ?? getTitle(x));
 }
+
 function getHref(x: MangaRaw) {
   if (x.slug) return `/story/${encodeURIComponent(x.slug)}`;
   const id = x._id ?? x.id;
-  if (id !== undefined && id !== null)
+  if (id !== undefined && id !== null) {
     return `/story/${encodeURIComponent(String(id))}`;
+  }
   return `/stories`;
 }
+
 function extractIds(arr: any): string[] | undefined {
   if (!Array.isArray(arr)) return undefined;
   const ids = arr
@@ -105,24 +135,29 @@ function extractIds(arr: any): string[] | undefined {
     .filter(Boolean) as string[];
   return ids.length ? ids : undefined;
 }
+
 function mapToCard(x: MangaRaw): CardItem {
   const updatedAtMs = x.updatedAt
     ? new Date(x.updatedAt as any).getTime()
     : x.createdAt
     ? new Date(x.createdAt as any).getTime()
     : undefined;
+
   const views = toNumber(x.views ?? x.viewCount) ?? 0;
   const follows = toNumber(x.follows) ?? 0;
+
   const genresText: string[] = Array.isArray(x.genres)
     ? (x.genres as any[])
         .map((g) => (typeof g === "string" ? g : g?.name))
         .filter(Boolean)
     : [];
+
   const stylesText: string[] = Array.isArray(x.styles)
     ? (x.styles as any[])
         .map((s) => (typeof s === "string" ? s : s?.name))
         .filter(Boolean)
     : [];
+
   const statusNorm = x.status
     ? /complete|hoàn/i.test(x.status)
       ? "complete"
@@ -131,7 +166,7 @@ function mapToCard(x: MangaRaw): CardItem {
       : x.status
     : undefined;
 
-  const item: CardItem = {
+  return {
     key: getKey(x),
     href: getHref(x),
     title: getTitle(x),
@@ -143,7 +178,7 @@ function mapToCard(x: MangaRaw): CardItem {
         x.thumb ||
         x.image_url
     ),
-    published: (x as any).isPublish ?? true,
+    published: x.isPublish ?? true,
     status: statusNorm,
     genres: genresText.slice(0, 3),
     styles: stylesText.slice(0, 2),
@@ -158,7 +193,6 @@ function mapToCard(x: MangaRaw): CardItem {
     _follows: follows,
     _updatedAt: updatedAtMs,
   };
-  return item;
 }
 
 // ===== UI constants
@@ -172,8 +206,7 @@ const PAGE_SIZE = 24;
 
 // ===== API utils
 function buildGetAllUrl(page: number, limit: number) {
-  const api = process.env.NEXT_PUBLIC_API_URL!;
-  const base = `${api}/api/manga/get/all`;
+  const base = `${API_BASE}/api/manga/get/all`;
   const p = new URLSearchParams();
   p.set("page", String(page));
   p.set("limit", String(limit));
@@ -188,14 +221,16 @@ async function fetchFilters(signal?: AbortSignal) {
       signal,
     }),
   ]);
+
   const genres: Genre[] = Array.isArray(genresRes.data) ? genresRes.data : [];
   const styles: StyleItem[] = Array.isArray(stylesRes.data)
     ? stylesRes.data
     : [];
+
   return { genres, styles };
 }
 
-// ===== Facet helpers (đếm số của từng chip)
+// ===== Facet helpers
 function buildFacetCounts(
   items: CardItem[],
   q: string,
@@ -203,10 +238,10 @@ function buildFacetCounts(
   selectedStyleIds: string[]
 ) {
   const qLower = q.trim().toLowerCase();
+
   const matchQ = (it: CardItem) =>
     !qLower || it.title.toLowerCase().includes(qLower);
 
-  // Count theo GENRE: áp dụng search + style đang chọn (bỏ qua genre đang chọn)
   const byGenre: Record<string, number> = {};
   const baseForGenre = items.filter(
     (it) =>
@@ -214,11 +249,13 @@ function buildFacetCounts(
       (!selectedStyleIds.length ||
         (it._styleIds || []).some((id) => selectedStyleIds.includes(id)))
   );
-  for (const it of baseForGenre)
-    for (const gid of it._genreIds || [])
-      byGenre[gid] = (byGenre[gid] || 0) + 1;
 
-  // Count theo STYLE: áp dụng search + genre đang chọn (bỏ qua style đang chọn)
+  for (const it of baseForGenre) {
+    for (const gid of it._genreIds || []) {
+      byGenre[gid] = (byGenre[gid] || 0) + 1;
+    }
+  }
+
   const byStyle: Record<string, number> = {};
   const baseForStyle = items.filter(
     (it) =>
@@ -226,30 +263,29 @@ function buildFacetCounts(
       (!selectedGenreIds.length ||
         (it._genreIds || []).some((id) => selectedGenreIds.includes(id)))
   );
-  for (const it of baseForStyle)
-    for (const sid of it._styleIds || [])
+
+  for (const it of baseForStyle) {
+    for (const sid of it._styleIds || []) {
       byStyle[sid] = (byStyle[sid] || 0) + 1;
+    }
+  }
 
   return { byGenre, byStyle };
 }
 
 export default function StoriesPage() {
-  // KHÔNG có input search ở đây — chỉ đọc giá trị do Navbar set sẵn
   const [q, setQ] = useState("");
 
-  // Client filters (state local)
   const [sortKey, setSortKey] = useState<"updated" | "views" | "follows">(
     "updated"
   );
   const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>([]);
   const [selectedStyleIds, setSelectedStyleIds] = useState<string[]>([]);
 
-  // Options
   const [availableGenres, setAvailableGenres] = useState<Genre[]>([]);
   const [availableStyles, setAvailableStyles] = useState<StyleItem[]>([]);
   const [loadingFilters, setLoadingFilters] = useState(false);
 
-  // Data
   const [page, setPage] = useState(1);
   const [allItems, setAllItems] = useState<CardItem[]>([]);
   const [total, setTotal] = useState<number | null>(null);
@@ -260,7 +296,6 @@ export default function StoriesPage() {
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  // Đọc search từ sessionStorage do Navbar đã set
   useEffect(() => {
     const syncQ = () => {
       try {
@@ -268,8 +303,10 @@ export default function StoriesPage() {
         if (v) setQ(v);
       } catch {}
     };
+
     syncQ();
     window.addEventListener("stories:syncQ", syncQ);
+
     return () => {
       window.removeEventListener("stories:syncQ", syncQ);
       try {
@@ -279,10 +316,10 @@ export default function StoriesPage() {
     };
   }, []);
 
-  // load genres/styles
   useEffect(() => {
     const controller = new AbortController();
     setLoadingFilters(true);
+
     fetchFilters(controller.signal)
       .then(({ genres, styles }) => {
         setAvailableGenres(genres);
@@ -290,10 +327,10 @@ export default function StoriesPage() {
       })
       .catch((e) => console.error("Load filters failed:", e?.message || e))
       .finally(() => setLoadingFilters(false));
+
     return () => controller.abort();
   }, []);
 
-  // reset list once
   useEffect(() => {
     setPage(1);
     setAllItems([]);
@@ -303,7 +340,6 @@ export default function StoriesPage() {
     setFirstLoaded(false);
   }, []);
 
-  // fetch getAll pages (local filter/sort)
   useEffect(() => {
     if (!hasMore) return;
 
@@ -335,10 +371,11 @@ export default function StoriesPage() {
         if (page === 1) setFirstLoaded(true);
       } catch (e: any) {
         if (axios.isCancel(e)) return;
-        if (!cancelled)
+        if (!cancelled) {
           setErr(
             e?.response?.data?.message || e?.message || "Failed to load data"
           );
+        }
         setHasMore(false);
       } finally {
         if (!cancelled) setLoading(false);
@@ -346,6 +383,7 @@ export default function StoriesPage() {
     };
 
     const t = setTimeout(fetchPage, 120);
+
     return () => {
       cancelled = true;
       controller.abort();
@@ -353,15 +391,17 @@ export default function StoriesPage() {
     };
   }, [page, hasMore]);
 
-  // Infinite scroll
   useEffect(() => {
     if (!loadMoreRef.current || !firstLoaded) return;
+
     const node = loadMoreRef.current;
 
     const io = new IntersectionObserver(
       (entries) => {
         const [ent] = entries;
-        if (ent.isIntersecting && !loading && hasMore) setPage((p) => p + 1);
+        if (ent.isIntersecting && !loading && hasMore) {
+          setPage((p) => p + 1);
+        }
       },
       { rootMargin: "400px 0px" }
     );
@@ -370,7 +410,6 @@ export default function StoriesPage() {
     return () => io.disconnect();
   }, [firstLoaded, loading, hasMore]);
 
-  // Toggle filters
   const toggleGenre = (id: string) => {
     setSelectedGenreIds((prev) => {
       const set = new Set(prev);
@@ -378,6 +417,7 @@ export default function StoriesPage() {
       return Array.from(set);
     });
   };
+
   const toggleStyle = (id: string) => {
     setSelectedStyleIds((prev) => {
       const set = new Set(prev);
@@ -386,7 +426,6 @@ export default function StoriesPage() {
     });
   };
 
-  // Clear all filters (và xoá luôn search đang active)
   const clearFilters = () => {
     setSelectedGenreIds([]);
     setSelectedStyleIds([]);
@@ -398,7 +437,6 @@ export default function StoriesPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Client filter + sort (local-only)
   const filteredSorted = useMemo(() => {
     let list = allItems;
 
@@ -406,11 +444,13 @@ export default function StoriesPage() {
       const qLower = q.toLowerCase();
       list = list.filter((it) => it.title.toLowerCase().includes(qLower));
     }
+
     if (selectedGenreIds.length) {
       list = list.filter((it) =>
         (it._genreIds || []).some((id) => selectedGenreIds.includes(id))
       );
     }
+
     if (selectedStyleIds.length) {
       list = list.filter((it) =>
         (it._styleIds || []).some((id) => selectedStyleIds.includes(id))
@@ -418,6 +458,7 @@ export default function StoriesPage() {
     }
 
     const arr = [...list];
+
     if (sortKey === "updated") {
       arr.sort((a, b) => (b._updatedAt ?? 0) - (a._updatedAt ?? 0));
     } else if (sortKey === "views") {
@@ -425,6 +466,7 @@ export default function StoriesPage() {
     } else if (sortKey === "follows") {
       arr.sort((a, b) => (b._follows ?? 0) - (a._follows ?? 0));
     }
+
     return arr;
   }, [
     allItems,
@@ -434,23 +476,22 @@ export default function StoriesPage() {
     sortKey,
   ]);
 
-  // Faceted counts
   const { byGenre, byStyle } = useMemo(
     () => buildFacetCounts(allItems, q, selectedGenreIds, selectedStyleIds),
     [allItems, q, selectedGenreIds.join(","), selectedStyleIds.join(",")]
   );
+
   const activeFiltersCount =
     selectedGenreIds.length + selectedStyleIds.length + (q ? 1 : 0);
 
-  // ===== UI
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <br />
       <br />
       <br />
+
       <div className="mx-auto max-w-6xl p-4">
-        {/* Header + sort */}
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-xl font-semibold text-foreground">
             {q ? (
@@ -465,7 +506,6 @@ export default function StoriesPage() {
             </span>
           </h1>
 
-          {/* Sort (local) */}
           <div className="flex flex-wrap items-center gap-2">
             {SORTS.map((s) => {
               const active = s.key === sortKey;
@@ -486,12 +526,12 @@ export default function StoriesPage() {
           </div>
         </div>
 
-        {/* Filters (chỉ Category/Style với số lượng) */}
         <div className="mb-4 rounded-lg border border-border bg-muted p-3">
           <div className="mb-2 flex items-center justify-between">
             <div className="text-sm font-medium text-foreground">
               Filter by{activeFiltersCount ? ` (${activeFiltersCount})` : ""}
             </div>
+
             <div className="flex items-center gap-2">
               <button
                 disabled={loadingFilters}
@@ -503,15 +543,17 @@ export default function StoriesPage() {
             </div>
           </div>
 
-          {/* Genre chips */}
           <div className="mb-2">
             <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Category
             </div>
             <div className="flex flex-wrap gap-2">
               {loadingFilters && (
-                <div className="text-xs text-muted-foreground">Loading category…</div>
+                <div className="text-xs text-muted-foreground">
+                  Loading category…
+                </div>
               )}
+
               {!loadingFilters &&
                 (availableGenres.length ? (
                   availableGenres.map((g) => {
@@ -540,7 +582,9 @@ export default function StoriesPage() {
                         <span>{g.name}</span>
                         <span
                           className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
-                            active ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground"
+                            active
+                              ? "bg-primary-foreground/20"
+                              : "bg-muted text-muted-foreground"
                           }`}
                         >
                           {count}
@@ -556,15 +600,17 @@ export default function StoriesPage() {
             </div>
           </div>
 
-          {/* Style chips */}
           <div>
             <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Style
             </div>
             <div className="flex flex-wrap gap-2">
               {loadingFilters && (
-                <div className="text-xs text-muted-foreground">Loading style…</div>
+                <div className="text-xs text-muted-foreground">
+                  Loading style…
+                </div>
               )}
+
               {!loadingFilters &&
                 (availableStyles.length ? (
                   availableStyles.map((s) => {
@@ -593,7 +639,9 @@ export default function StoriesPage() {
                         <span>{s.name}</span>
                         <span
                           className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
-                            active ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground"
+                            active
+                              ? "bg-primary-foreground/20"
+                              : "bg-muted text-muted-foreground"
                           }`}
                         >
                           {count}
@@ -610,15 +658,14 @@ export default function StoriesPage() {
           </div>
         </div>
 
-        {/* States */}
         {err && <p className="mb-3 text-destructive">Error: {err}</p>}
+
         {!err && !loading && filteredSorted.length === 0 && (
           <p className="mb-3 text-muted-foreground">
             No matching results (try changing filters).
           </p>
         )}
 
-        {/* Grid */}
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 sm:gap-4">
           {loading &&
             allItems.length === 0 &&
@@ -640,8 +687,8 @@ export default function StoriesPage() {
           ))}
         </ul>
 
-        {/* Load-more / sentinel */}
         <div ref={loadMoreRef} className="h-12" />
+
         {!loading && hasMore && allItems.length > 0 && (
           <div className="mt-4 flex justify-center">
             <button
@@ -652,6 +699,7 @@ export default function StoriesPage() {
             </button>
           </div>
         )}
+
         {loading && allItems.length > 0 && (
           <div className="mt-4 flex justify-center text-sm text-muted-foreground">
             Loading more…

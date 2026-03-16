@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Star, Eye, BookOpen, Pencil } from "lucide-react";
 
 type Card = {
@@ -16,20 +19,83 @@ type Card = {
   updatedAtMs?: number;
 };
 
-function timeAgo(inputMs?: number) {
-  if (!inputMs) return undefined;
-  const diff = Math.max(0, Date.now() - inputMs);
-  const s = Math.floor(diff / 1000);
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m} minutes ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} hours ago`;
-  const d = Math.floor(h / 24);
-  if (d < 30) return `${d} days ago`;
-  const mo = Math.floor(d / 30);
-  if (mo < 12) return `${mo} months ago`;
-  return `${Math.floor(mo / 12)} years ago`;
+function normalizePath(path?: string) {
+  if (!path) return "";
+  return path
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^public\//, "")
+    .replace(/^\/+/, "");
+}
+
+function isAbsoluteUrl(path: string) {
+  return /^https?:\/\//i.test(path);
+}
+
+function getImageCandidates(filePath?: string, fallbackFolder = "assets/coverImages") {
+  const cleaned = normalizePath(filePath);
+  if (!cleaned) return [];
+
+  if (isAbsoluteUrl(cleaned)) return [cleaned];
+
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+  const candidates = new Set<string>();
+
+  candidates.add(`${apiBase}/${cleaned}`);
+
+  if (cleaned.startsWith("assets/")) {
+    candidates.add(`${apiBase}/${cleaned}`);
+  }
+
+  if (!cleaned.startsWith("assets/")) {
+    candidates.add(`${apiBase}/${fallbackFolder}/${cleaned}`);
+  }
+
+  const withoutAssetsPrefix = cleaned.replace(/^assets\//, "");
+  candidates.add(`${apiBase}/${fallbackFolder}/${withoutAssetsPrefix}`);
+
+  return Array.from(candidates).map((x) => x.replace(/([^:]\/)\/+/g, "$1"));
+}
+
+function CoverImage({
+  src,
+  alt,
+  className,
+}: {
+  src?: string;
+  alt: string;
+  className?: string;
+}) {
+  const urls = getImageCandidates(src);
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [src]);
+
+  if (!urls.length) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-100 dark:from-muted to-slate-200 dark:to-muted text-slate-500 dark:text-muted-foreground">
+        No image
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={urls[index]}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      className={className}
+      onError={() => {
+        if (index < urls.length - 1) {
+          setIndex((prev) => prev + 1);
+        }
+      }}
+    />
+  );
 }
 
 function fmtViews(n?: number) {
@@ -47,8 +113,7 @@ export function MangaCard({
   item: Card;
   compact?: boolean;
 }) {
-  const updated = timeAgo(item.updatedAtMs);
-  const isFull = /full|hoàn|complete/i.test(item.status ?? "");
+  const isFull = /full|hoàn|complete|completed/i.test(item.status ?? "");
 
   return (
     <Link
@@ -62,14 +127,11 @@ export function MangaCard({
       ].join(" ")}
       prefetch={false}
     >
-      {/* Cover tỉ lệ 2:3 (150%) */}
       <div className="relative w-full" style={{ paddingBottom: "150%" }}>
         {item.coverUrl ? (
-          <img
+          <CoverImage
             src={item.coverUrl}
             alt={item.title}
-            loading="lazy"
-            decoding="async"
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (
@@ -78,11 +140,9 @@ export function MangaCard({
           </div>
         )}
 
-        {/* viền nhẹ + gradient đáy để chữ nổi */}
         <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-black/5" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
 
-        {/* badge trạng thái / draft - góc trái trên */}
         <div className="absolute left-2 top-2 flex flex-wrap gap-2">
           {item.status && (
             <span
@@ -102,7 +162,6 @@ export function MangaCard({
           )}
         </div>
 
-        {/* (tuỳ chọn) style đầu tiên - góc phải trên */}
         {item.styles?.length ? (
           <div className="absolute right-2 top-2">
             <span className="rounded bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur">
@@ -111,7 +170,6 @@ export function MangaCard({
           </div>
         ) : null}
 
-        {/* Tiêu đề + stats đáy ảnh */}
         <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
           <div className="line-clamp-2 text-[13px] font-semibold leading-snug drop-shadow">
             {item.title}
@@ -121,12 +179,10 @@ export function MangaCard({
               <BookOpen className="h-3.5 w-3.5" />
               {item.chapters || 0} chapters
             </span>
-            {updated && <span className="truncate">{updated}</span>}
           </div>
         </div>
       </div>
 
-      {/* Footer: genres + rating + views (gọn gàng kiểu QQ) */}
       <div className="bg-white dark:bg-card p-2">
         <div className="mb-1 flex min-h-[20px] flex-wrap gap-1">
           {item.genres.slice(0, 2).map((g) => (
@@ -154,7 +210,6 @@ export function MangaCard({
   );
 }
 
-/* Skeleton (giữ layout y hệt khi loading) */
 export function MangaCardSkeleton() {
   return (
     <div className="overflow-hidden rounded-xl bg-white dark:bg-card ring-1 ring-black/5 dark:ring-border">
