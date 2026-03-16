@@ -15,14 +15,16 @@ import {
   Trash2,
   ArrowLeft,
   Loader2,
+  Languages,
+  ChevronRight, // ← Thêm icon Languages cho nút Translate
 } from "lucide-react";
 import NativeRichEditor from "@/components/NativeRichEditor";
+import AITranslator from "@/components/AITranslator"; // Đổi đường dẫn cho phù hợp (nếu cần)
 
 // ---- Axios (NestJS)
 const api = axios.create({
   baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api`,
-    withCredentials: true, 
-
+  withCredentials: true,
 });
 
 // ---- Types
@@ -158,6 +160,9 @@ export default function EditChapterPage({
   const [price, setPrice] = useState<number>(0);
   const [isPublished, setIsPublished] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
+
+  // State cho AITranslator modal
+  const [isTranslatorOpen, setIsTranslatorOpen] = useState(false);
 
   const [errors, setErrors] = useState<{
     title?: string;
@@ -381,8 +386,8 @@ export default function EditChapterPage({
         ai.status === "AI_PASSED"
           ? "✅ AI PASSED — you can publish."
           : ai.status === "AI_WARN"
-          ? "⚠️ AI WARN — content has warnings, consider before publishing."
-          : "⛔ AI BLOCK — content blocked by policy."
+            ? "⚠️ AI WARN — content has warnings, consider before publishing."
+            : "⛔ AI BLOCK — content blocked by policy."
       );
     } catch (e) {
       console.error("AI check failed:", e);
@@ -415,14 +420,14 @@ export default function EditChapterPage({
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">
-                  Edit Chapter
+                  Create New Chapter
                 </h2>
                 <p className="text-xs text-slate-500">
-                  You are editing an existing chapter
+                  You are creating a new chapter
                 </p>
-                {(!mangaId || !chapterId) && (
+                {!mangaId && (
                   <p className="text-xs text-red-600 mt-1">
-                    Missing <code>mangaId</code> or <code>chapterId</code> in URL
+                    Add <code>mangaId</code> to URL to enable creation
                   </p>
                 )}
               </div>
@@ -447,8 +452,8 @@ export default function EditChapterPage({
               </h3>
               <Link
                 href={`/author/chapter/${mangaId}/textChapter/create`}
+                aria-label="Go to create page"
                 className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                aria-label="Create new chapter"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Create New
@@ -456,6 +461,16 @@ export default function EditChapterPage({
             </div>
 
             <div className="space-y-2 overflow-y-auto flex-1 pr-1">
+              {/* Tip */}
+              <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/60 p-4">
+                <div className="flex items-center gap-2 text-xs text-blue-800">
+                  <span className="font-medium">Quick tip</span>
+                  <ChevronRight className="h-3 w-3" />
+                  <span>Fill in the information on the right then click "Create chapter".</span>
+                </div>
+              </div>
+
+              {/* Skeleton */}
               {isLoadingList &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <div
@@ -470,11 +485,7 @@ export default function EditChapterPage({
                   .map((chapter) => (
                     <div
                       key={chapter.id}
-                      className={clsx(
-                        "p-3 rounded-xl border bg-white transition-all",
-                        "border-slate-200 hover:border-slate-300 hover:shadow-sm",
-                        chapter.isActive 
-                      )}
+                      className="p-3 rounded-xl border bg-white transition-all border-slate-200 hover:border-slate-300 hover:shadow-sm"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
@@ -569,7 +580,7 @@ export default function EditChapterPage({
                       !dirty ||
                       !!errors.title ||
                       !!errors.number) &&
-                      "opacity-60 cursor-not-allowed"
+                    "opacity-60 cursor-not-allowed"
                   )}
                   title={!dirty ? "No changes to save" : "Save changes"}
                 >
@@ -589,8 +600,8 @@ export default function EditChapterPage({
                     isPending || isToggling
                       ? "bg-blue-400 cursor-not-allowed"
                       : isPublished
-                      ? "bg-emerald-600 hover:bg-emerald-700"
-                      : "bg-blue-600 hover:bg-blue-700"
+                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        : "bg-blue-600 hover:bg-blue-700"
                   )}
                   title={isPublished ? "Unpublish" : "Publish"}
                 >
@@ -749,7 +760,17 @@ export default function EditChapterPage({
                     <div className="text-[11px] text-slate-500">
                       {liveWordCount} words
                     </div>
-                    {/* AI check button (Edit) */}
+
+                    {/* Nút mở Modal Dịch */}
+                    <button
+                      onClick={() => setIsTranslatorOpen(true)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1.5 text-xs"
+                      title="Translate Chapter"
+                    >
+                      <Languages className="h-3.5 w-3.5" />
+                      Translate
+                    </button>
+
                     <button
                       onClick={handleAiCheck}
                       disabled={isAiRunning || !chapterId}
@@ -809,6 +830,20 @@ export default function EditChapterPage({
           </div>
         </main>
       </div>
+
+      {/* === RENDER MODAL TẠI ĐÂY === */}
+      {isTranslatorOpen && (
+        <AITranslator
+          content={content}
+          chapterId={chapterId}
+          onClose={() => setIsTranslatorOpen(false)}
+          onApply={(translatedText) => {
+            setContent(translatedText);
+            setDirty(true); // Đánh dấu là đã chỉnh sửa để nút Save sáng lên
+            setIsTranslatorOpen(false); // Áp dụng xong thì đóng modal
+          }}
+        />
+      )}
     </div>
   );
 }
