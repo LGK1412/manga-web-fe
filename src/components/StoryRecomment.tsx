@@ -38,13 +38,90 @@ interface Manga {
   latest_chapter?: LatestChapter;
 }
 
+function normalizePath(path?: string) {
+  if (!path) return "";
+  return path
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^public\//, "")
+    .replace(/^\/+/, "");
+}
+
+function isAbsoluteUrl(path: string) {
+  return /^https?:\/\//i.test(path);
+}
+
+function getImageCandidates(filePath?: string, fallbackFolder = "assets/coverImages") {
+  const cleaned = normalizePath(filePath);
+  if (!cleaned) return [];
+
+  if (isAbsoluteUrl(cleaned)) return [cleaned];
+
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+  const candidates = new Set<string>();
+
+  candidates.add(`${apiBase}/${cleaned}`);
+
+  if (cleaned.startsWith("assets/")) {
+    candidates.add(`${apiBase}/${cleaned}`);
+  }
+
+  if (!cleaned.startsWith("assets/")) {
+    candidates.add(`${apiBase}/${fallbackFolder}/${cleaned}`);
+  }
+
+  const withoutAssetsPrefix = cleaned.replace(/^assets\//, "");
+  candidates.add(`${apiBase}/${fallbackFolder}/${withoutAssetsPrefix}`);
+
+  return Array.from(candidates).map((x) => x.replace(/([^:]\/)\/+/g, "$1"));
+}
+
+function SafeCoverImage({
+  src,
+  alt,
+  className,
+}: {
+  src?: string;
+  alt: string;
+  className?: string;
+}) {
+  const urls = getImageCandidates(src);
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [src]);
+
+  if (!urls.length) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-sm">
+        No image
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={urls[index]}
+      alt={alt}
+      className={className}
+      onError={() => {
+        if (index < urls.length - 1) {
+          setIndex((prev) => prev + 1);
+        }
+      }}
+    />
+  );
+}
+
 export default function StoryRecomment() {
   const [userId, setUserId] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<Manga[]>([]);
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  // Get userId from cookie
+
   useLayoutEffect(() => {
     const raw = Cookies.get("user_normal_info");
     if (raw) {
@@ -58,7 +135,6 @@ export default function StoryRecomment() {
     }
   }, []);
 
-  // Fetch recommendation list when userId is available
   useEffect(() => {
     if (userId) {
       const fetchRecommendations = async () => {
@@ -68,7 +144,6 @@ export default function StoryRecomment() {
             `${process.env.NEXT_PUBLIC_API_URL}/api/manga/recomment/user/${userId}`
           );
           setRecommendations(res.data?.data || []);
-
         } catch (err) {
           console.error("Error fetching recommendations", err);
         } finally {
@@ -107,11 +182,12 @@ export default function StoryRecomment() {
           <div className="flex items-center justify-center">
             <div className="flex items-center space-x-3">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="text-gray-600 font-medium">Loading personalized story recommendations for you...</span>
+              <span className="text-gray-600 font-medium">
+                Loading personalized story recommendations for you...
+              </span>
             </div>
           </div>
 
-          {/* Loading skeleton */}
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[...Array(8)].map((_, i) => (
               <div key={i} className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -139,16 +215,16 @@ export default function StoryRecomment() {
   return (
     <section className="py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <motion.div
-
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
           <div className="flex items-center justify-center mb-4">
             <TrendingUp className="h-8 w-8 text-blue-500 dark:text-blue-400 mr-3" />
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Recommendation</h2>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Recommendation
+            </h2>
           </div>
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             Discover amazing titles selected specifically for your reading taste.
@@ -156,9 +232,7 @@ export default function StoryRecomment() {
           <div className="mt-4 h-1 w-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mx-auto"></div>
         </motion.div>
 
-        {/* Manga Horizontal Scroll */}
         <div className="flex gap-4 overflow-x-auto py-4 flex-nowrap snap-x snap-mandatory no-scrollbar">
-
           {recommendations.map((manga) => (
             <motion.div
               key={manga._id}
@@ -168,56 +242,67 @@ export default function StoryRecomment() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              {/* Cover Image */}
               <div className="relative overflow-hidden">
                 <div className="aspect-[3/4] relative">
-                  <img
-                    src={`${process.env.NEXT_PUBLIC_API_URL}/assets/coverImages/${manga.coverImage}`}
+                  <SafeCoverImage
+                    src={manga.coverImage}
                     alt={manga.title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </div>
 
-                {/* Status Badge */}
                 <div className="absolute top-3 left-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold 
-                  ${manga.status === 'ongoing'
-                      ? (theme === "dark" ? 'bg-green-700 text-green-200' : 'bg-green-100 text-green-800')
-                      : (theme === "dark" ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-800')}`}>
-                    {manga.status === 'ongoing' ? 'Ongoing' : manga.status}
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold 
+                    ${
+                      manga.status === "ongoing"
+                        ? theme === "dark"
+                          ? "bg-green-700 text-green-200"
+                          : "bg-green-100 text-green-800"
+                        : theme === "dark"
+                        ? "bg-gray-700 text-gray-200"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {manga.status === "ongoing" ? "Ongoing" : manga.status}
                   </span>
                 </div>
 
-                {/* Rating */}
                 <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-sm rounded-lg px-2 py-1">
                   <div className="flex items-center space-x-1">
                     <Star className="h-3 w-3 text-yellow-400 fill-current" />
-                    <span className="text-white text-xs font-semibold">{manga.rating_avg.toFixed(1)}</span>
+                    <span className="text-white text-xs font-semibold">
+                      {manga.rating_avg.toFixed(1)}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Content */}
               <div className="p-4">
                 <h3 className="font-bold mb-2 line-clamp-2 group-hover:text-blue-400 transition-colors">
                   {manga.title}
                 </h3>
                 <div className="flex flex-wrap gap-1 mb-3">
                   {manga.genres.slice(0, 2).map((genre) => (
-                    <span key={genre._id} className={`inline-block px-2 py-1 text-xs rounded-md font-medium
-                    ${theme === "dark" ? 'bg-blue-900 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>
+                    <span
+                      key={genre._id}
+                      className={`inline-block px-2 py-1 text-xs rounded-md font-medium
+                      ${theme === "dark" ? "bg-blue-900 text-blue-300" : "bg-blue-50 text-blue-700"}`}
+                    >
                       {genre.name}
                     </span>
                   ))}
                   {manga.genres.length > 2 && (
-                    <span className={`inline-block px-2 py-1 text-xs rounded-md font-medium
-                    ${theme === "dark" ? 'bg-gray-700 text-gray-300' : 'bg-gray-50 text-gray-600'}`}>
+                    <span
+                      className={`inline-block px-2 py-1 text-xs rounded-md font-medium
+                      ${theme === "dark" ? "bg-gray-700 text-gray-300" : "bg-gray-50 text-gray-600"}`}
+                    >
                       +{manga.genres.length - 2}
                     </span>
                   )}
                 </div>
-                {/* <p className="text-sm mb-4 line-clamp-2 leading-relaxed">{manga.summary}</p> */}
+
                 <div className="flex items-center justify-between text-sm mb-3">
                   <div className="flex items-center space-x-1">
                     <Eye className="h-4 w-4" />
@@ -230,12 +315,15 @@ export default function StoryRecomment() {
                 </div>
 
                 {manga.latest_chapter && (
-                  <div className={`border-t pt-3 ${theme === "dark" ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div
+                    className={`border-t pt-3 ${theme === "dark" ? "border-gray-700" : "border-gray-200"}`}
+                  >
                     <div className="flex items-start space-x-2">
                       <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        {/* <p className="text-sm font-medium truncate">{manga.latest_chapter.title}</p> */}
-                        <p className="text-xs">{formatDate(manga.latest_chapter.createdAt)}</p>
+                        <p className="text-xs">
+                          {formatDate(manga.latest_chapter.createdAt)}
+                        </p>
                       </div>
                     </div>
                   </div>

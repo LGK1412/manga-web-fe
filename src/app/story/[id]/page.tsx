@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { Navbar } from "@/components/navbar";
@@ -16,7 +16,6 @@ import {
   Gift,
   Flag,
 } from "lucide-react";
-// import { useTheme } from "next-themes"; // bỏ nếu không dùng
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,7 +72,7 @@ interface UserLite {
 
 interface RatingItem {
   _id: string;
-  rating: number; // 0.5 - 5
+  rating: number;
   comment: string;
   createdAt?: string;
   user?: UserLite;
@@ -86,6 +85,87 @@ interface LastReadPayload {
   };
 }
 
+/* ================== Asset helpers ================== */
+function normalizePath(path?: string) {
+  if (!path) return "";
+  return path
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^public\//, "")
+    .replace(/^\/+/, "");
+}
+
+function isAbsoluteUrl(path: string) {
+  return /^https?:\/\//i.test(path);
+}
+
+function getAssetCandidates(
+  filePath?: string,
+  fallbackFolder = "assets/coverImages"
+) {
+  const cleaned = normalizePath(filePath);
+  if (!cleaned) return [];
+
+  if (isAbsoluteUrl(cleaned)) return [cleaned];
+
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+  const candidates = new Set<string>();
+
+  candidates.add(`${apiBase}/${cleaned}`);
+
+  if (cleaned.startsWith("assets/")) {
+    candidates.add(`${apiBase}/${cleaned}`);
+  }
+
+  if (!cleaned.startsWith("assets/")) {
+    candidates.add(`${apiBase}/${fallbackFolder}/${cleaned}`);
+  }
+
+  const withoutAssetsPrefix = cleaned.replace(/^assets\//, "");
+  candidates.add(`${apiBase}/${fallbackFolder}/${withoutAssetsPrefix}`);
+
+  return Array.from(candidates).map((x) =>
+    x.replace(/([^:]\/)\/+/g, "$1")
+  );
+}
+
+function SafeImage({
+  src,
+  alt,
+  className,
+  fallback,
+}: {
+  src?: string;
+  alt: string;
+  className?: string;
+  fallback?: React.ReactNode;
+}) {
+  const urls = useMemo(() => getAssetCandidates(src), [src]);
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [src]);
+
+  if (!urls.length) {
+    return <>{fallback ?? null}</>;
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={urls[index]}
+      alt={alt}
+      className={className}
+      onError={() => {
+        if (index < urls.length - 1) {
+          setIndex((prev) => prev + 1);
+        }
+      }}
+    />
+  );
+}
+
 /* =============== Component =============== */
 export default function MangaDetailPage() {
   const params = useParams();
@@ -95,7 +175,6 @@ export default function MangaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // const { theme } = useTheme(); // không dùng -> giữ comment nếu sau này dùng
   const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
 
@@ -122,7 +201,7 @@ export default function MangaDetailPage() {
   const [lastRead, setLastRead] = useState<LastReadPayload | null>(null);
 
   const [donationOpen, setDonationOpen] = useState(false);
-  const [userId, setUserId] = useState(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -141,9 +220,9 @@ export default function MangaDetailPage() {
     fetchCurrentUser();
   }, []);
 
-  // Reading history - Add userId dependency to re-fetch when userId changes
   useEffect(() => {
     if (!mangaId || !userId) return;
+
     axios
       .get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/Chapter/history/${userId}/${mangaId}`
@@ -156,9 +235,8 @@ export default function MangaDetailPage() {
         }
       })
       .catch(() => setLastRead(null));
-  }, [mangaId, userId]); // Thay [mangaId, userId] thay vì [mangaId, userId] cũ (đã có)
+  }, [mangaId, userId]);
 
-  // Fetch manga details + fav + follow
   useEffect(() => {
     if (!mangaId) return;
 
@@ -198,9 +276,7 @@ export default function MangaDetailPage() {
             { withCredentials: true }
           );
           const following = followRes.data.following || [];
-          const isFollowed = following.some(
-            (a: any) => a._id === data.author._id
-          );
+          const isFollowed = following.some((a: any) => a._id === data.author._id);
           setIsFollowing(isFollowed);
         } catch {
           setIsFollowing(false);
@@ -213,7 +289,6 @@ export default function MangaDetailPage() {
       .finally(() => setLoading(false));
   }, [mangaId]);
 
-  // Fetch all ratings
   useEffect(() => {
     if (!mangaId) return;
     axios
@@ -224,12 +299,12 @@ export default function MangaDetailPage() {
       .catch(() => setAllRatings([]));
   }, [mangaId, ratingDialogOpen]);
 
-  // Count Likes + my Like status for each rating
   useEffect(() => {
     if (!allRatings.length) {
       setLikesById({});
       return;
     }
+
     (async () => {
       try {
         const results = await Promise.all(
@@ -246,6 +321,7 @@ export default function MangaDetailPage() {
                 )
                 .catch(() => ({ data: { liked: false } })),
             ]);
+
             return [
               r._id,
               {
@@ -255,6 +331,7 @@ export default function MangaDetailPage() {
             ] as const;
           })
         );
+
         const next: Record<string, { count: number; liked: boolean }> = {};
         results.forEach(([id, v]) => {
           next[id] = v;
@@ -273,6 +350,7 @@ export default function MangaDetailPage() {
         { ratingId },
         { withCredentials: true }
       );
+
       setLikesById((prev) => ({
         ...prev,
         [ratingId]: {
@@ -355,9 +433,9 @@ export default function MangaDetailPage() {
         { mangaId, rating: ratingInput, comment: ratingComment.trim() },
         { withCredentials: true }
       );
+
       setMyRating({ _id: "temp", rating: ratingInput, comment: ratingComment });
 
-      // Optimistic update
       const currentCount = ratingSummary?.count || 0;
       const currentAvg = ratingSummary?.avgRating || 0;
       const totalRating = currentAvg * currentCount;
@@ -373,7 +451,6 @@ export default function MangaDetailPage() {
         setRatingSummary({ avgRating: newAvg, count: currentCount });
       }
 
-      // Re-confirm from server
       try {
         const summaryRes = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/api/rating/summary`,
@@ -383,6 +460,7 @@ export default function MangaDetailPage() {
       } catch {
         // ignore
       }
+
       setRatingDialogOpen(false);
     } finally {
       setIsSubmittingRating(false);
@@ -422,7 +500,6 @@ export default function MangaDetailPage() {
     }
   };
 
-  // ==== report ====
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportReason, setReportReason] = useState("Spam");
   const [reportDescription, setReportDescription] = useState("");
@@ -459,26 +536,29 @@ export default function MangaDetailPage() {
       <Navbar />
       <div className="pt-16 max-w-6xl mx-auto px-4 py-8 space-y-6">
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Story Header */}
             <Card>
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row gap-6">
-                  {/* Cover Image */}
                   <div className="w-full md:w-64 flex-shrink-0">
                     <div className="aspect-[3/4] relative">
                       {manga.coverImage ? (
-                        <img
-                          src={`${process.env.NEXT_PUBLIC_API_URL}/assets/coverImages/${manga.coverImage}`}
+                        <SafeImage
+                          src={manga.coverImage}
                           alt={manga.title}
                           className="w-full h-full object-cover rounded-lg"
+                          fallback={
+                            <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
+                              <BookOpen className="w-10 h-10" />
+                            </div>
+                          }
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
                           <BookOpen className="w-10 h-10" />
                         </div>
                       )}
+
                       <Badge
                         className="absolute top-2 right-2"
                         variant="secondary"
@@ -488,17 +568,18 @@ export default function MangaDetailPage() {
                     </div>
                   </div>
 
-                  {/* Story Info */}
                   <div className="flex-1">
                     <h1 className="text-3xl font-bold mb-3">{manga.title}</h1>
 
-                    {/* Author Info */}
                     <div className="flex items-center gap-3 mb-4">
                       <Avatar>
                         <AvatarImage
                           src={
                             manga.author.avatar
-                              ? `${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${manga.author.avatar}`
+                              ? getAssetCandidates(
+                                  manga.author.avatar,
+                                  "assets/avatars"
+                                )[0] || "/placeholder.svg"
                               : "/placeholder.svg"
                           }
                           alt={manga.author.username}
@@ -507,6 +588,7 @@ export default function MangaDetailPage() {
                           {manga.author.username.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
+
                       <div>
                         {userId === manga.author._id ? (
                           <Link
@@ -525,7 +607,6 @@ export default function MangaDetailPage() {
                         )}
                       </div>
 
-                      {/* Follow + Donate (ẩn khi là chính tác giả) */}
                       {userId && manga.author._id !== userId && (
                         <div className="flex gap-2">
                           <Button
@@ -556,7 +637,6 @@ export default function MangaDetailPage() {
                       )}
                     </div>
 
-                    {/* Stats */}
                     <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-4">
                       <button
                         type="button"
@@ -568,22 +648,22 @@ export default function MangaDetailPage() {
                           ? Number(ratingSummary.avgRating || 0).toFixed(1)
                           : "—"}
                       </button>
+
                       <div className="flex items-center gap-1">
                         <Eye className="w-4 h-4" />
                         {manga.views.toLocaleString()} views
                       </div>
+
                       <div className="flex items-center gap-1">
                         <BookOpen className="w-4 h-4" />
                         {manga.chapters.length} chapters
                       </div>
                     </div>
 
-                    {/* Description */}
                     <p className="text-muted-foreground mb-6 leading-relaxed">
                       {manga.summary}
                     </p>
 
-                    {/* Action Buttons */}
                     <div className="flex flex-wrap gap-3">
                       {manga.chapters.length > 0 && (
                         <>
@@ -638,7 +718,6 @@ export default function MangaDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Rating Dialog */}
             <Dialog open={ratingDialogOpen} onOpenChange={setRatingDialogOpen}>
               <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
@@ -683,6 +762,7 @@ export default function MangaDetailPage() {
                       {Number(ratingInput || 0).toFixed(1)} / 5
                     </span>
                   </div>
+
                   <Textarea
                     placeholder="Enter your comment..."
                     value={ratingComment}
@@ -710,13 +790,13 @@ export default function MangaDetailPage() {
               </DialogContent>
             </Dialog>
 
-            {/* Report Dialog */}
             <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
               <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
                   <DialogTitle>Report Content</DialogTitle>
                   <DialogDescription>
-                    Please select a reason and provide detailed description (if any).
+                    Please select a reason and provide detailed description (if
+                    any).
                   </DialogDescription>
                 </DialogHeader>
 
@@ -769,6 +849,7 @@ export default function MangaDetailPage() {
                         });
                         return;
                       }
+
                       setIsSubmittingReport(true);
                       try {
                         await axios.post(
@@ -782,10 +863,12 @@ export default function MangaDetailPage() {
                           },
                           { withCredentials: true }
                         );
+
                         toast({
                           title: "Report sent successfully ✅",
                           description: "Thank you for your feedback.",
                         });
+
                         setReportDialogOpen(false);
                         setReportDescription("");
                         setReportReason("Spam");
@@ -809,7 +892,6 @@ export default function MangaDetailPage() {
               </DialogContent>
             </Dialog>
 
-            {/* Ratings List */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -834,7 +916,10 @@ export default function MangaDetailPage() {
                         <AvatarImage
                           src={
                             r.user?.avatar
-                              ? `${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${r.user.avatar}`
+                              ? getAssetCandidates(
+                                  r.user.avatar,
+                                  "assets/avatars"
+                                )[0] || "/placeholder.svg"
                               : "/placeholder.svg"
                           }
                           alt={r.user?.username || "User"}
@@ -843,6 +928,7 @@ export default function MangaDetailPage() {
                           {(r.user?.username || "U").charAt(0)}
                         </AvatarFallback>
                       </Avatar>
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           {userId === r.user?._id ? (
@@ -867,6 +953,7 @@ export default function MangaDetailPage() {
                               : ""}
                           </span>
                         </div>
+
                         <div className="mt-1 flex items-center gap-3">
                           {Array.from({ length: 5 }).map((_, idx2) => {
                             const value = Number(r.rating || 0);
@@ -888,7 +975,9 @@ export default function MangaDetailPage() {
                             {Number(r.rating || 0).toFixed(1)}
                           </span>
                         </div>
+
                         <p className="mt-2 text-sm break-words">{r.comment}</p>
+
                         <div className="mt-2">
                           <button
                             type="button"
@@ -908,6 +997,7 @@ export default function MangaDetailPage() {
                       </div>
                     </div>
                   ))}
+
                   {allRatings.length === 0 && (
                     <div className="text-sm text-muted-foreground">
                       No ratings yet.
@@ -918,9 +1008,7 @@ export default function MangaDetailPage() {
             </Card>
           </div>
 
-          {/* Sidebar */}
           <div className="lg:col-span-1">
-            {/* Chapters List */}
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -945,6 +1033,7 @@ export default function MangaDetailPage() {
                               Chapter {chapter.order}: {chapter.title}
                             </p>
                           </div>
+
                           <div className="flex items-center gap-2">
                             {chapter.locked ? (
                               <>
@@ -965,6 +1054,7 @@ export default function MangaDetailPage() {
                             )}
                           </div>
                         </div>
+
                         {!chapter.locked && (
                           <Link
                             href={`/chapter/${chapter._id}`}

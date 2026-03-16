@@ -1,4 +1,3 @@
-// app/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -10,7 +9,6 @@ import { MangaCard } from "@/components/MangaCard";
 import { Footer } from "@/components/footer";
 import { useTheme } from "next-themes";
 import StoryRecomment from "@/components/StoryRecomment";
-
 
 // ================= Types
 type Genre = { _id: string; name: string };
@@ -59,11 +57,34 @@ function normalizeToArray<T = unknown>(input: any): T[] {
   if (Array.isArray(input?.results)) return input.results;
   return [];
 }
+
+function normalizePath(path?: string) {
+  if (!path) return "";
+  return path
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^public\//, "")
+    .replace(/^\/+/, "");
+}
+
+function isAbsoluteUrl(path: string) {
+  return /^https?:\/\//i.test(path);
+}
+
 function buildCoverUrl(filename?: string) {
   if (!filename) return undefined;
-  if (/^https?:\/\//i.test(filename)) return filename;
-  const api = process.env.NEXT_PUBLIC_API_URL || "";
-  return `${api}/assets/coverImages/${filename}`.replace(/([^:]\/)\/+/g, "$1");
+
+  const cleaned = normalizePath(filename);
+  if (!cleaned) return undefined;
+  if (isAbsoluteUrl(cleaned)) return cleaned;
+
+  const api = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+
+  if (cleaned.startsWith("assets/")) {
+    return `${api}/${cleaned}`.replace(/([^:]\/)\/+/g, "$1");
+  }
+
+  return `${api}/assets/coverImages/${cleaned}`.replace(/([^:]\/)\/+/g, "$1");
 }
 
 function getKey(x: MangaRaw) {
@@ -73,6 +94,7 @@ function getKey(x: MangaRaw) {
 function getHref(x: MangaRaw) {
   return `/story/${x._id}`;
 }
+
 function timeAgo(inputMs?: number) {
   if (!inputMs) return undefined;
   const diff = Math.max(0, Date.now() - inputMs);
@@ -88,12 +110,21 @@ function timeAgo(inputMs?: number) {
   if (mo < 12) return `${mo} months ago`;
   return `${Math.floor(mo / 12)} years ago`;
 }
+
 function fmtViews(n?: number) {
   const v = n ?? 0;
-  if (v >= 1_000_000)
+  if (v >= 1_000_000) {
     return `${(v / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  }
+  if (v >= 1_000) {
+    return `${(v / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  }
   return `${v}`;
+}
+
+function toSafeNumber(value: unknown, fallback: number) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
 function mapToCard(x: MangaRaw): Card {
@@ -102,6 +133,7 @@ function mapToCard(x: MangaRaw): Card {
     : x.createdAt
       ? new Date(x.createdAt).getTime()
       : undefined;
+
   return {
     key: getKey(x),
     href: getHref(x),
@@ -133,24 +165,40 @@ function parseListResponse(
   page: number;
   limit: number;
   total?: number;
-  totalPages?: number;
+  totalPages: number;
 } {
-  const array = normalizeToArray<MangaRaw>(data?.data ?? data);
-  // Try common shapes: { pagination: { page, limit, total, totalPages } }
+  const root = data?.data ?? data;
+  const array = normalizeToArray<MangaRaw>(root);
   const p = data?.pagination ?? data?.meta ?? {};
-  const page = Number(p.page ?? data?.page ?? 1);
-  const limit = Number(p.limit ?? data?.limit ?? fallbackLimit);
-  const total = Number(p.total ?? data?.total ?? data?.count ?? undefined);
-  const totalPages = Number(
+
+  const page = toSafeNumber(p.page ?? data?.page, 1);
+  const limit = toSafeNumber(p.limit ?? data?.limit, fallbackLimit);
+
+  const totalRaw = p.total ?? data?.total ?? data?.count;
+  const total =
+    totalRaw !== undefined && Number.isFinite(Number(totalRaw))
+      ? Number(totalRaw)
+      : undefined;
+
+  const totalPagesRaw =
     p.totalPages ??
     data?.totalPages ??
-    (total ? Math.ceil(total / limit) : undefined)
-  );
-  return { array, page, limit, total, totalPages };
+    (typeof total === "number" ? Math.ceil(total / Math.max(limit, 1)) : undefined);
+
+  let totalPages = toSafeNumber(totalPagesRaw, 1);
+
+  if (totalPages < 1) totalPages = 1;
+
+  return {
+    array,
+    page: page > 0 ? page : 1,
+    limit: limit > 0 ? limit : fallbackLimit,
+    total,
+    totalPages,
+  };
 }
 
 // ================= API utils
-// Smaller "summary" fetch (for Featured/Ranking). We can use a larger page size to populate sidebars.
 async function fetchSummary(signal?: AbortSignal) {
   const api = process.env.NEXT_PUBLIC_API_URL!;
   const url = `${api}/api/manga/get/all?page=1&limit=200`;
@@ -159,7 +207,6 @@ async function fetchSummary(signal?: AbortSignal) {
   return raw.map(mapToCard);
 }
 
-// Paged fetch for "Latest"
 async function fetchLatestPage(
   page: number,
   limit: number,
@@ -169,11 +216,12 @@ async function fetchLatestPage(
   const url = `${api}/api/manga/get/all?page=${page}&limit=${limit}`;
   const res = await axios.get(url, { withCredentials: true, signal });
   const parsed = parseListResponse(res.data, limit);
+
   return {
     items: parsed.array.map(mapToCard),
-    page: parsed.page || page,
-    limit: parsed.limit || limit,
-    totalPages: parsed.totalPages ?? 1,
+    page: parsed.page > 0 ? parsed.page : page,
+    limit: parsed.limit > 0 ? parsed.limit : limit,
+    totalPages: parsed.totalPages > 0 ? parsed.totalPages : 1,
   };
 }
 
@@ -185,10 +233,12 @@ async function fetchFilters(signal?: AbortSignal) {
       signal,
     }),
   ]);
+
   const genres: Genre[] = Array.isArray(genresRes.data) ? genresRes.data : [];
   const styles: StyleItem[] = Array.isArray(stylesRes.data)
     ? stylesRes.data
     : [];
+
   return { genres, styles };
 }
 
@@ -196,22 +246,36 @@ type RankTab = "day" | "week" | "month";
 
 // ---- Pagination UI helper
 function buildPageWindow(current: number, total: number, window: number = 1) {
-  // returns an array like [1, '...', 4,5,6, '...', 20]
-  if (total <= 9) return Array.from({ length: total }, (_, i) => i + 1);
+  const safeCurrent = Number.isFinite(current) && current > 0 ? current : 1;
+  const safeTotal = Number.isFinite(total) && total > 0 ? total : 1;
+
+  if (safeTotal <= 9) {
+    return Array.from({ length: safeTotal }, (_, i) => i + 1);
+  }
+
   const pages = new Set<number>();
   pages.add(1);
   pages.add(2);
-  pages.add(total);
-  pages.add(total - 1);
-  for (let i = current - window; i <= current + window; i++) {
-    if (i >= 1 && i <= total) pages.add(i);
+  pages.add(safeTotal);
+  pages.add(Math.max(1, safeTotal - 1));
+
+  for (let i = safeCurrent - window; i <= safeCurrent + window; i++) {
+    if (i >= 1 && i <= safeTotal) pages.add(i);
   }
-  const arr = Array.from(pages).sort((a, b) => a - b);
+
+  const arr = Array.from(pages)
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= safeTotal)
+    .sort((a, b) => a - b);
+
   const out: (number | "...")[] = [];
+
   for (let i = 0; i < arr.length; i++) {
     out.push(arr[i]);
-    if (i < arr.length - 1 && arr[i + 1] !== arr[i] + 1) out.push("...");
+    if (i < arr.length - 1 && arr[i + 1] !== arr[i] + 1) {
+      out.push("...");
+    }
   }
+
   return out;
 }
 
@@ -224,26 +288,29 @@ function NumberPager({
   totalPages: number;
   onChange: (p: number) => void;
 }) {
-  const windowed = buildPageWindow(page, totalPages, 1);
+  const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+  const safeTotalPages =
+    Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1;
+
+  const windowed = buildPageWindow(safePage, safeTotalPages, 1);
   const btn =
     "min-w-8 h-8 px-2 inline-flex items-center justify-center rounded border text-sm";
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <button
-        className={`${btn} ${page === 1 ? "cursor-not-allowed opacity-50" : ""
-          }`}
-        onClick={() => page > 1 && onChange(1)}
-        disabled={page === 1}
+        className={`${btn} ${safePage === 1 ? "cursor-not-allowed opacity-50" : ""}`}
+        onClick={() => safePage > 1 && onChange(1)}
+        disabled={safePage === 1}
         aria-label="First page"
       >
         «
       </button>
+
       <button
-        className={`${btn} ${page === 1 ? "cursor-not-allowed opacity-50" : ""
-          }`}
-        onClick={() => page > 1 && onChange(page - 1)}
-        disabled={page === 1}
+        className={`${btn} ${safePage === 1 ? "cursor-not-allowed opacity-50" : ""}`}
+        onClick={() => safePage > 1 && onChange(safePage - 1)}
+        disabled={safePage === 1}
         aria-label="Previous page"
       >
         ‹
@@ -251,38 +318,45 @@ function NumberPager({
 
       {windowed.map((it, idx) =>
         it === "..." ? (
-          <span key={`ellipsis-${idx}`} className="px-1 text-gray-500 dark:text-muted-foreground">
+          <span
+            key={`ellipsis-${idx}`}
+            className="px-1 text-gray-500 dark:text-muted-foreground"
+          >
             …
           </span>
         ) : (
           <button
             key={it}
             onClick={() => onChange(it)}
-            className={`${btn} ${it === page
-              ? "bg-[#0D0D0D] dark:bg-primary text-white dark:text-primary-foreground border-black dark:border-primary"
-              : "border-gray-300 dark:border-input hover:bg-gray-50 dark:hover:bg-accent"
-              }`}
-            aria-current={it === page ? "page" : undefined}
+            className={`${btn} ${
+              it === safePage
+                ? "bg-[#0D0D0D] dark:bg-primary text-white dark:text-primary-foreground border-black dark:border-primary"
+                : "border-gray-300 dark:border-input hover:bg-gray-50 dark:hover:bg-accent"
+            }`}
+            aria-current={it === safePage ? "page" : undefined}
           >
-            {it}
+            {String(it)}
           </button>
         )
       )}
 
       <button
-        className={`${btn} ${page === totalPages ? "cursor-not-allowed opacity-50" : ""
-          }`}
-        onClick={() => page < totalPages && onChange(page + 1)}
-        disabled={page === totalPages}
+        className={`${btn} ${
+          safePage === safeTotalPages ? "cursor-not-allowed opacity-50" : ""
+        }`}
+        onClick={() => safePage < safeTotalPages && onChange(safePage + 1)}
+        disabled={safePage === safeTotalPages}
         aria-label="Next page"
       >
         ›
       </button>
+
       <button
-        className={`${btn} ${page === totalPages ? "cursor-not-allowed opacity-50" : ""
-          }`}
-        onClick={() => page < totalPages && onChange(totalPages)}
-        disabled={page === totalPages}
+        className={`${btn} ${
+          safePage === safeTotalPages ? "cursor-not-allowed opacity-50" : ""
+        }`}
+        onClick={() => safePage < safeTotalPages && onChange(safeTotalPages)}
+        disabled={safePage === safeTotalPages}
         aria-label="Last page"
       >
         »
@@ -293,9 +367,7 @@ function NumberPager({
 
 // ================= Page
 export default function HomePage() {
-  // Sidebar/featured summary dataset
   const [summaryItems, setSummaryItems] = useState<Card[]>([]);
-  // Latest paged dataset
   const [latestItems, setLatestItems] = useState<Card[]>([]);
   const [latestPage, setLatestPage] = useState(1);
   const [latestTotalPages, setLatestTotalPages] = useState(1);
@@ -308,12 +380,19 @@ export default function HomePage() {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [styles, setStyles] = useState<StyleItem[]>([]);
   const [tab, setTab] = useState<RankTab>("day");
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
 
-  // Initial load
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
+    setErr(null);
+
     Promise.all([
       fetchSummary(controller.signal),
       fetchFilters(controller.signal),
@@ -324,30 +403,59 @@ export default function HomePage() {
         setGenres(genres);
         setStyles(styles);
         setLatestItems(latest.items);
-        setLatestPage(latest.page);
-        setLatestTotalPages(latest.totalPages);
+        setLatestPage(
+          Number.isFinite(latest.page) && latest.page > 0 ? latest.page : 1
+        );
+        setLatestTotalPages(
+          Number.isFinite(latest.totalPages) && latest.totalPages > 0
+            ? latest.totalPages
+            : 1
+        );
       })
-      .catch((e) =>
-        setErr(e?.response?.data?.message || e?.message || "Error loading page")
-      )
+      .catch((e) => {
+        setErr(e?.response?.data?.message || e?.message || "Error loading page");
+        setLatestPage(1);
+        setLatestTotalPages(1);
+      })
       .finally(() => setLoading(false));
+
     return () => controller.abort();
   }, []);
 
-  // Change page for Latest
   const changeLatestPage = (page: number) => {
-    if (page === latestPage || page < 1 || page > latestTotalPages) return;
+    const safeTargetPage =
+      Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+
+    if (
+      safeTargetPage === latestPage ||
+      safeTargetPage < 1 ||
+      safeTargetPage > latestTotalPages
+    ) {
+      return;
+    }
+
     const controller = new AbortController();
     setLoadingPage(true);
-    fetchLatestPage(page, LATEST_LIMIT, controller.signal)
+    setErr(null);
+
+    fetchLatestPage(safeTargetPage, LATEST_LIMIT, controller.signal)
       .then((res) => {
         setLatestItems(res.items);
-        setLatestPage(res.page);
-        setLatestTotalPages(res.totalPages);
-        // Scroll into view of the latest section
+        setLatestPage(
+          Number.isFinite(res.page) && res.page > 0 ? res.page : safeTargetPage
+        );
+        setLatestTotalPages(
+          Number.isFinite(res.totalPages) && res.totalPages > 0
+            ? res.totalPages
+            : 1
+        );
+
         const el = document.getElementById("latest");
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-        else window.scrollTo({ top: 0, behavior: "smooth" });
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
       })
       .catch((e) =>
         setErr(e?.response?.data?.message || e?.message || "Error loading page")
@@ -355,7 +463,6 @@ export default function HomePage() {
       .finally(() => setLoadingPage(false));
   };
 
-  // ==== Derive sections from summaryItems
   const featured = useMemo(
     () =>
       [...summaryItems]
@@ -366,10 +473,9 @@ export default function HomePage() {
 
   const hotViews = useMemo(() => {
     const windowDays = tab === "day" ? 1 : tab === "week" ? 7 : 30;
-    const pool = summaryItems.filter((it) =>
-      withinDays(it.updatedAtMs, windowDays)
-    );
+    const pool = summaryItems.filter((it) => withinDays(it.updatedAtMs, windowDays));
     const base = pool.length ? pool : summaryItems;
+
     return [...base]
       .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
       .slice(0, 10);
@@ -383,29 +489,13 @@ export default function HomePage() {
     [summaryItems]
   );
 
-  // const goStoriesWithGenre = (g: Genre) => {
-  //   try {
-  //     sessionStorage.setItem("stories:q", "");
-  //     sessionStorage.setItem("stories:presetGenres", JSON.stringify([g._id]));
-  //   } catch { }
-  //   window.location.href = "/stories";
-  // };
-  // const goStoriesWithStyle = (s: StyleItem) => {
-  //   try {
-  //     sessionStorage.setItem("stories:q", "");
-  //     sessionStorage.setItem("stories:presetStyles", JSON.stringify([s._id]));
-  //   } catch { }
-  //   window.location.href = "/stories";
-  // };
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
   if (!mounted) return null;
+
   return (
     <div className={`min-h-screen ${theme === "dark" ? "bg-[#1F1F1F]" : "bg-white"}`}>
       <Navbar />
+
       <main className="mx-auto max-w-6xl p-4 space-y-8 pt-30">
-        {/* Error / Loading */}
         {err && (
           <div className="rounded border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 p-3 text-red-700 dark:text-red-400">
             {err}
@@ -426,8 +516,9 @@ export default function HomePage() {
             ))}
           </div>
         )}
+
         <StoryRecomment />
-        {/* ===== Featured strip */}
+
         {!loading && featured.length > 0 && (
           <section>
             <div className="mb-3 flex items-center justify-between">
@@ -439,6 +530,7 @@ export default function HomePage() {
                 View more
               </Link>
             </div>
+
             <div className="no-scrollbar flex snap-x gap-3 overflow-x-auto">
               {featured.map((m) => (
                 <div key={m.key} className="snap-start w-48 shrink-0">
@@ -449,12 +541,12 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* ===== Main content */}
         <section className="grid gap-6 lg:grid-cols-12">
-          {/* Latest (paged) */}
           <div className="lg:col-span-9" id="latest">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Recently updated</h2>
+              <h2 className="text-lg font-semibold text-foreground">
+                Recently updated
+              </h2>
               <Link
                 href="/stories"
                 className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
@@ -486,15 +578,16 @@ export default function HomePage() {
                   ))}
                 </ul>
 
-                {/* Pagination */}
                 <div className="flex items-center justify-between pt-4">
                   <div className="text-sm text-gray-600 dark:text-muted-foreground">
-                    Page {latestPage} / {latestTotalPages}
+                    Page {Number.isFinite(latestPage) ? latestPage : 1} /{" "}
+                    {Number.isFinite(latestTotalPages) ? latestTotalPages : 1}
                   </div>
+
                   <NumberPager
                     page={latestPage}
                     totalPages={latestTotalPages}
-                    onChange={(p) => changeLatestPage(p)}
+                    onChange={changeLatestPage}
                   />
                 </div>
 
@@ -507,19 +600,20 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Rankings (from summaryItems) */}
           <aside className="lg:col-span-3">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">Ranking</h2>
+
               <div className="flex gap-1 rounded-full border border-gray-300 dark:border-input p-1 bg-background">
                 {(["day", "week", "month"] as RankTab[]).map((k) => (
                   <button
                     key={k}
                     onClick={() => setTab(k)}
-                    className={`rounded-full px-3 py-1 text-xs ${tab === k
-                      ? "bg-black dark:bg-primary text-white dark:text-primary-foreground"
-                      : "bg-white dark:bg-card text-gray-800 dark:text-foreground"
-                      }`}
+                    className={`rounded-full px-3 py-1 text-xs ${
+                      tab === k
+                        ? "bg-black dark:bg-primary text-white dark:text-primary-foreground"
+                        : "bg-white dark:bg-card text-gray-800 dark:text-foreground"
+                    }`}
                   >
                     {k === "day" ? "Day" : k === "week" ? "Week" : "Month"}
                   </button>
@@ -548,6 +642,7 @@ export default function HomePage() {
                       </div>
                     )}
                   </div>
+
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-foreground">
                       {idx + 1}. {m.title}
@@ -566,7 +661,10 @@ export default function HomePage() {
             </div>
 
             <div className="mt-6">
-              <h3 className="mb-2 text-sm font-semibold text-foreground">Top rated</h3>
+              <h3 className="mb-2 text-sm font-semibold text-foreground">
+                Top rated
+              </h3>
+
               <div className="space-y-2">
                 {topFollows.map((m) => (
                   <Link
@@ -588,10 +686,11 @@ export default function HomePage() {
                         </div>
                       )}
                     </div>
+
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm text-foreground">{m.title}</div>
                       <div className="text-xs text-gray-600 dark:text-muted-foreground flex items-center gap-1">
-                        <Star className="h-3.5 w-3.5 fill-yellow-400 stroke-yellow-400" />{" "}
+                        <Star className="h-3.5 w-3.5 fill-yellow-400 stroke-yellow-400" />
                         {(m.rating || 0).toFixed(1)}
                       </div>
                     </div>
@@ -602,6 +701,7 @@ export default function HomePage() {
           </aside>
         </section>
       </main>
+
       <Footer />
     </div>
   );
