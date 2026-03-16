@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useLayoutEffect } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
 import { motion } from "framer-motion";
@@ -40,18 +40,17 @@ interface Manga {
 
 function normalizePath(path?: string) {
   if (!path) return "";
-  return path
-    .trim()
-    .replace(/\\/g, "/")
-    .replace(/^public\//, "")
-    .replace(/^\/+/, "");
+  return path.trim().replace(/\\/g, "/").replace(/^public\//, "").replace(/^\/+/, "");
 }
 
 function isAbsoluteUrl(path: string) {
   return /^https?:\/\//i.test(path);
 }
 
-function getImageCandidates(filePath?: string, fallbackFolder = "assets/coverImages") {
+function getImageCandidates(
+  filePath?: string,
+  fallbackFolder = "assets/coverImages"
+) {
   const cleaned = normalizePath(filePath);
   if (!cleaned) return [];
 
@@ -101,7 +100,6 @@ function SafeCoverImage({
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={urls[index]}
       alt={alt}
@@ -118,48 +116,77 @@ function SafeCoverImage({
 export default function StoryRecomment() {
   const [userId, setUserId] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<Manga[]>([]);
-  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
+  const { theme } = useTheme();
   const router = useRouter();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const raw = Cookies.get("user_normal_info");
-    if (raw) {
-      try {
-        const decoded = decodeURIComponent(raw);
-        const parsed = JSON.parse(decoded);
-        setUserId(parsed.user_id);
-      } catch {
-        console.error("Invalid cookie data");
-      }
+
+    if (!raw) return;
+
+    try {
+      const decoded = decodeURIComponent(raw);
+      const parsed = JSON.parse(decoded);
+      setUserId(parsed.user_id || null);
+    } catch {
+      console.error("Invalid cookie data");
+      setUserId(null);
     }
   }, []);
 
   useEffect(() => {
-    if (userId) {
-      const fetchRecommendations = async () => {
-        setLoading(true);
-        try {
-          const res = await axios.get(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/manga/recomment/user/${userId}`
-          );
-          setRecommendations(res.data?.data || []);
-        } catch (err) {
-          console.error("Error fetching recommendations", err);
-        } finally {
-          setLoading(false);
+    if (!userId) return;
+
+    const controller = new AbortController();
+
+    const fetchRecommendations = async () => {
+      setLoading(true);
+
+      try {
+        const accessToken = Cookies.get("access_token");
+
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/manga/recomment/user/${userId}`,
+          {
+            withCredentials: true,
+            signal: controller.signal,
+            headers: accessToken
+              ? {
+                  Authorization: `Bearer ${accessToken}`,
+                }
+              : undefined,
+          }
+        );
+
+        setRecommendations(Array.isArray(res.data?.data) ? res.data.data : []);
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          if (err.code === "ERR_CANCELED") return;
+
+          if (err.response?.status === 401) {
+            setRecommendations([]);
+            return;
+          }
         }
-      };
-      fetchRecommendations();
-    }
+
+        console.error("Error fetching recommendations", err);
+        setRecommendations([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRecommendations();
+
+    return () => {
+      controller.abort();
+    };
   }, [userId]);
 
   const formatViews = (views: number) => {
-    if (views >= 1000000) {
-      return (views / 1000000).toFixed(1) + "M";
-    } else if (views >= 1000) {
-      return (views / 1000).toFixed(1) + "K";
-    }
+    if (views >= 1000000) return (views / 1000000).toFixed(1) + "M";
+    if (views >= 1000) return (views / 1000).toFixed(1) + "K";
     return views.toString();
   };
 
@@ -177,7 +204,11 @@ export default function StoryRecomment() {
 
   if (loading) {
     return (
-      <div className={`min-h-screen ${theme === "dark" ? "bg-[#1F1F1F]" : "bg-white"}`}>
+      <div
+        className={`min-h-screen ${
+          theme === "dark" ? "bg-[#1F1F1F]" : "bg-white"
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center">
             <div className="flex items-center space-x-3">
@@ -237,8 +268,11 @@ export default function StoryRecomment() {
             <motion.div
               key={manga._id}
               onClick={() => router.push(`/story/${manga._id}`)}
-              className={`w-48 flex-shrink-0 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer snap-start
-              ${theme === "dark" ? "bg-gray-800 text-gray-100" : "bg-gray-100 text-gray-900"}`}
+              className={`w-48 flex-shrink-0 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer snap-start ${
+                theme === "dark"
+                  ? "bg-gray-800 text-gray-100"
+                  : "bg-gray-100 text-gray-900"
+              }`}
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
             >
@@ -254,8 +288,7 @@ export default function StoryRecomment() {
 
                 <div className="absolute top-3 left-3">
                   <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold 
-                    ${
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
                       manga.status === "ongoing"
                         ? theme === "dark"
                           ? "bg-green-700 text-green-200"
@@ -283,20 +316,28 @@ export default function StoryRecomment() {
                 <h3 className="font-bold mb-2 line-clamp-2 group-hover:text-blue-400 transition-colors">
                   {manga.title}
                 </h3>
+
                 <div className="flex flex-wrap gap-1 mb-3">
                   {manga.genres.slice(0, 2).map((genre) => (
                     <span
                       key={genre._id}
-                      className={`inline-block px-2 py-1 text-xs rounded-md font-medium
-                      ${theme === "dark" ? "bg-blue-900 text-blue-300" : "bg-blue-50 text-blue-700"}`}
+                      className={`inline-block px-2 py-1 text-xs rounded-md font-medium ${
+                        theme === "dark"
+                          ? "bg-blue-900 text-blue-300"
+                          : "bg-blue-50 text-blue-700"
+                      }`}
                     >
                       {genre.name}
                     </span>
                   ))}
+
                   {manga.genres.length > 2 && (
                     <span
-                      className={`inline-block px-2 py-1 text-xs rounded-md font-medium
-                      ${theme === "dark" ? "bg-gray-700 text-gray-300" : "bg-gray-50 text-gray-600"}`}
+                      className={`inline-block px-2 py-1 text-xs rounded-md font-medium ${
+                        theme === "dark"
+                          ? "bg-gray-700 text-gray-300"
+                          : "bg-gray-50 text-gray-600"
+                      }`}
                     >
                       +{manga.genres.length - 2}
                     </span>
@@ -316,7 +357,9 @@ export default function StoryRecomment() {
 
                 {manga.latest_chapter && (
                   <div
-                    className={`border-t pt-3 ${theme === "dark" ? "border-gray-700" : "border-gray-200"}`}
+                    className={`border-t pt-3 ${
+                      theme === "dark" ? "border-gray-700" : "border-gray-200"
+                    }`}
                   >
                     <div className="flex items-start space-x-2">
                       <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
