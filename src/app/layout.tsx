@@ -7,7 +7,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import FCMToken from "@/components/firebase/FCMToken";
 import SWRegister from "@/components/firebase/SWRegister";
-import { cookies } from "next/headers";
 import "react-confirm-alert/src/react-confirm-alert.css";
 import { UserPointProvider } from "@/contexts/UserPointContext";
 
@@ -19,18 +18,14 @@ export const metadata: Metadata = {
   generator: "v0.app",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get("access_token");
-  const isLogin = !!accessToken;
-
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
