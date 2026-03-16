@@ -193,29 +193,15 @@ export function Navbar() {
                 Random
               </Button>
 
-              <Link
-                href="/game"
-                className="text-sm font-medium hover:text-primary ml-4 flex items-center gap-1"
-              >
-                <Gamepad2 className="h-4 w-4" />
-                Game
-              </Link>
-
-              <Link
-                href="/achievement"
-                className="py-2 text-sm flex items-center gap-2"
-              >
-                <Trophy className="h-4 w-4" />
-                Achievements
-              </Link>
+            
 
               {user && (
                 <button
                   onClick={() => setShowCheckinModal(true)}
-                  className="text-sm font-medium hover:text-primary flex items-center gap-1 ml-4"
+                  className="text-sm font-medium hover:text-primary ml-4 flex items-center gap-1"
                 >
                   <Gift className="h-4 w-4" />
-                  Daily Check-in
+                  Daily
                 </button>
               )}
 
@@ -460,6 +446,8 @@ export function Navbar() {
                       <Trophy className="h-4 w-4" />
                       Achievements
                     </Link>
+
+                    
                   </div>
 
                   <Separator />

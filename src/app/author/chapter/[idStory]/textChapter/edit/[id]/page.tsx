@@ -473,7 +473,7 @@ export default function EditChapterPage({
                       className={clsx(
                         "p-3 rounded-xl border bg-white transition-all",
                         "border-slate-200 hover:border-slate-300 hover:shadow-sm",
-                        chapter.isActive && "ring-2 ring-blue-200"
+                        chapter.isActive 
                       )}
                     >
                       <div className="flex items-center justify-between gap-3">

@@ -377,7 +377,7 @@ export default function ChapterComments() {
                     }}
                     className="ml-2 text-blue-500 hover:underline flex items-center gap-1"
                   >
-                    <MessageSquare className="h-3 w-3" /> Phản hồi
+                    <MessageSquare className="h-3 w-3" /> Reply
                   </button>
 
                   {c.replyCount ? (
@@ -446,24 +446,24 @@ export default function ChapterComments() {
         <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
           <DialogContent className="sm:max-w-[480px]">
             <DialogHeader>
-              <DialogTitle>Báo cáo bình luận</DialogTitle>
+              <DialogTitle>Report Comment</DialogTitle>
               <DialogDescription>
-                Vui lòng chọn lý do và mô tả chi tiết (nếu có).
+                Please choose the reason and description (if have).
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-4 py-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">Lý do</label>
+                <label className="text-sm font-medium mb-2 block">Reason</label>
                 <select
                   className="w-full border rounded-md px-3 py-2 text-sm"
                   value={reportReason}
                   onChange={(e) => setReportReason(e.target.value)}
                 >
                   <option value="Spam">Spam</option>
-                  <option value="Inappropriate">Nội dung không phù hợp</option>
-                  <option value="Harassment">Quấy rối / xúc phạm</option>
-                  <option value="Other">Khác</option>
+                  <option value="Inappropriate">Inappropriate content</option>
+                  <option value="Harassment">Harassment / Offensive</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
 
