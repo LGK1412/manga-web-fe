@@ -112,13 +112,6 @@ const menuItems: MenuItem[] = [
   },
   {
     kind: "link",
-    id: "tax",
-    label: "Tax",
-    icon: Banknote,
-    href: "/admin/tax",
-  },
-  {
-    kind: "link",
     id: "comments",
     label: "Comment",
     icon: MessageSquare,
@@ -218,7 +211,7 @@ const ROLE_MENU_ACCESS: Record<Role, string[]> = {
 
   community_manager: ["users", "reports", "comments", "notifications"],
 
-  financial_manager: ["withdraw", "tax", "users"],
+  financial_manager: ["withdraw", "users"],
 
   author: [],
   user: [],
@@ -278,11 +271,13 @@ export default function AdminLayout({
   const [currentRole, setCurrentRole] = useState<Role | null>(null);
   const [loadingRole, setLoadingRole] = useState(true);
 
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    taxonomy: false,
-    notifications: false,
-    moderation: false,
-  });
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
+    {
+      taxonomy: false,
+      notifications: false,
+      moderation: false,
+    },
+  );
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -313,7 +308,7 @@ export default function AdminLayout({
       } catch (err: any) {
         console.warn(
           "[AdminLayout] fetchMe failed:",
-          err?.response?.data || err?.message
+          err?.response?.data || err?.message,
         );
         setCurrentRole(null);
       } finally {
@@ -502,7 +497,9 @@ export default function AdminLayout({
                     }`}
                     title={!open ? item.label : ""}
                   >
-                    <Icon className={`${open ? "h-5 w-5" : "h-6 w-6"} shrink-0`} />
+                    <Icon
+                      className={`${open ? "h-5 w-5" : "h-6 w-6"} shrink-0`}
+                    />
                     {open && <span>{item.label}</span>}
                   </Link>
                 );

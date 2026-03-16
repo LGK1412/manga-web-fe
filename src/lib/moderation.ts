@@ -34,7 +34,7 @@ type RecordApiRow = {
   contentHtml?: string;
 };
 
-export async function fetchQueue(params?: { status?: AIStatus | null }): Promise<QueueItem[]> {
+export async function fetchQueue(params?: { status?: AIStatus | null; limit?: number }): Promise<QueueItem[]> {
   const res = await api.get("/moderation/queue", {
     params: params?.status ? { status: params.status } : {},
   });
