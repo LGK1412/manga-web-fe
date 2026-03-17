@@ -310,11 +310,7 @@ export default function CreateChapterPage({
     }
   }
 
-  // === Nút Kiểm tra Policy (AI) — yêu cầu chapterId có sẵn ===
-  async function handleAiCheckForCreate() {
-    // Tại trang tạo chương: chưa có chapterId → yêu cầu lưu/tạo trước
-    alert("Please Save draft or Create chapter first, then go to Edit page to run Policy (AI) check.");
-  }
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white">
@@ -380,14 +376,7 @@ export default function CreateChapterPage({
             </div>
 
             <div className="space-y-2 overflow-y-auto flex-1 pr-1">
-              {/* Tip */}
-              <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/60 p-4">
-                <div className="flex items-center gap-2 text-xs text-blue-800">
-                  <span className="font-medium">Quick tip</span>
-                  <ChevronRight className="h-3 w-3" />
-                  <span>Fill in the information on the right then click "Create chapter".</span>
-                </div>
-              </div>
+              
 
               {/* Skeleton */}
               {isLoadingList &&
@@ -628,14 +617,7 @@ export default function CreateChapterPage({
                     <div className="text-[11px] text-slate-500">
                       {liveWordCount} words
                     </div>
-                    {/* AI check button (Create) */}
-                    <button
-                      onClick={handleAiCheckForCreate}
-                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs hover:bg-slate-50"
-                      title="Run Policy (AI) check"
-                    >
-                      Check Policy (AI)
-                    </button>
+                    
                   </div>
                 </div>
                 <div className="p-5 text-black">
