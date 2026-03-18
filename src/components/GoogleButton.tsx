@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import { setCookie } from "@/lib/cookie-func";
 import { useToast } from "@/hooks/use-toast";
+import Cookies from "js-cookie";
+
+const raw = Cookies.get("user_normal_info");
 
 declare global {
     interface Window {
@@ -20,7 +23,7 @@ export default function Home() {
     useEffect(() => {
         const loadGoogle = () => {
             const script = document.createElement("script");
-            script.src = "https://accounts.google.com/gsi/client";
+            script.src = "https://accounts.google.com/gsi/client?hl=en";
             script.async = true;
             script.defer = true;
             script.onload = () => {
@@ -35,8 +38,8 @@ export default function Home() {
 
                     window.google.accounts.id.renderButton(
                         document.getElementById("googleBtn"),
-                        { 
-                            theme: "outline", 
+                        {
+                            theme: "outline",
                             size: "large",
                             text: "signin_with", // "Sign in with Google" in English
                             width: "auto",
@@ -57,7 +60,7 @@ export default function Home() {
             const res = await axios.post(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/auth/google`,
                 { idToken: response.credential },
-                { withCredentials: true },                
+                { withCredentials: true },
             );
 
             setCookie(res.data.tokenPayload);
@@ -66,6 +69,28 @@ export default function Home() {
                 title: "Welcome back!",
                 description: "You have successfully logged in",
             })
+
+            let role = null;
+
+            try {
+                if (raw) {
+                    const userInfo = JSON.parse(raw);
+                    role = userInfo.role;
+                }
+            } catch (e) {
+                console.log("JSON lỗi:", raw);
+            }
+
+            if (role === "admin") {
+                return router.push("/admin/dashboard");
+            } else if (role === "content_moderator") {
+                return router.push("/admin/user");
+            } else if (role === "financial_manager"){
+                return router.push("/admin/user");
+            } else if (role === "community_manager"){
+                return router.push("/admin/user");
+            }
+
             router.push("/");
         } catch (error: any) {
             if (axios.isAxiosError(error)) {
