@@ -43,6 +43,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { PointBadge } from "./PointBadge";
 import NotificationComponent from "./firebase/NotificationComponent";
 import DailyCheckinPanel from "./DailyCheckinPanel";
+import { useUserPoint } from "@/contexts/UserPointContext";
 
 export function Navbar() {
   const { setLoginStatus } = useAuth();
@@ -64,10 +65,9 @@ export function Navbar() {
     "community_manager",
   ];
 
-  const canSeeAdminDashboard = ADMIN_DASHBOARD_ROLES.includes(normalizedRole);
-
-  // ✅ Chỉ admin mới bị ẩn notification
-  const canSeeNotification = !!user && normalizedRole !== "admin";
+  const canSeeAdminDashboard = ADMIN_DASHBOARD_ROLES.includes(
+    user?.role?.trim(),
+  );
 
   // Desktop search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,6 +78,10 @@ export function Navbar() {
   const [loadingRandom, setLoadingRandom] = useState(false);
   const [showCheckinModal, setShowCheckinModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const { role, isLoading: isPointLoading } = useUserPoint();
+  const canShowDaily =
+    !isPointLoading && (role === "user" || role === "author");
 
   const submitSearch = (q: string) => {
     const query = q.trim();
@@ -198,22 +202,21 @@ export function Navbar() {
                 Random
               </Button>
 
-              {user && (
-                <button
-                  onClick={() => setShowCheckinModal(true)}
-                  className="text-sm font-medium hover:text-primary ml-4 flex items-center gap-1"
-                >
-                  <Gift className="h-4 w-4" />
-                  Daily
-                </button>
-              )}
+              {canShowDaily && (
+                <>
+                  <button
+                    onClick={() => setShowCheckinModal(true)}
+                    className="text-sm font-medium hover:text-primary ml-4 flex items-center gap-1"
+                  >
+                    <Gift className="h-4 w-4" />
+                    Daily
+                  </button>
 
-              {user && (
-                <DailyCheckinPanel
-                  role={user.role ?? "user"}
-                  open={showCheckinModal}
-                  onClose={() => setShowCheckinModal(false)}
-                />
+                  <DailyCheckinPanel
+                    open={showCheckinModal}
+                    onClose={() => setShowCheckinModal(false)}
+                  />
+                </>
               )}
             </div>
           </div>
@@ -306,7 +309,9 @@ export function Navbar() {
                   <DropdownMenuContent className="w-56" align="end" forceMount>
                     <DropdownMenuItem asChild>
                       <Link
-                        href={user?.user_id ? `/profile/${user.user_id}` : "/login"}
+                        href={
+                          user?.user_id ? `/profile/${user.user_id}` : "/login"
+                        }
                         className="flex items-center"
                       >
                         <User className="mr-2 h-4 w-4" />
@@ -318,7 +323,11 @@ export function Navbar() {
                     {!canSeeAdminDashboard && user && (
                       <DropdownMenuItem asChild>
                         <Link
-                          href={user?.user_id ? `/inventory/${user.user_id}` : "/login"}
+                          href={
+                            user?.user_id
+                              ? `/inventory/${user.user_id}`
+                              : "/login"
+                          }
                           className="flex items-center"
                         >
                           <Package className="mr-2 h-4 w-4" />
@@ -458,12 +467,22 @@ export function Navbar() {
                   {!user ? (
                     <div className="flex gap-2">
                       <Button asChild className="flex-1">
-                        <Link href="/register" onClick={() => setIsMenuOpen(false)}>
+                        <Link
+                          href="/register"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
                           Sign Up
                         </Link>
                       </Button>
-                      <Button variant="outline" asChild className="flex-1 bg-transparent">
-                        <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                      <Button
+                        variant="outline"
+                        asChild
+                        className="flex-1 bg-transparent"
+                      >
+                        <Link
+                          href="/login"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
                           Login
                         </Link>
                       </Button>
@@ -525,7 +544,9 @@ export function Navbar() {
                       )}
 
                       <Link
-                        href={user?.user_id ? `/profile/${user.user_id}` : "/login"}
+                        href={
+                          user?.user_id ? `/profile/${user.user_id}` : "/login"
+                        }
                         onClick={() => setIsMenuOpen(false)}
                         className="block py-2 text-sm"
                       >
@@ -552,7 +573,9 @@ export function Navbar() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                      onClick={() =>
+                        setTheme(theme === "dark" ? "light" : "dark")
+                      }
                       className="bg-transparent"
                     >
                       {mounted ? (

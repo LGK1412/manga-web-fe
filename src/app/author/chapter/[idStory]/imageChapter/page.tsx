@@ -24,10 +24,6 @@ import {
 } from "lucide-react";
 import { useParams } from "next/navigation";
 
-const api = axios.create({
-  baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api`,
-});
-
 interface Chapter {
   id: string;
   title: string;
@@ -48,8 +44,7 @@ interface ImageFile {
 }
 
 function getImageUrl(chapterId: string, filename: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
-  return `${baseUrl}/uploads/image-chapters/${chapterId}/${filename}`;
+  return `${process.env.NEXT_PUBLIC_API_URL}/uploads/image-chapters/${chapterId}/${filename}`;
 }
 
 export default function CreateChapterPage() {
@@ -84,7 +79,7 @@ export default function CreateChapterPage() {
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [showPositionInput, setShowPositionInput] = useState<string | null>(
-    null
+    null,
   );
   const [targetPosition, setTargetPosition] = useState<string>("");
 
@@ -94,7 +89,10 @@ export default function CreateChapterPage() {
       if (!mangaId) return;
       try {
         setIsLoadingList(true);
-        const res = await api.get(`/image-chapter/${mangaId}`);
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/image-chapter/${mangaId}`,
+          { withCredentials: true },
+        );
         if (!mounted) return;
 
         const rawData = res.data?.data ?? [];
@@ -144,7 +142,10 @@ export default function CreateChapterPage() {
     try {
       setIsLoadingChapter(true);
 
-      const res = await api.get(`/image-chapter/id/${chapterId}`);
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/image-chapter/id/${chapterId}`,
+        { withCredentials: true },
+      );
       const chapterData = res.data?.data;
 
       if (!chapterData) throw new Error("Chapter data not found");
@@ -167,7 +168,7 @@ export default function CreateChapterPage() {
             originalUrl: fullUrl,
             filename: filename,
           };
-        }
+        },
       );
 
       setImageFiles(existingImages);
@@ -286,7 +287,7 @@ export default function CreateChapterPage() {
 
   function handleMouseDownMoveToPosition(
     index: number,
-    position: "first" | "last"
+    position: "first" | "last",
   ) {
     moveToPosition(index, position);
     startAutoScroll(position === "first" ? "up" : "down");
@@ -327,7 +328,7 @@ export default function CreateChapterPage() {
   function handlePositionKeyPress(
     e: React.KeyboardEvent,
     imageId: string,
-    currentIndex: number
+    currentIndex: number,
   ) {
     if (e.key === "Enter") {
       handlePositionSubmit(imageId, currentIndex);
@@ -368,22 +369,26 @@ export default function CreateChapterPage() {
 
           formData.append(
             "existing_images",
-            JSON.stringify(existingImagesWithOrder)
+            JSON.stringify(existingImagesWithOrder),
           );
         }
 
         let res;
         if (isCreatingMode) {
-          res = await api.post(`/image-chapter`, formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-          });
-        } else {
-          res = await api.patch(
-            `/image-chapter/${currentEditingId}`,
+          res = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/image-chapter`,
             formData,
             {
-              headers: { "Content-Type": "multipart/form-data" },
-            }
+              withCredentials: true,
+            },
+          );
+        } else {
+          res = await axios.patch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/image-chapter/${currentEditingId}`,
+            formData,
+            {
+              withCredentials: true,
+            },
           );
         }
 
@@ -404,8 +409,8 @@ export default function CreateChapterPage() {
                     price: chapterData.price ?? 0,
                     is_published: false,
                   }
-                : c
-            )
+                : c,
+            ),
           );
           setDirty(false);
         }
@@ -413,7 +418,7 @@ export default function CreateChapterPage() {
         alert(
           isCreatingMode
             ? "Draft saved successfully!"
-            : "Draft updated successfully!"
+            : "Draft updated successfully!",
         );
       } catch (err) {
         console.error("Error saving draft", err);
@@ -453,22 +458,26 @@ export default function CreateChapterPage() {
 
           formData.append(
             "existing_images",
-            JSON.stringify(existingImagesWithOrder)
+            JSON.stringify(existingImagesWithOrder),
           );
         }
 
         let res;
         if (isCreatingMode) {
-          res = await api.post(`/image-chapter`, formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-          });
-        } else {
-          res = await api.patch(
-            `/image-chapter/${currentEditingId}`,
+          res = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/image-chapter`,
             formData,
             {
-              headers: { "Content-Type": "multipart/form-data" },
-            }
+              withCredentials: true,
+            },
+          );
+        } else {
+          res = await axios.patch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/image-chapter/${currentEditingId}`,
+            formData,
+            {
+              withCredentials: true,
+            },
           );
         }
 
@@ -490,8 +499,8 @@ export default function CreateChapterPage() {
                     price: chapterData.price ?? 0,
                     is_published: true,
                   }
-                : c
-            )
+                : c,
+            ),
           );
           setDirty(false);
         }
@@ -499,12 +508,12 @@ export default function CreateChapterPage() {
         alert(
           isCreatingMode
             ? "Chapter created successfully!"
-            : "Chapter updated successfully!"
+            : "Chapter updated successfully!",
         );
       } catch (err) {
         console.error("Error processing chapter", err);
         alert(
-          `Error ${isCreatingMode ? "creating" : "updating"} chapter. Please try again.`
+          `Error ${isCreatingMode ? "creating" : "updating"} chapter. Please try again.`,
         );
       }
     });
@@ -514,7 +523,7 @@ export default function CreateChapterPage() {
     setIsCreatingMode(false);
     setCurrentEditingId(chapterId);
     setChapters((prev) =>
-      prev.map((c) => ({ ...c, isActive: c.id === chapterId }))
+      prev.map((c) => ({ ...c, isActive: c.id === chapterId })),
     );
     fetchChapterData(chapterId);
   }
@@ -570,7 +579,10 @@ export default function CreateChapterPage() {
   async function handleDelete(id: string) {
     if (!confirm("Delete this chapter (and all content)?")) return;
     try {
-      await api.delete(`/image-chapter/${id}`);
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/image-chapter/${id}`,
+        { withCredentials: true },
+      );
       setChapters((prev) => prev.filter((c) => c.id !== id));
 
       if (currentEditingId === id) {
@@ -663,7 +675,9 @@ export default function CreateChapterPage() {
                       : "border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
                   }`}
                   title={
-                    isCreatingMode ? "Already in create mode" : "Create new chapter"
+                    isCreatingMode
+                      ? "Already in create mode"
+                      : "Create new chapter"
                   }
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -672,18 +686,6 @@ export default function CreateChapterPage() {
               </div>
 
               <div className="space-y-2 overflow-y-auto flex-1 pr-1">
-                <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/60 p-4">
-                  <div className="flex items-center gap-2 text-xs text-blue-800">
-                    <span className="font-medium">Quick tip</span>
-                    <ChevronRight className="h-3 w-3" />
-                    <span>
-                      {isCreatingMode
-                        ? "Upload images and arrange in order, then create chapter."
-                        : "Edit content and click Update to save changes."}
-                    </span>
-                  </div>
-                </div>
-
                 {isLoadingChapter && (
                   <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-4">
                     <div className="flex items-center gap-2 text-xs text-blue-800">
@@ -748,7 +750,9 @@ export default function CreateChapterPage() {
                                   : "hover:bg-slate-100 text-slate-600"
                               }`}
                               title={
-                                chapter.isActive ? "Currently editing" : "Edit chapter"
+                                chapter.isActive
+                                  ? "Currently editing"
+                                  : "Edit chapter"
                               }
                             >
                               <Edit className="h-4 w-4" />
@@ -786,7 +790,9 @@ export default function CreateChapterPage() {
                     {isCreatingMode ? `Ch. ${order} (new)` : `Ch. ${order}`}
                   </span>
                   {dirty && (
-                    <span className="text-[11px] text-amber-600">• unsaved</span>
+                    <span className="text-[11px] text-amber-600">
+                      • unsaved
+                    </span>
                   )}
                   {isLoadingChapter && (
                     <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
@@ -820,8 +826,8 @@ export default function CreateChapterPage() {
                     {isPending
                       ? "Saving..."
                       : isCreatingMode
-                      ? "Save Draft"
-                      : "Save as Draft"}
+                        ? "Save Draft"
+                        : "Save as Draft"}
                   </button>
 
                   <button
@@ -832,8 +838,8 @@ export default function CreateChapterPage() {
                       !mangaId
                         ? "Add mangaId to URL first"
                         : isCreatingMode
-                        ? "Create chapter"
-                        : "Update chapter"
+                          ? "Create chapter"
+                          : "Update chapter"
                     }
                   >
                     {isPending ? (
@@ -846,8 +852,8 @@ export default function CreateChapterPage() {
                         ? "Creating..."
                         : "Updating..."
                       : isCreatingMode
-                      ? "Publish Chapter"
-                      : "Update & Publish"}
+                        ? "Publish Chapter"
+                        : "Update & Publish"}
                   </button>
                 </div>
               </div>
@@ -888,7 +894,9 @@ export default function CreateChapterPage() {
                             Brief, accurately describes content
                           </p>
                           {errors.title && (
-                            <p className="text-xs text-red-600">{errors.title}</p>
+                            <p className="text-xs text-red-600">
+                              {errors.title}
+                            </p>
                           )}
                         </div>
                         {errors.manga && (
@@ -901,7 +909,8 @@ export default function CreateChapterPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-2">
-                            Chapter Number <span className="text-red-500">*</span>
+                            Chapter Number{" "}
+                            <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="number"
@@ -909,7 +918,7 @@ export default function CreateChapterPage() {
                             value={order}
                             onChange={(e) => {
                               setOrder(
-                                Number.parseInt(e.target.value || "0", 10)
+                                Number.parseInt(e.target.value || "0", 10),
                               );
                               setDirty(true);
                             }}
@@ -933,7 +942,7 @@ export default function CreateChapterPage() {
                             value={price}
                             onChange={(e) => {
                               setPrice(
-                                Number.parseInt(e.target.value || "0", 10)
+                                Number.parseInt(e.target.value || "0", 10),
                               );
                               setDirty(true);
                             }}
@@ -1011,7 +1020,8 @@ export default function CreateChapterPage() {
                     <div className="max-w-6xl mx-auto space-y-6">
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-medium text-slate-700">
-                          {imageFiles.length} image{imageFiles.length !== 1 ? 's' : ''}{" "}
+                          {imageFiles.length} image
+                          {imageFiles.length !== 1 ? "s" : ""}{" "}
                           {isCreatingMode ? "selected" : "in chapter"}
                         </span>
                         <span className="text-sm text-slate-500">
@@ -1045,7 +1055,7 @@ export default function CreateChapterPage() {
                                       handlePositionKeyPress(
                                         e,
                                         imageFile.id,
-                                        index
+                                        index,
                                       )
                                     }
                                     onBlur={() => {
@@ -1107,7 +1117,7 @@ export default function CreateChapterPage() {
                                     onMouseDown={() =>
                                       handleMouseDownMoveToPosition(
                                         index,
-                                        "first"
+                                        "first",
                                       )
                                     }
                                     onMouseUp={stopAutoScroll}
@@ -1146,7 +1156,10 @@ export default function CreateChapterPage() {
 
                                   <button
                                     onMouseDown={() =>
-                                      handleMouseDownMoveToPosition(index, "last")
+                                      handleMouseDownMoveToPosition(
+                                        index,
+                                        "last",
+                                      )
                                     }
                                     onMouseUp={stopAutoScroll}
                                     onMouseLeave={stopAutoScroll}

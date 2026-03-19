@@ -100,24 +100,41 @@ export default function PayoutCard() {
 
       if (res.status === 204) {
         toast({
-          title: "Không có dữ liệu để export",
+          title: "Cannot export file",
+          description: "No matching withdraw were found during this period.",
           variant: "destructive",
         });
         return;
       }
 
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-
+      const blob = new Blob([res.data], {
+        type: res.headers["content-type"],
+      });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `payout-settlement_${fromDate}-${toDate}.xlsx`;
+
+      const disposition = res.headers["content-disposition"];
+
+      let fileName = "";
+      if (disposition) {
+        const match =
+          disposition.match(/filename\*=UTF-8''([^;]+)/) ||
+          disposition.match(/filename="?([^"]+)"?/);
+
+        if (match?.[1]) {
+          fileName = decodeURIComponent(match[1]);
+        }
+      }
+      link.download = fileName;
 
       document.body.appendChild(link);
       link.click();
       link.remove();
-
+      window.URL.revokeObjectURL(url);
       toast({
-        title: "Export payout settlement successfully",
+        title: "Export successfully!",
+        description: "Export payout settlement successfully",
         variant: "success",
       });
 
@@ -125,9 +142,8 @@ export default function PayoutCard() {
     } catch (err: any) {
       toast({
         variant: "destructive",
-        title: "Lỗi tải file",
-        description:
-          err.response?.data?.message || "File không tồn tại hoặc lỗi kết nối.",
+        title: "An error while exporting",
+        description: "Cannot export file for some error",
       });
     } finally {
       setExporting(false);
@@ -163,7 +179,6 @@ export default function PayoutCard() {
           fileName = decodeURIComponent(match[1]);
         }
       }
-      if (!fileName) fileName = `payout-settlement_${fromDate}_${toDate}.xlsx`;
       link.download = fileName;
 
       document.body.appendChild(link);
@@ -174,7 +189,7 @@ export default function PayoutCard() {
     } catch (err: any) {
       toast({
         variant: "destructive",
-        title: "Lỗi tải file",
+        title: "Error while downloading",
         description:
           err.response?.data?.message || "File không tồn tại hoặc lỗi kết nối.",
       });
@@ -217,7 +232,7 @@ export default function PayoutCard() {
             ) : (
               <FileDown className="w-4 h-4" />
             )}
-            {exporting ? "Đang xử lý..." : "Export Payout Settlement"}
+            {exporting ? "Exporting..." : "Export Payout Settlement"}
           </Button>
         </CardContent>
       </Card>
