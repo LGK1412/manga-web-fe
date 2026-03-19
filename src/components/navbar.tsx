@@ -259,7 +259,7 @@ export function Navbar() {
 
             {user ? (
               <>
-                {canSeeNotification && (
+                {canSeeAdminDashboard && (
                   <div>
                     <NotificationComponent />
                   </div>
@@ -512,7 +512,7 @@ export function Navbar() {
                         </div>
                       </div>
 
-                      {canSeeNotification && (
+                      {canSeeAdminDashboard && (
                         <Link
                           href="/notifications"
                           onClick={() => setIsMenuOpen(false)}
