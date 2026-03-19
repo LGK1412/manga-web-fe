@@ -2,149 +2,448 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, MoreHorizontal, Trash2, Bookmark, BookmarkCheck } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-
-export interface NotificationVM {
-  _id: string;
-  title: string;
-  body: string;
-  status: "Unread" | "Read";
-  createdAt: string;
-  receiver_id: string;
-  sender_id: string;
-  is_save?: boolean;
-}
+import {
+  BellOff,
+  Bookmark,
+  BookmarkCheck,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
+import type { NotificationVM } from "@/types/notification";
 
 interface NotificationTableProps {
   notifications: NotificationVM[];
+  currentPage: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
   onViewDetail: (notification: NotificationVM) => void;
-  onMarkAsRead: (id: string, status: "Read" | "Unread", receiver_id?: string) => void;
-  onDelete?: (id: string, receiver_id: string) => void;
-  onToggleSave?: (id: string, receiver_id: string) => void;
-  usersMap?: Record<string, string>; // NEW: id -> email
+  onMarkAsRead: (id: string, receiver_id?: string) => void;
+  onDeleteRequest: (notification: NotificationVM) => void;
+  onToggleSave: (id: string, receiver_id: string) => void;
+  onResend: (notification: NotificationVM) => void;
+  usersMap?: Record<string, string>;
+  busyId?: string | null;
+}
+
+function getStatusBadgeClass(status: "Read" | "Unread") {
+  return status === "Read"
+    ? "border border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-100"
+    : "border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50";
+}
+
+function getSavedBadgeClass(isSave: boolean) {
+  return isSave
+    ? "border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50"
+    : "border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-50";
+}
+
+function formatDateParts(date: string) {
+  const d = new Date(date);
+
+  return {
+    date: d.toLocaleDateString("vi-VN"),
+    time: d.toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  };
+}
+
+function shortId(id: string) {
+  return id?.length > 10 ? `${id.slice(0, 6)}…${id.slice(-4)}` : id;
 }
 
 export function NotificationTable({
   notifications,
+  currentPage,
+  pageSize,
+  totalItems,
+  totalPages,
+  onPageChange,
   onViewDetail,
   onMarkAsRead,
-  onDelete,
+  onDeleteRequest,
   onToggleSave,
+  onResend,
   usersMap = {},
+  busyId = null,
 }: NotificationTableProps) {
-  const getStatusColor = (status: "Read" | "Unread") =>
-    status === "Read" ? "bg-gray-100 text-gray-700" : "bg-blue-100 text-blue-700";
-
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-  const shortId = (id: string) => (id?.length > 10 ? `${id.slice(0, 6)}…${id.slice(-4)}` : id);
-
   const showEmailOrId = (id: string) => usersMap[id] || shortId(id);
 
-  return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
-      <table className="w-full">
-        <thead className="bg-gray-50 border-b border-gray-200">
-          <tr>
-            <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Title</th>
-            <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Body</th>
-            <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Receiver</th>
-            <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Sender</th>
-            <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Date</th>
-            <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
-            <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {notifications.map((n) => (
-            <tr key={n._id} className="hover:bg-gray-50 transition-colors">
-              <td className="px-6 py-4">
-                <p className="text-sm font-medium text-gray-900">{n.title}</p>
-              </td>
-              <td className="px-6 py-4">
-                <p className="text-sm text-gray-700 line-clamp-2">{n.body}</p>
-              </td>
-              <td className="px-6 py-4">
-                <p className="text-xs text-gray-700" title={n.receiver_id}>
-                  {showEmailOrId(n.receiver_id)}
-                </p>
-              </td>
-              <td className="px-6 py-4">
-                <p className="text-xs text-gray-700" title={n.sender_id}>
-                  {showEmailOrId(n.sender_id)}
-                </p>
-              </td>
-              <td className="px-6 py-4">
-                <p className="text-sm text-gray-600">{formatDate(n.createdAt)}</p>
-              </td>
-              <td className="px-6 py-4">
-                <Badge className={getStatusColor(n.status)}>{n.status}</Badge>
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onViewDetail(n)}
-                    className="text-blue-600 hover:text-blue-700"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => onMarkAsRead(n._id, n.status === "Read" ? "Unread" : "Read", n.receiver_id)}
-                      >
-                        Mark as {n.status === "Read" ? "Unread" : "Read"}
-                      </DropdownMenuItem>
-                      {onToggleSave && (
-                        <DropdownMenuItem onClick={() => onToggleSave(n._id, n.receiver_id)}>
-                          {n.is_save ? (
-                            <span className="flex items-center gap-2">
-                              <BookmarkCheck className="h-4 w-4" /> Unsave
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-2">
-                              <Bookmark className="h-4 w-4" /> Save
-                            </span>
-                          )}
-                        </DropdownMenuItem>
-                      )}
-                      {onDelete && (
-                        <DropdownMenuItem onClick={() => onDelete(n._id, n.receiver_id)}>
-                          <span className="flex items-center gap-2 text-red-600">
-                            <Trash2 className="h-4 w-4" /> Delete
-                          </span>
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </td>
-            </tr>
-          ))}
-          {notifications.length === 0 && (
-            <tr>
-              <td className="px-6 py-10 text-center text-sm text-gray-500" colSpan={7}>
-                No notifications found.
-              </td>
-            </tr>
+  const from = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const to = Math.min(currentPage * pageSize, totalItems);
+
+  const renderActions = (n: NotificationVM) => {
+    const isBusy = busyId === n._id;
+
+    return (
+      <div className="flex flex-wrap items-center justify-end gap-1">
+        {n.status === "Unread" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 rounded-lg px-2 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+            onClick={() => onMarkAsRead(n._id, n.receiver_id)}
+            disabled={isBusy}
+            title="Mark as read"
+            aria-label="Mark as read"
+          >
+            Mark read
+          </Button>
+        )}
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          onClick={() => onViewDetail(n)}
+          disabled={isBusy}
+          title="View details"
+          aria-label="View details"
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          onClick={() => onResend(n)}
+          disabled={isBusy}
+          title="Resend notification"
+          aria-label="Resend notification"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`h-8 w-8 rounded-lg ${
+            n.is_save
+              ? "text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+              : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+          }`}
+          onClick={() => onToggleSave(n._id, n.receiver_id)}
+          disabled={isBusy}
+          title={n.is_save ? "Remove from saved" : "Save notification"}
+          aria-label={n.is_save ? "Remove from saved" : "Save notification"}
+        >
+          {n.is_save ? (
+            <BookmarkCheck className="h-4 w-4" />
+          ) : (
+            <Bookmark className="h-4 w-4" />
           )}
-        </tbody>
-      </table>
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700"
+          onClick={() => onDeleteRequest(n)}
+          disabled={isBusy}
+          title="Delete notification"
+          aria-label="Delete notification"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  };
+
+  if (notifications.length === 0) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white px-6 py-14 shadow-sm">
+        <div className="flex flex-col items-center justify-center gap-3 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <BellOff className="h-7 w-7" />
+          </div>
+
+          <div>
+            <p className="text-base font-semibold text-slate-800">
+              No notifications found
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              Try adjusting your search, saved state, or status filters.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">Sent notifications list</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Showing {from}-{to} of {totalItems} notifications
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="h-9 rounded-xl border-slate-200"
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            Prev
+          </Button>
+
+          <div className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600">
+            Page {currentPage} / {totalPages}
+          </div>
+
+          <Button
+            variant="outline"
+            className="h-9 rounded-xl border-slate-200"
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+            <ChevronRight className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="hidden lg:block">
+        <div className="overflow-x-auto">
+          <table className="min-w-[1280px] w-full table-fixed">
+            <colgroup>
+              <col style={{ width: "22%" }} />
+              <col style={{ width: "24%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "20%" }} />
+            </colgroup>
+
+            <thead className="bg-slate-50">
+              <tr className="border-b border-slate-200">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Title
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Preview
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Receiver
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Sender
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Date sent
+                </th>
+                <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Status
+                </th>
+                <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Saved
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-slate-200">
+              {notifications.map((n) => {
+                const dateParts = formatDateParts(n.createdAt);
+                const receiverText = showEmailOrId(n.receiver_id);
+                const senderText = showEmailOrId(n.sender_id);
+                const isUnread = n.status === "Unread";
+
+                return (
+                  <tr
+                    key={n._id}
+                    className={`transition-colors hover:bg-slate-50/80 ${
+                      isUnread ? "bg-blue-50/40" : "bg-white"
+                    }`}
+                  >
+                    <td className="relative px-6 py-4 align-top">
+                      {isUnread && (
+                        <span className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full bg-blue-500" />
+                      )}
+
+                      <div className="max-w-[280px]">
+                        <div className="flex items-start gap-2">
+                          {isUnread && (
+                            <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
+                          )}
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p
+                                className="line-clamp-2 break-words text-sm font-semibold leading-6 text-slate-900"
+                                title={n.title}
+                              >
+                                {n.title}
+                              </p>
+
+                              {n.is_save && (
+                                <span title="Saved" aria-label="Saved">
+                                  <BookmarkCheck className="h-4 w-4 shrink-0 text-amber-600" />
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-1 text-xs text-slate-500">
+                              ID: {shortId(n._id)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4 align-top">
+                      <div className="max-w-[360px]">
+                        <p
+                          className="line-clamp-2 break-words text-sm leading-6 text-slate-600"
+                          title={n.body}
+                        >
+                          {n.body}
+                        </p>
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4 align-top">
+                      <p
+                        className="max-w-[180px] truncate text-sm text-slate-600"
+                        title={receiverText}
+                      >
+                        {receiverText}
+                      </p>
+                    </td>
+
+                    <td className="px-6 py-4 align-top">
+                      <p
+                        className="max-w-[180px] truncate text-sm text-slate-600"
+                        title={senderText}
+                      >
+                        {senderText}
+                      </p>
+                    </td>
+
+                    <td className="px-6 py-4 align-top">
+                      <div className="whitespace-nowrap text-sm text-slate-600">
+                        <p>{dateParts.date}</p>
+                        <p className="text-xs text-slate-500">{dateParts.time}</p>
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4 align-top text-center">
+                      <Badge className={getStatusBadgeClass(n.status)}>
+                        {n.status}
+                      </Badge>
+                    </td>
+
+                    <td className="px-6 py-4 align-top text-center">
+                      <Badge className={getSavedBadgeClass(n.is_save)}>
+                        {n.is_save ? "Saved" : "—"}
+                      </Badge>
+                    </td>
+
+                    <td className="px-6 py-4 align-top">{renderActions(n)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="space-y-4 p-4 lg:hidden">
+        {notifications.map((n) => {
+          const dateParts = formatDateParts(n.createdAt);
+          const receiverText = showEmailOrId(n.receiver_id);
+          const senderText = showEmailOrId(n.sender_id);
+          const isUnread = n.status === "Unread";
+
+          return (
+            <div
+              key={n._id}
+              className={`rounded-2xl border p-4 shadow-sm ${
+                isUnread
+                  ? "border-blue-200 bg-blue-50/40"
+                  : "border-slate-200 bg-white"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    {isUnread && (
+                      <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                    )}
+
+                    <p className="line-clamp-2 text-sm font-semibold leading-6 text-slate-900">
+                      {n.title}
+                    </p>
+
+                    {n.is_save && (
+                      <span title="Saved" aria-label="Saved">
+                        <BookmarkCheck className="h-4 w-4 shrink-0 text-amber-600" />
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">
+                    {n.body}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Badge className={getStatusBadgeClass(n.status)}>{n.status}</Badge>
+                <Badge className={getSavedBadgeClass(n.is_save)}>
+                  {n.is_save ? "Saved" : "Unsaved"}
+                </Badge>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Receiver
+                  </p>
+                  <p className="mt-1 break-all">{receiverText}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Sender
+                  </p>
+                  <p className="mt-1 break-all">{senderText}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Date
+                  </p>
+                  <p className="mt-1">
+                    {dateParts.date} · {dateParts.time}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Notification ID
+                  </p>
+                  <p className="mt-1">{shortId(n._id)}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">{renderActions(n)}</div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
