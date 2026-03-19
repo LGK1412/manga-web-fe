@@ -7,6 +7,7 @@ import { Sparkles, Zap, Crown, Gift } from "lucide-react";
 import axios from "axios";
 import Cookies from "js-cookie";
 import { useToast } from "@/hooks/use-toast";
+import { TransactionHistoryModal } from "@/components/TransactionHistoryModal";
 
 interface TopupPackage {
   id: number;
@@ -66,7 +67,7 @@ export default function TopupPage() {
         `${process.env.NEXT_PUBLIC_API_URL}/api/topup/transactions`,
         { withCredentials: true },
       );
-      setTransactions(res.data.transactions);
+      setTransactions(res.data);
     } catch (error) {
       console.error("Error fetching transaction history:", error);
     }
@@ -84,7 +85,7 @@ export default function TopupPage() {
       }
 
       const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/vnpay/create-payment-url/${user.user_id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/vnpay/create-payment-url`,
         { packageId: pkg.id, amount: pkg.price },
         { withCredentials: true },
       );
@@ -95,7 +96,7 @@ export default function TopupPage() {
     } catch (error: any) {
       console.error(
         "Error creating payment URL",
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
     }
   }
@@ -143,7 +144,7 @@ export default function TopupPage() {
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {packages.map((pkg, index) => {
           const delay = index * 0.1;
-          const showBonus = pkg.effectivePoints > pkg.points; // chỉ hiển thị bonus nếu còn
+          const showBonus = pkg.effectivePoints > pkg.points;
 
           return (
             <Card
@@ -220,55 +221,11 @@ export default function TopupPage() {
         </div>
       </div>
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-slate-900 text-white rounded-xl w-11/12 max-w-3xl p-6 relative">
-            <h2 className="text-2xl font-bold mb-4">Lịch sử giao dịch</h2>
-            <button
-              className="absolute top-4 right-4 text-gray-400 hover:text-white"
-              onClick={() => setShowModal(false)}
-            >
-              ✕
-            </button>
-            <div className="max-h-96 overflow-y-auto">
-              {transactions.length === 0 ? (
-                <p className="text-center text-gray-400">
-                  Chưa có giao dịch nào.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {transactions.map((tx) => (
-                    <Card
-                      key={tx.txnRef}
-                      className="p-4 bg-slate-800/80 border border-teal-500/30"
-                    >
-                      <div className="flex justify-between items-center">
-                        <div className="flex-1 text-slate-200">
-                          <p>Gói: {tx.packageId}</p>
-                          <p>Giá: {tx.price.toLocaleString()} VND</p>
-                          <p>Điểm nhận: {tx.pointReceived}</p>
-                          <p>Ngày: {new Date(tx.createdAt).toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                              tx.status === "success"
-                                ? "bg-green-600 text-white"
-                                : tx.status === "failed"
-                                  ? "bg-red-600 text-white"
-                                  : "bg-yellow-600 text-white"
-                            }`}
-                          >
-                            {tx.status.toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <TransactionHistoryModal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          transactions={transactions}
+        />
       )}
     </div>
   );

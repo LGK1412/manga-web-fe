@@ -4,8 +4,10 @@ import { DAILY_REWARD_CONFIG } from "@/data/reward";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { Award, CheckCircle2, Gift, Sparkles, X } from "lucide-react";
 import { useUserPoint } from "@/contexts/UserPointContext";
+import { cn } from "@/lib/utils";
+import moment from "moment-timezone";
 
 interface RewardConfigItem {
   day: number;
@@ -21,21 +23,33 @@ interface CheckinStatus {
 }
 
 interface DailyCheckinPanelProps {
-  role?: "user" | "author";
   open: boolean;
   onClose: () => void;
 }
 
 export default function DailyCheckinPanel({
-  role = "user",
   open,
   onClose,
 }: DailyCheckinPanelProps) {
   const [status, setStatus] = useState<CheckinStatus | null>(null);
   const [loading, setLoading] = useState(false);
-  const { point, authorPoint, setPointsDirectly } = useUserPoint();
+  const { refreshPoints, role, isLoading: isUserLoading } = useUserPoint();
+  const isAllowed = role === "user" || role === "author";
+  const rewards: RewardConfigItem[] = isAllowed
+    ? DAILY_REWARD_CONFIG[role]
+    : [];
 
-  const rewards: RewardConfigItem[] = DAILY_REWARD_CONFIG[role];
+  const getTodayIndex = () => {
+    if (!status?.weekStart) return -1;
+
+    const timezone = "Asia/Ho_Chi_Minh";
+    const now = moment.tz(timezone).startOf("day");
+    const start = moment.tz(status.weekStart, timezone).startOf("day");
+    const diff = now.diff(start, "days");
+    return diff >= 0 && diff <= 6 ? diff : -1;
+  };
+
+  const todayIndexFromServer = getTodayIndex();
 
   useEffect(() => {
     if (open) fetchStatus();
@@ -45,44 +59,33 @@ export default function DailyCheckinPanel({
     try {
       const { data } = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/checkin/status`,
-        { withCredentials: true }
+        { withCredentials: true },
       );
       setStatus(data);
     } catch (err) {
-      console.error(err);
+      console.error("Fetch status error:", err);
     }
   }
 
   async function handleCheckin() {
-    if (!status?.canCheckin) return;
+    if (!status?.canCheckin || loading) return;
+
     setLoading(true);
     try {
       const { data } = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/checkin/today`,
         { role },
-        { withCredentials: true }
+        { withCredentials: true },
       );
-
       setStatus((prev) => ({
         ...prev!,
         checkins: data.checkins,
-        claimedDays: data.claimedDays,
-        reward: data.reward,
         canCheckin: false,
       }));
 
-      if (data.reward) {
-        if (role === "user") {
-          setPointsDirectly(point + (data.reward.points ?? 0));
-        } else if (role === "author") {
-          setPointsDirectly(
-            point + (data.reward.points ?? 0),
-            authorPoint + (data.reward.authorPoints ?? 0)
-          );
-        }
-      }
+      await refreshPoints();
     } catch (err) {
-      // Error handling - silently fail
+      console.error("Checkin error:", err);
     } finally {
       setLoading(false);
     }
@@ -91,76 +94,115 @@ export default function DailyCheckinPanel({
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full p-6 relative">
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 p-1 rounded hover:bg-gray-200"
-        >
-          <X className="h-5 w-5" />
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
+        <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-teal-50 text-teal-600 rounded-2xl">
+              <Gift size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">
+                Daily Check-in
+              </h2>
+              <p className="text-xs text-slate-500 font-medium">
+                Earn points every day with us!
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
         {!status ? (
-          <p>Loading...</p>
+          <div className="p-20 text-center text-slate-400">
+            <p className="text-sm font-medium">Loading data...</p>
+          </div>
         ) : (
-          <>
-            <h2 className="text-xl font-bold mb-4">🎁 7-Day Check-in</h2>
-            <div className="grid grid-cols-7 gap-3">
-              {rewards.map((r) => {
-                const dayIndex = r.day;
-                const checked = status.checkins[dayIndex - 1];
-
-                let bgColor = "bg-gray-100 border-gray-300";
-                let statusText = "";
-
-                if (checked) {
-                  bgColor = "bg-green-200 border-green-400";
-                  statusText = "Claimed";
-                }
+          <div className="p-6">
+            {/* Grid Rewards */}
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-2.5 mb-8">
+              {rewards.map((r, index) => {
+                const dayIndex = r.day; // 1, 2, 3...
+                const isChecked = status.checkins[dayIndex - 1];
+                const isToday =
+                  dayIndex - 1 === todayIndexFromServer && status.canCheckin;
 
                 return (
                   <div
                     key={dayIndex}
-                    className={`p-3 rounded-md text-center border flex flex-col items-center ${bgColor}`}
-                  >
-                    <div className="font-bold text-sm">Day {dayIndex}</div>
-                    <div className="text-xs mt-1 text-gray-700">
-                      {r.points ? `+${r.points} points` : `+${r.authorPoints} AP`}
-                    </div>
-                    {statusText && (
-                      <div className="mt-2 text-xs font-semibold text-yellow-600">
-                        {statusText}
-                      </div>
+                    className={cn(
+                      "flex flex-col items-center p-3 rounded-2xl border-2 transition-all duration-200",
+                      isChecked
+                        ? "bg-teal-50 border-teal-100 text-teal-600 opacity-90"
+                        : isToday
+                          ? "bg-white border-teal-500 text-teal-600 ring-4 ring-teal-50 scale-105 z-10 shadow-md"
+                          : "bg-slate-50 border-slate-100 text-black opacity-60",
                     )}
-                    {status.reward &&
-                      dayIndex === status.reward.day &&
-                      !checked && (
-                        <div className="mt-2 text-xs font-semibold text-yellow-600">
-                          🎉 +
-                          {status.reward.points ?? status.reward.authorPoints}{" "}
-                          claimed!
-                        </div>
+                  >
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold mb-2 uppercase tracking-tight",
+                        isToday ? "text-teal-600" : "",
                       )}
+                    >
+                      Day {dayIndex}
+                    </span>
+                    <div className="mb-2">
+                      {isChecked ? (
+                        <CheckCircle2 size={20} className="text-teal-500" />
+                      ) : (
+                        <Award
+                          size={20}
+                          className={isToday ? "text-teal-500" : "text-black"}
+                        />
+                      )}
+                    </div>
+                    <div className="text-[11px] font-black leading-none">
+                      +{r.points ?? r.authorPoints}
+                    </div>
+                    <span className="text-[8px] font-bold uppercase mt-0.5">
+                      {r.points ? "Point" : "AP"}
+                    </span>
                   </div>
                 );
               })}
             </div>
 
+            {/* Action Button */}
             <button
               onClick={handleCheckin}
               disabled={loading || !status.canCheckin}
-              className={`mt-5 w-full py-2 rounded font-semibold text-white ${
+              className={cn(
+                "w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-teal-500/10",
                 status.canCheckin
-                  ? "bg-blue-500 hover:bg-blue-600"
-                  : "bg-gray-400 cursor-not-allowed"
-              }`}
+                  ? "bg-teal-600 hover:bg-teal-700 text-white"
+                  : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border border-slate-200",
+              )}
             >
-              {status.canCheckin ? "Check in today" : "Already checked in today"}
+              {loading ? (
+                "Đang xử lý..."
+              ) : status.canCheckin ? (
+                <>
+                  <Sparkles size={18} />
+                  CLAIM NOW!
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={18} />
+                  YOU HAVE CHECKED-IN TODAY!
+                </>
+              )}
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

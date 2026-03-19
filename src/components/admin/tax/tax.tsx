@@ -169,16 +169,31 @@ export default function TaxCard() {
       window.URL.revokeObjectURL(url);
 
       toast({
-        title: "Export thành công",
-        description: `Đã tải file Excel ${fileName}`,
+        title: "Export successfully",
+        description: `Excel file ${fileName} has been downloaded`,
+        variant: "success",
       });
 
       fetchTaxs();
-    } catch {
+    } catch (err: any) {
+      let errorMessage = "No data or server error";
+
+      if (err.response?.data instanceof Blob) {
+        const text = await err.response.data.text();
+        try {
+          const json = JSON.parse(text);
+          errorMessage = json.message || errorMessage;
+        } catch (e) {
+          console.error("Error parsing error blob", e);
+        }
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+
       toast({
         variant: "destructive",
-        title: "Export thất bại",
-        description: "Không có dữ liệu hoặc lỗi hệ thống",
+        title: "Export failed",
+        description: errorMessage,
       });
     } finally {
       setExporting(false);

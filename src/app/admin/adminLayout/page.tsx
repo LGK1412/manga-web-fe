@@ -27,6 +27,8 @@ import {
   Bell,
   Send,
   Shapes,
+  ContactRound,
+  ChevronLeft,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -102,6 +104,13 @@ const menuItems: MenuItem[] = [
     label: "Report",
     icon: FileWarning,
     href: "/admin/report",
+  },
+  {
+    kind: "link",
+    id: "payout-profile",
+    label: "Payout Profile",
+    icon: ContactRound,
+    href: "/admin/payout-profile",
   },
   {
     kind: "link",
@@ -211,7 +220,7 @@ const ROLE_MENU_ACCESS: Record<Role, string[]> = {
 
   community_manager: ["users", "reports", "comments", "notifications"],
 
-  financial_manager: ["withdraw", "users"],
+  financial_manager: ["users", "withdraw", "payout-profile"],
 
   author: [],
   user: [],
@@ -400,7 +409,11 @@ export default function AdminLayout({
               onClick={() => setOpen(!open)}
               className="hover:bg-red-50 hover:text-red-600"
             >
-              {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              {open ? (
+                <ChevronLeft className="h-4 w-4" />
+              ) : (
+                <Menu className="h-4 w-4" />
+              )}
             </Button>
           </div>
 
