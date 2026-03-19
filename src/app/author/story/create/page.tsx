@@ -123,7 +123,7 @@ export default function CreateStoryPage() {
 
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const [attemptedPublish, setAttemptedPublish] = useState(false);
 
   const [touched, setTouched] = useState<TouchedFields>({
     title: false,
@@ -187,7 +187,8 @@ export default function CreateStoryPage() {
         if (stylesList.length > 0) {
           setSelectedStyles([stylesList[0]._id]);
         }
-      } catch {
+      } catch (error) {
+        console.error("Failed to load genres/styles:", error);
         if (!mounted) return;
         setAvailableGenres([]);
         setAvailableStyles([]);
@@ -250,7 +251,9 @@ export default function CreateStoryPage() {
 
   const statusOptions = useMemo(() => {
     return availableStatuses.map((status: any) => {
-      const value = (typeof status === "string" ? status : status.value).toLowerCase();
+      const value = (
+        typeof status === "string" ? status : status.value
+      ).toLowerCase();
       const label = typeof status === "string" ? status : status.label;
       return { value, label };
     });
@@ -263,50 +266,69 @@ export default function CreateStoryPage() {
     );
   }, [statusOptions, storyStatus]);
 
-  const validateForm = (): FormErrors => {
+  // Publish validate full
+  // Draft validate light
+  const validateForm = (mode: SubmitMode): FormErrors => {
     const errors: FormErrors = {};
 
-    if (!storyTitle.trim()) {
-      errors.title = "Please enter story title.";
-    } else if (storyTitle.trim().length < 3) {
-      errors.title = "Story title must be at least 3 characters.";
-    } else if (storyTitle.trim().length > 100) {
-      errors.title = "Story title must not exceed 100 characters.";
+    // Title
+    if (mode === "publish") {
+      if (!storyTitle.trim()) {
+        errors.title = "Please enter story title.";
+      } else if (storyTitle.trim().length < 3) {
+        errors.title = "Story title must be at least 3 characters.";
+      } else if (storyTitle.trim().length > 100) {
+        errors.title = "Story title must not exceed 100 characters.";
+      }
+    } else {
+      if (storyTitle.trim() && storyTitle.trim().length > 100) {
+        errors.title = "Story title must not exceed 100 characters.";
+      }
     }
 
-    if (!storySummary.trim()) {
-      errors.summary = "Please enter description.";
-    } else if (storySummary.trim().length < 10) {
-      errors.summary = "Description must be at least 10 characters.";
-    } else if (storySummary.trim().length > 1000) {
-      errors.summary = "Description must not exceed 1000 characters.";
+    // Summary
+    if (mode === "publish") {
+      if (!storySummary.trim()) {
+        errors.summary = "Please enter description.";
+      } else if (storySummary.trim().length < 10) {
+        errors.summary = "Description must be at least 10 characters.";
+      } else if (storySummary.trim().length > 1000) {
+        errors.summary = "Description must not exceed 1000 characters.";
+      }
+    } else {
+      if (storySummary.trim() && storySummary.trim().length > 1000) {
+        errors.summary = "Description must not exceed 1000 characters.";
+      }
     }
 
-    if (!selectedStyles.length) {
-      errors.styles = "Please select 1 story type.";
-    }
+    if (mode === "publish") {
+      if (!selectedStyles.length) {
+        errors.styles = "Please select 1 story type.";
+      }
 
-    if (!selectedGenres.length) {
-      errors.genres = "Please select at least 1 genre.";
-    }
+      if (!selectedGenres.length) {
+        errors.genres = "Please select at least 1 genre.";
+      }
 
-    if (!coverFile) {
-      errors.cover = "Please select a cover image for the story.";
+      if (!coverFile) {
+        errors.cover = "Please select a cover image for the story.";
+      }
     }
 
     return errors;
   };
 
-  const errors = useMemo(
-    () => validateForm(),
+  // UI vẫn hiển thị trạng thái "ready to publish" theo luật publish
+  const publishErrors = useMemo(
+    () => validateForm("publish"),
     [storyTitle, storySummary, selectedStyles, selectedGenres, coverFile]
   );
 
-  const remainingRequiredCount = Object.keys(errors).length;
+  const remainingRequiredCount = Object.keys(publishErrors).length;
   const formReady = remainingRequiredCount === 0;
 
   const shouldShowError = (field: keyof FormErrors) =>
-    attemptedSubmit || touched[field as keyof TouchedFields];
+    attemptedPublish || touched[field as keyof TouchedFields];
 
   const handleSelectStyle = (style: StyleDoc) => {
     setSelectedStyles([style._id]);
@@ -371,14 +393,22 @@ export default function CreateStoryPage() {
   };
 
   const submitStory = async (mode: SubmitMode) => {
-    setAttemptedSubmit(true);
-    markAllTouched();
+    if (mode === "publish") {
+      setAttemptedPublish(true);
+      markAllTouched();
+    }
 
-    const validationErrors = validateForm();
+    const validationErrors = validateForm(mode);
     if (Object.keys(validationErrors).length > 0) {
       toast({
-        title: "Please complete required fields",
-        description: "Check the fields marked in red before continuing.",
+        title:
+          mode === "publish"
+            ? "Please complete required fields"
+            : "Draft cannot be saved",
+        description:
+          mode === "publish"
+            ? "Check the fields marked in red before continuing."
+            : "Please check the entered data before saving draft.",
         variant: "destructive",
       });
       return;
@@ -410,17 +440,22 @@ export default function CreateStoryPage() {
     fd.append("status", storyStatus);
     fd.append("isPublish", String(mode === "publish" ? isPublish : false));
     fd.append("isDraft", String(mode === "draft"));
+
     if (coverFile) {
       fd.append("coverImage", coverFile);
     }
 
     try {
+      // Debug payload
+      for (const [key, value] of fd.entries()) {
+        console.log("FormData =>", key, value);
+      }
+
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/manga/author/${authorId}`,
         fd,
         {
           withCredentials: true,
-          headers: { "Content-Type": "multipart/form-data" },
         }
       );
 
@@ -437,10 +472,27 @@ export default function CreateStoryPage() {
       });
 
       router.push("/author/dashboard");
-    } catch {
+    } catch (error: any) {
+      console.error("Create story error:", error);
+      console.error("Response status:", error?.response?.status);
+      console.error("Response data:", error?.response?.data);
+
+      const rawMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Please check your data or login again.";
+
+      const serverMessage = Array.isArray(rawMessage)
+        ? rawMessage.join(", ")
+        : String(rawMessage);
+
       toast({
-        title: mode === "publish" ? "Failed to create story" : "Failed to save draft",
-        description: "Please check your data or login again.",
+        title:
+          mode === "publish"
+            ? "Failed to create story"
+            : "Failed to save draft",
+        description: serverMessage,
         variant: "destructive",
       });
     } finally {
@@ -509,7 +561,7 @@ export default function CreateStoryPage() {
                           onBlur={() => markTouched("title")}
                           placeholder="Enter story title"
                           className={`h-11 rounded-xl border-border/70 bg-background shadow-sm ${
-                            shouldShowError("title") && errors.title
+                            shouldShowError("title") && publishErrors.title
                               ? "border-red-500 focus-visible:ring-red-500"
                               : ""
                           }`}
@@ -519,17 +571,8 @@ export default function CreateStoryPage() {
                           Use a clear, memorable title for your story.
                         </FieldHint>
                         <FieldError>
-                          {shouldShowError("title") ? errors.title : ""}
+                          {shouldShowError("title") ? publishErrors.title : ""}
                         </FieldError>
-
-                        <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 px-3 py-2">
-                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                            URL preview
-                          </p>
-                          <p className="mt-1 break-all text-sm text-foreground">
-                            /story/{slugPreview}
-                          </p>
-                        </div>
                       </div>
 
                       <div className="space-y-2">
@@ -554,7 +597,7 @@ export default function CreateStoryPage() {
                           onBlur={() => markTouched("summary")}
                           placeholder="Write a short description that helps readers understand the story."
                           className={`min-h-[210px] rounded-xl border-border/70 bg-background shadow-sm ${
-                            shouldShowError("summary") && errors.summary
+                            shouldShowError("summary") && publishErrors.summary
                               ? "border-red-500 focus-visible:ring-red-500"
                               : ""
                           }`}
@@ -564,7 +607,9 @@ export default function CreateStoryPage() {
                           Recommended length: 10–1000 characters.
                         </FieldHint>
                         <FieldError>
-                          {shouldShowError("summary") ? errors.summary : ""}
+                          {shouldShowError("summary")
+                            ? publishErrors.summary
+                            : ""}
                         </FieldError>
                       </div>
                     </div>
@@ -586,7 +631,7 @@ export default function CreateStoryPage() {
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         className={`group relative flex aspect-[2/3] w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed bg-background transition-all hover:border-primary/50 hover:bg-muted/40 ${
-                          shouldShowError("cover") && errors.cover
+                          shouldShowError("cover") && publishErrors.cover
                             ? "border-red-500"
                             : "border-border/70"
                         }`}
@@ -631,7 +676,7 @@ export default function CreateStoryPage() {
                         JPG/PNG, poster style, max {MAX_COVER_SIZE_MB}MB.
                       </FieldHint>
                       <FieldError>
-                        {shouldShowError("cover") ? errors.cover : ""}
+                        {shouldShowError("cover") ? publishErrors.cover : ""}
                       </FieldError>
 
                       <div className="flex flex-wrap gap-2">
@@ -726,7 +771,7 @@ export default function CreateStoryPage() {
 
                     <FieldHint>Select one main story format.</FieldHint>
                     <FieldError>
-                      {shouldShowError("styles") ? errors.styles : ""}
+                      {shouldShowError("styles") ? publishErrors.styles : ""}
                     </FieldError>
                   </div>
 
@@ -816,7 +861,7 @@ export default function CreateStoryPage() {
                       Choose one or more genres to improve discoverability.
                     </FieldHint>
                     <FieldError>
-                      {shouldShowError("genres") ? errors.genres : ""}
+                      {shouldShowError("genres") ? publishErrors.genres : ""}
                     </FieldError>
                   </div>
 
