@@ -53,6 +53,11 @@ export function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
 
+  const normalizedRole = String(user?.role ?? "")
+    .trim()
+    .toLowerCase();
+
+  // ✅ Roles có thể vào admin dashboard
   const ADMIN_DASHBOARD_ROLES = [
     "admin",
     "content_moderator",
@@ -123,7 +128,7 @@ export function Navbar() {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`,
         {},
-        { withCredentials: true },
+        { withCredentials: true }
       );
 
       if (res.data.success) {
@@ -153,7 +158,7 @@ export function Navbar() {
     try {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/manga/random`,
-        { withCredentials: true },
+        { withCredentials: true }
       );
       if (res.data?._id) {
         router.push(`/story/${res.data._id}`);
@@ -254,11 +259,13 @@ export function Navbar() {
 
             {user ? (
               <>
-                <div>
-                  <NotificationComponent />
-                </div>
+                {canSeeNotification && (
+                  <div>
+                    <NotificationComponent />
+                  </div>
+                )}
 
-                {user?.role?.trim() === "author" && (
+                {normalizedRole === "author" && (
                   <Button variant="ghost" size="icon" asChild>
                     <Link href="/author/dashboard">
                       <PenTool className="h-5 w-5" />
@@ -505,15 +512,17 @@ export function Navbar() {
                         </div>
                       </div>
 
-                      <Link
-                        href="/notifications"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="block py-2 text-sm"
-                      >
-                        Notifications
-                      </Link>
+                      {canSeeNotification && (
+                        <Link
+                          href="/notifications"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="block py-2 text-sm"
+                        >
+                          Notifications
+                        </Link>
+                      )}
 
-                      {user.role === "author" && (
+                      {normalizedRole === "author" && (
                         <Link
                           href="/author/dashboard"
                           onClick={() => setIsMenuOpen(false)}
