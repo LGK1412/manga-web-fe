@@ -111,7 +111,7 @@ export default function ReportModal({
             {/* 📝 Note Section */}
             <div className="pt-2">
               <p className="flex items-center gap-1 font-semibold">
-                <FileText className="w-4 h-4" /> Admin Notesdadd
+                <FileText className="w-4 h-4" /> Admin Notes
               </p>
               <Textarea
                 placeholder="Note on processing progress or results..."
