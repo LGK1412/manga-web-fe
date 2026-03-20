@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import AdminLayout from "@/app/admin/adminLayout/page";
 import { Card } from "@/components/ui/card";
@@ -8,19 +8,43 @@ import { ChapterSummary } from "@/components/admin/moderation/workspace/chapter-
 import { FindingsPanel } from "@/components/admin/moderation/workspace/findings-panel";
 import { ContentViewer } from "@/components/admin/moderation/workspace/content-viewer";
 import type { Decision, ModerationRecord } from "@/lib/typesLogs";
-import { fetchModerationRecord, decideModeration, recheckModeration } from "@/lib/moderation";
+import {
+  fetchModerationRecord,
+  decideModeration,
+  recheckModeration,
+} from "@/lib/moderation";
+import { deriveFindings } from "@/lib/moderation-findings";
+
+type WorkspaceNotice = {
+  tone: "info" | "error" | "success";
+  message: string;
+} | null;
 
 export default function ModerationWorkspacePage() {
   const searchParams = useSearchParams();
   const chapterId = searchParams.get("chapterId") ?? "";
+
   const [record, setRecord] = useState<ModerationRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [actLoading, setActLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [notice, setNotice] = useState<WorkspaceNotice>(null);
+  const [activeFindingId, setActiveFindingId] = useState<string | null>(null);
+
+  const findings = useMemo(
+    () => deriveFindings(record?.ai_findings || []),
+    [record?.ai_findings]
+  );
+
+  const activeFinding =
+    findings.find((item) => item.highlightId === activeFindingId) || null;
 
   const load = async () => {
     if (!chapterId) return;
-    setLoading(true); setErr(null);
+
+    setLoading(true);
+    setErr(null);
+
     try {
       const r = await fetchModerationRecord(chapterId);
       setRecord(r);
@@ -31,16 +55,50 @@ export default function ModerationWorkspacePage() {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [chapterId]);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapterId]);
+
+  useEffect(() => {
+    if (!findings.length) {
+      setActiveFindingId(null);
+      return;
+    }
+
+    setActiveFindingId((prev) => {
+      if (prev && findings.some((item) => item.highlightId === prev)) {
+        return prev;
+      }
+
+      const preferred = findings.find((item) => item.verdict !== "pass") || findings[0];
+      return preferred.highlightId;
+    });
+  }, [findings]);
 
   const onDecision = async (action: Decision, note?: string) => {
     if (!record) return;
+
     setActLoading(true);
+    setNotice(null);
+
     try {
       await decideModeration(record.chapterId, action, note);
-      await load(); // refresh trạng thái
+      setNotice({
+        tone: "success",
+        message:
+          action === "approve"
+            ? "Chapter approved and published successfully."
+            : action === "reject"
+            ? "Chapter rejected successfully."
+            : "Change request has been saved successfully.",
+      });
+      await load();
     } catch (e: any) {
-      alert(e?.message || "Action failed");
+      setNotice({
+        tone: "error",
+        message: e?.message || "Action failed",
+      });
     } finally {
       setActLoading(false);
     }
@@ -48,12 +106,23 @@ export default function ModerationWorkspacePage() {
 
   const onRecheck = async () => {
     if (!record) return;
+
     setActLoading(true);
+    setNotice(null);
+
     try {
       await recheckModeration(record.chapterId);
       await load();
+      setNotice({
+        tone: "info",
+        message:
+          "AI recheck started. The record may show Pending first while the latest analysis is being generated.",
+      });
     } catch (e: any) {
-      alert(e?.message || "Recheck failed");
+      setNotice({
+        tone: "error",
+        message: e?.message || "Recheck failed",
+      });
     } finally {
       setActLoading(false);
     }
@@ -62,34 +131,69 @@ export default function ModerationWorkspacePage() {
   return (
     <AdminLayout>
       <div className="p-6 space-y-6">
-        {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>Admin</span><span>/</span><span>Moderation</span><span>/</span><span className="text-foreground">Workspace</span>
+          <span>Admin</span>
+          <span>/</span>
+          <span>Moderation</span>
+          <span>/</span>
+          <span className="text-foreground">Workspace</span>
         </div>
 
-        <h1 className="text-2xl font-bold">Moderation Workspace</h1>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold">Moderation Workspace</h1>
+          <p className="text-sm text-muted-foreground">
+            Review AI findings, inspect flagged content, and decide whether this chapter is ready
+            for publication.
+          </p>
+        </div>
 
-        {err && <Card className="p-4 text-red-600 text-sm">{err}</Card>}
-        {loading && <Card className="p-4 text-sm">Loading…</Card>}
+        {err && (
+          <Card className="border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {err}
+          </Card>
+        )}
+
+        {notice && (
+          <Card
+            className={`p-4 text-sm ${
+              notice.tone === "error"
+                ? "border-red-200 bg-red-50 text-red-700"
+                : notice.tone === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-blue-200 bg-blue-50 text-blue-700"
+            }`}
+          >
+            {notice.message}
+          </Card>
+        )}
+
+        {loading && <Card className="p-4 text-sm">Loading workspace...</Card>}
 
         {!!record && !loading && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left: Summary & Actions */}
-            <div className="lg:col-span-1">
-              <ChapterSummary record={record} onDecision={onDecision} onRecheck={onRecheck} loading={actLoading} />
-            </div>
+          <>
+            <ChapterSummary
+              record={record}
+              onDecision={onDecision}
+              onRecheck={onRecheck}
+              loading={actLoading}
+            />
 
-            {/* Right: Content & Findings */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.95fr)]">
               <ContentViewer
                 title={record.chapterTitle ?? "Untitled"}
                 author={record.authorName ?? "-"}
                 html={record.contentHtml ?? "<p><i>(Không có nội dung hiển thị)</i></p>"}
                 updatedAt={record.updatedAt}
+                activeFinding={activeFinding}
               />
-              <FindingsPanel record={record} />
+
+              <FindingsPanel
+                findings={findings}
+                activeFindingId={activeFindingId}
+                onSelectFinding={setActiveFindingId}
+              />
             </div>
-          </div>
+          </>
         )}
       </div>
     </AdminLayout>

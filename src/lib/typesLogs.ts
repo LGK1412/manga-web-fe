@@ -17,6 +17,7 @@ export interface Finding {
   sectionId: string;
   verdict: "pass" | "warn" | "block";
   rationale: string;
+  spans?: { start: number; end: number }[];
 }
 
 export interface ModerationRecord {

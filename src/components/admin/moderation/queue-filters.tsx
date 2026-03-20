@@ -23,6 +23,16 @@ interface QueueFiltersProps {
   }) => void;
 }
 
+const RISK_PRESETS: Array<{
+  label: string;
+  range: [number, number];
+}> = [
+  { label: "All", range: [0, 100] },
+  { label: "Low", range: [0, 29] },
+  { label: "Medium", range: [30, 59] },
+  { label: "High", range: [60, 100] },
+];
+
 export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | AIStatus>("all");
@@ -41,9 +51,9 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
   };
 
   return (
-    <Card className="p-4 space-y-4">
+    <Card className="p-4 md:p-5 space-y-4">
       <div className="flex items-center gap-2">
-        <Search className="w-4 h-4 text-muted-foreground" />
+        <Search className="h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search by chapter, manga, author, or chapter ID..."
           value={search}
@@ -56,9 +66,9 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="text-sm font-medium block mb-2">AI Status</label>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="space-y-2">
+          <label className="text-sm font-medium block">AI Status</label>
           <Select
             value={status}
             onValueChange={(value) => {
@@ -80,10 +90,36 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
           </Select>
         </div>
 
-        <div>
-          <label className="text-sm font-medium block mb-2">
-            Risk Score: {riskRange[0]} - {riskRange[1]}
-          </label>
+        <div className="space-y-3 md:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="text-sm font-medium block">
+              Risk Score: {riskRange[0]} - {riskRange[1]}
+            </label>
+
+            <div className="flex flex-wrap gap-2">
+              {RISK_PRESETS.map((preset) => {
+                const active =
+                  preset.range[0] === riskRange[0] &&
+                  preset.range[1] === riskRange[1];
+
+                return (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    size="sm"
+                    variant={active ? "default" : "outline"}
+                    onClick={() => {
+                      setRiskRange(preset.range);
+                      emitFilters(search, status, preset.range);
+                    }}
+                  >
+                    {preset.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
           <Slider
             min={0}
             max={100}
@@ -97,30 +133,30 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
             className="w-full"
           />
         </div>
+      </div>
 
-        <div className="flex items-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              const resetSearch = "";
-              const resetStatus: "all" = "all";
-              const resetRange: [number, number] = [0, 100];
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          onClick={() => {
+            const resetSearch = "";
+            const resetStatus: "all" = "all";
+            const resetRange: [number, number] = [0, 100];
 
-              setSearch(resetSearch);
-              setStatus(resetStatus);
-              setRiskRange(resetRange);
+            setSearch(resetSearch);
+            setStatus(resetStatus);
+            setRiskRange(resetRange);
 
-              onFiltersChange({
-                search: resetSearch,
-                status: null,
-                riskRange: resetRange,
-              });
-            }}
-          >
-            <X className="w-4 h-4 mr-1" />
-            Reset
-          </Button>
-        </div>
+            onFiltersChange({
+              search: resetSearch,
+              status: null,
+              riskRange: resetRange,
+            });
+          }}
+        >
+          <X className="mr-1 h-4 w-4" />
+          Reset filters
+        </Button>
       </div>
     </Card>
   );

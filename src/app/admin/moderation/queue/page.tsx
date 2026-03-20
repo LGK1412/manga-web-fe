@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { QueueFilters } from "@/components/admin/moderation/queue-filters";
 import { QueueTable } from "@/components/admin/moderation/queue-table";
 import type { AIStatus, QueueItem } from "@/lib/typesLogs";
-import { Download } from "lucide-react";
 import AdminLayout from "@/app/admin/adminLayout/page";
 import { fetchQueue } from "@/lib/moderation";
 
@@ -72,8 +71,43 @@ export default function ModerationQueuePage() {
     });
   }, [data, filters]);
 
-  const handleAction = (id: string, action: string) => {
-    console.log(`Action ${action} on ${id}`);
+  useEffect(() => {
+    const visibleIds = new Set(filteredItems.map((item) => item.chapterId));
+
+    setSelectedItems((prev) => {
+      const next = new Set([...prev].filter((id) => visibleIds.has(id)));
+      const same =
+        next.size === prev.size && [...next].every((id) => prev.has(id));
+
+      return same ? prev : next;
+    });
+  }, [filteredItems]);
+
+  const allVisibleSelected =
+    filteredItems.length > 0 &&
+    filteredItems.every((item) => selectedItems.has(item.chapterId));
+
+  const toggleSelect = (id: string) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = (checked: boolean) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+
+      if (checked) {
+        filteredItems.forEach((item) => next.add(item.chapterId));
+      } else {
+        filteredItems.forEach((item) => next.delete(item.chapterId));
+      }
+
+      return next;
+    });
   };
 
   return (
@@ -87,52 +121,61 @@ export default function ModerationQueuePage() {
           <span className="text-foreground">Queue</span>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">Moderation Queue</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {loading ? "Loading..." : `${filteredItems.length} of ${data.length} items`}
-              {err && <span className="text-red-600 ml-2">{err}</span>}
+              {loading ? "Loading queue..." : `${filteredItems.length} of ${data.length} items`}
             </p>
+            {err && (
+              <p className="text-sm text-red-600 mt-2">
+                {err}
+              </p>
+            )}
           </div>
 
-          <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
+          <div className="rounded-xl border bg-muted/40 px-3 py-2 text-right">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Queue order
+            </p>
+            <p className="text-sm font-medium">Highest risk first</p>
+            <p className="text-xs text-muted-foreground">
+              Latest updates are prioritized inside the same risk level
+            </p>
+          </div>
         </div>
 
         <QueueFilters onFiltersChange={setFilters} />
 
         {selectedItems.size > 0 && (
-          <Card className="p-4 bg-blue-50 border-blue-200">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">
-                {selectedItems.size} item{selectedItems.size !== 1 ? "s" : ""} selected
-              </span>
-              <div className="flex gap-2">
-                <Button size="sm" variant="default">
-                  Approve Selected
-                </Button>
-                <Button size="sm" variant="destructive">
-                  Reject Selected
-                </Button>
+          <Card className="p-4 border-blue-200 bg-blue-50/70">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-blue-900">
+                  {selectedItems.size} item{selectedItems.size !== 1 ? "s" : ""} selected
+                </p>
+                <p className="text-xs text-blue-700/80">
+                  Selection is synced with the visible queue results.
+                </p>
               </div>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedItems(new Set())}
+              >
+                Clear selection
+              </Button>
             </div>
           </Card>
         )}
 
         <QueueTable
           items={filteredItems}
-          onSelect={(id) => {
-            setSelectedItems((prev) => {
-              const next = new Set(prev);
-              if (next.has(id)) next.delete(id);
-              else next.add(id);
-              return next;
-            });
-          }}
-          onAction={handleAction}
+          selectedIds={selectedItems}
+          allVisibleSelected={allVisibleSelected}
+          onToggleSelect={toggleSelect}
+          onToggleSelectAll={toggleSelectAllVisible}
           loading={loading}
         />
       </div>
