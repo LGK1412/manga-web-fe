@@ -32,7 +32,7 @@ export default function SendGeneralNotificationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const initialEmail = searchParams.get("receiverEmail")?.trim() ?? "";
+  const template = useMemo(() => buildGeneralTemplate(), []);
 
   const [usersMap, setUsersMap] = useState<Record<string, string>>({});
   const emailToIdMap = useMemo(() => {
@@ -43,9 +43,8 @@ export default function SendGeneralNotificationPage() {
     return reversed;
   }, [usersMap]);
 
-  const template = useMemo(() => buildGeneralTemplate(), []);
-
-  const [receiverEmail, setReceiverEmail] = useState(initialEmail);
+  const [receiverId, setReceiverId] = useState("");
+  const [receiverEmail, setReceiverEmail] = useState("");
   const [title, setTitle] = useState(template.title);
   const [body, setBody] = useState(template.body);
   const [sending, setSending] = useState(false);
@@ -55,6 +54,7 @@ export default function SendGeneralNotificationPage() {
       try {
         const resp = await fetch(`${API}/api/user/all`, { credentials: "include" });
         if (!resp.ok) return;
+
         const users = await resp.json();
         const map: Record<string, string> = {};
         for (const u of users || []) {
@@ -67,6 +67,24 @@ export default function SendGeneralNotificationPage() {
     })();
   }, []);
 
+  useEffect(() => {
+    const qpReceiverId = searchParams.get("receiverId")?.trim() ?? "";
+    const qpReceiverEmail = searchParams.get("receiverEmail")?.trim() ?? "";
+    const qpTitle = searchParams.get("title")?.trim() ?? "";
+    const qpBody = searchParams.get("body") ?? "";
+
+    setReceiverId(qpReceiverId);
+    setReceiverEmail(qpReceiverEmail);
+    setTitle(qpTitle || template.title);
+    setBody(qpBody || template.body);
+  }, [searchParams, template.title, template.body]);
+
+  useEffect(() => {
+    if (!receiverEmail && receiverId && usersMap[receiverId]) {
+      setReceiverEmail(usersMap[receiverId]);
+    }
+  }, [receiverId, receiverEmail, usersMap]);
+
   const copyText = async (value: string, label: string) => {
     try {
       await navigator.clipboard.writeText(value);
@@ -76,17 +94,19 @@ export default function SendGeneralNotificationPage() {
     }
   };
 
+  const handleResetTemplate = () => {
+    setTitle(template.title);
+    setBody(template.body);
+  };
+
   const handleSend = async () => {
     try {
       const normalizedEmail = receiverEmail.trim().toLowerCase();
-      if (!normalizedEmail) {
-        toast.error("Receiver email is required.");
-        return;
-      }
+      const resolvedReceiverId =
+        receiverId || (normalizedEmail ? emailToIdMap[normalizedEmail] : "");
 
-      const receiverId = emailToIdMap[normalizedEmail];
-      if (!receiverId) {
-        toast.error("Receiver email not found in users list.");
+      if (!resolvedReceiverId) {
+        toast.error("Receiver is required.");
         return;
       }
 
@@ -107,7 +127,7 @@ export default function SendGeneralNotificationPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          receiver_id: receiverId,
+          receiver_id: resolvedReceiverId,
           title: title.trim(),
           body: body.trim(),
         }),
@@ -143,26 +163,26 @@ export default function SendGeneralNotificationPage() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">Send General Notification</h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="mt-1 text-sm text-muted-foreground">
               Create and send a normal platform notification to a specific user.
             </p>
           </div>
 
           <Link href="/admin/notifications">
             <Button variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft className="mr-2 h-4 w-4" />
               Back to List Sent Noti
             </Button>
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <div className="xl:col-span-1 space-y-6">
-            <Card className="p-6 space-y-4">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <div className="space-y-6 xl:col-span-1">
+            <Card className="space-y-4 p-6">
               <h3 className="font-semibold">Notification Context</h3>
 
               <div>
-                <p className="text-sm text-muted-foreground mb-2">Type</p>
+                <p className="mb-2 text-sm text-muted-foreground">Type</p>
                 <Badge variant="outline">General Notification</Badge>
               </div>
 
@@ -186,35 +206,40 @@ export default function SendGeneralNotificationPage() {
               </div>
             </Card>
 
-            <Card className="p-6 space-y-3">
+            <Card className="space-y-3 p-6">
               <h3 className="font-semibold">Quick Actions</h3>
 
-              <Button variant="outline" className="w-full justify-start" onClick={() => copyText(title, "Title")}>
-                <Copy className="w-4 h-4 mr-2" />
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => copyText(title, "Title")}
+              >
+                <Copy className="mr-2 h-4 w-4" />
                 Copy Title
               </Button>
 
-              <Button variant="outline" className="w-full justify-start" onClick={() => copyText(body, "Body")}>
-                <Copy className="w-4 h-4 mr-2" />
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => copyText(body, "Body")}
+              >
+                <Copy className="mr-2 h-4 w-4" />
                 Copy Body
               </Button>
 
               <Button
                 variant="outline"
                 className="w-full justify-start"
-                onClick={() => {
-                  setTitle(template.title);
-                  setBody(template.body);
-                }}
+                onClick={handleResetTemplate}
               >
-                <RefreshCcw className="w-4 h-4 mr-2" />
+                <RefreshCcw className="mr-2 h-4 w-4" />
                 Reset to Template
               </Button>
             </Card>
           </div>
 
           <div className="xl:col-span-2">
-            <Card className="p-6 space-y-4">
+            <Card className="space-y-4 p-6">
               <h3 className="font-semibold">Compose Notification</h3>
 
               <div className="space-y-2">
@@ -254,7 +279,7 @@ export default function SendGeneralNotificationPage() {
                   <Button variant="outline">Cancel</Button>
                 </Link>
                 <Button onClick={handleSend} disabled={sending}>
-                  <Send className="w-4 h-4 mr-2" />
+                  <Send className="mr-2 h-4 w-4" />
                   {sending ? "Sending..." : "Send Notification"}
                 </Button>
               </div>

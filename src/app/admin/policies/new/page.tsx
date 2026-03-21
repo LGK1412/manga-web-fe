@@ -2,69 +2,49 @@
 
 import { useState } from "react"
 import axios from "axios"
-import AdminLayout from "../../adminLayout/page"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { ArrowLeft, Eye, Info } from "lucide-react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
+import AdminLayout from "../../adminLayout/page"
+import PolicyForm, {
+  buildPolicyFormValues,
+  PolicyFormAction,
+  PolicyFormValues,
+} from "@/components/policies/policy-form"
 
 const API_URL = "http://localhost:3333/api/policies"
 
-export default function AdminPolicyFormPage() {
+export default function AdminPolicyCreatePage() {
   const router = useRouter()
-  const [formData, setFormData] = useState({
-    title: "",
-    mainType: "TERM", // ✅ TERM hoặc PRIVACY
-    subCategory: "general", // ✅ loại nhỏ
-    status: "Draft",
-    isPublic: false,
-    description: "",
-    content: "",
-  })
-
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  /** 🧠 Gửi dữ liệu thật đến BE */
-  const handleSubmit = async (publishNow: boolean) => {
+  const handleSubmit = async (
+    values: PolicyFormValues,
+    action: PolicyFormAction
+  ) => {
     try {
       setLoading(true)
 
       const payload = {
-        ...formData,
-        status: publishNow ? "Active" : "Draft",
+        title: values.title.trim(),
+        mainType: values.mainType,
+        subCategory: values.subCategory,
+        status: action === "publish" ? "Active" : "Draft",
+        isPublic: values.isPublic,
+        description: values.description.trim(),
+        content: values.content,
       }
 
       const res = await axios.post(API_URL, payload)
 
       if (res.status === 201 || res.status === 200) {
-        console.log("✅ Policy created:", res.data)
         router.push("/admin/policies")
       } else {
-        console.warn("⚠️ Unexpected response:", res)
+        console.warn("Unexpected response:", res)
       }
     } catch (error: any) {
-      console.error("❌ Error creating policy:", error.response?.data || error.message)
+      console.error(
+        "Error creating policy:",
+        error.response?.data || error.message
+      )
       alert("Failed to create policy. Check console for details.")
     } finally {
       setLoading(false)
@@ -73,233 +53,12 @@ export default function AdminPolicyFormPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center text-sm text-gray-500">
-            <span>Admin</span>
-            <span className="mx-2">/</span>
-            <Link href="/admin/policies" className="hover:text-gray-700">
-              Policies
-            </Link>
-            <span className="mx-2">/</span>
-            <span className="text-gray-900 font-medium">Create</span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Link href="/admin/policies">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-            <h1 className="text-3xl font-bold text-gray-900">Create New Policy</h1>
-          </div>
-        </div>
-
-        {/* Info card */}
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="pt-6">
-            <div className="flex gap-3">
-              <Info className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div className="space-y-1 text-sm text-gray-700">
-                <p className="font-semibold text-blue-900">
-                  Understanding Policy Types & Visibility:
-                </p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>
-                    <strong>TERM</strong> = Điều khoản sử dụng (Usage, Account, Posting…)
-                  </li>
-                  <li>
-                    <strong>PRIVACY</strong> = Chính sách quyền riêng tư (Dữ liệu, Bình luận…)
-                  </li>
-                  <li><strong>Active</strong> = Đang có hiệu lực</li>
-                  <li><strong>Public</strong> = Hiển thị cho người dùng</li>
-                  <li>Có thể Active nhưng nội bộ (Internal)</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Policy Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form
-              className="space-y-6"
-              onSubmit={(e) => {
-                e.preventDefault()
-                handleSubmit(false)
-              }}
-            >
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Title */}
-                <div className="space-y-2">
-                  <Label>Title *</Label>
-                  <Input
-                    required
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  />
-                </div>
-
-                {/* Main Type */}
-                <div className="space-y-2">
-                  <Label>Main Type *</Label>
-                  <Select
-                    value={formData.mainType}
-                    onValueChange={(v) => setFormData({ ...formData, mainType: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TERM">TERM</SelectItem>
-                      <SelectItem value="PRIVACY">PRIVACY</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Subcategory */}
-                <div className="space-y-2">
-                  <Label>Subcategory *</Label>
-                  <Select
-                    value={formData.subCategory}
-                    onValueChange={(v) => setFormData({ ...formData, subCategory: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="posting">Posting</SelectItem>
-                      <SelectItem value="data_usage">Data Usage</SelectItem>
-                      <SelectItem value="comment">Comment</SelectItem>
-                      <SelectItem value="account">Account</SelectItem>
-                      <SelectItem value="general">General</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Status */}
-                <div className="space-y-2">
-                  <Label>Status *</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(v) => setFormData({ ...formData, status: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Draft">Draft</SelectItem>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Archived">Archived</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Visibility */}
-                <div className="space-y-2">
-                  <Label>Visibility</Label>
-                  <div className="flex items-center gap-2 pt-2">
-                    <Checkbox
-                      checked={formData.isPublic}
-                      onCheckedChange={(c) =>
-                        setFormData({ ...formData, isPublic: c as boolean })
-                      }
-                    />
-                    <span className="text-sm">Make this policy public</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                />
-              </div>
-
-              {/* Content */}
-              <div className="space-y-2">
-                <Label>Full Content *</Label>
-                <Textarea
-                  required
-                  rows={10}
-                  value={formData.content}
-                  onChange={(e) =>
-                    setFormData({ ...formData, content: e.target.value })
-                  }
-                />
-              </div>
-
-              {/* Preview */}
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => setIsPreviewOpen(true)}
-                >
-                  <Eye className="h-4 w-4 mr-2" /> Preview
-                </Button>
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-wrap gap-3 pt-4 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleSubmit(false)}
-                  disabled={loading}
-                >
-                  {loading ? "Saving..." : "Save Draft"}
-                </Button>
-
-                <Button
-                  type="button"
-                  onClick={() => handleSubmit(true)}
-                  className="bg-blue-600 hover:bg-blue-700"
-                  disabled={loading}
-                >
-                  {loading ? "Publishing..." : "Publish"}
-                </Button>
-
-                <Link href="/admin/policies">
-                  <Button type="button" variant="ghost">
-                    Cancel
-                  </Button>
-                </Link>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Preview Dialog */}
-        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{formData.title || "Untitled"}</DialogTitle>
-              <DialogDescription>
-                {formData.mainType} — {formData.subCategory} ({formData.isPublic ? "Public" : "Internal"})
-              </DialogDescription>
-            </DialogHeader>
-            <div className="bg-gray-50 p-6 rounded-lg whitespace-pre-wrap text-gray-800">
-              {formData.content || "No content yet..."}
-            </div>
-            <DialogFooter>
-              <Button onClick={() => setIsPreviewOpen(false)}>Close</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+      <PolicyForm
+        mode="create"
+        initialValues={buildPolicyFormValues()}
+        loading={loading}
+        onSubmit={handleSubmit}
+      />
     </AdminLayout>
   )
 }
