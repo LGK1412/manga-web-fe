@@ -50,7 +50,11 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ id: 
   const handleSubmit = async () => {
     try {
       setLoading(true)
-      const res = await axios.put(`${API_URL}/${id}`, formData)
+      const res = await axios.put(
+  `${API_URL}/${id}`,
+  formData,
+  { withCredentials: true }
+)
       if (res.status === 200) {
         console.log("✅ Policy updated:", res.data)
         router.push("/admin/policies")

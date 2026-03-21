@@ -6,10 +6,39 @@ import AdminLayout from "../adminLayout/page"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, Search, Eye, Pencil, ScrollText, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from "lucide-react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Plus,
+  Search,
+  Eye,
+  Pencil,
+  ScrollText,
+  ArrowUp,
+  ArrowDown,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react"
 import Link from "next/link"
 
 const API_BASE = "http://localhost:3333/api/policies"
@@ -77,14 +106,18 @@ export default function AdminPoliciesPage() {
       const matchSearch =
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.slug.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchFilter = filterStatus === "all" || p.status.toLowerCase() === filterStatus.toLowerCase()
+
+      const matchFilter =
+        filterStatus === "all" ||
+        p.status.toLowerCase() === filterStatus.toLowerCase()
+
       return matchSearch && matchFilter
     })
     .sort((a, b) => {
       const valA = a[sortField as keyof Policy]
       const valB = b[sortField as keyof Policy]
 
-      if (!valA || !valB) return 0
+      if (valA == null || valB == null) return 0
 
       if (sortField === "updatedAt" || sortField === "createdAt") {
         return sortOrder === "asc"
@@ -108,14 +141,17 @@ export default function AdminPoliciesPage() {
 
   // 🧮 Pagination logic
   const totalPages = Math.ceil(filteredPolicies.length / itemsPerPage)
-  const paginatedPolicies = filteredPolicies.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const paginatedPolicies = filteredPolicies.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
 
   const nextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages))
   const prevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1))
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, filterStatus])
+  }, [searchQuery, filterStatus, sortField, sortOrder])
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -130,8 +166,15 @@ export default function AdminPoliciesPage() {
     }
   }
 
+  const getPublicColor = (isPublic: boolean) => {
+    return isPublic
+      ? "bg-green-100 text-green-800 border-green-200"
+      : "bg-red-100 text-red-800 border-red-200"
+  }
+
   const renderSortIcon = (field: string) => {
     if (sortField !== field) return null
+
     return sortOrder === "asc" ? (
       <ArrowUp className="inline w-3 h-3 ml-1 text-blue-600" />
     ) : (
@@ -143,20 +186,22 @@ export default function AdminPoliciesPage() {
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm text-gray-500 mb-1">Admin / Policies</p>
-            <h1 className="text-3xl font-bold text-gray-900">Policies & Terms Management</h1>
+            <p className="mb-1 text-sm text-gray-500">Admin / Policies</p>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Policies & Terms Management
+            </h1>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
                 placeholder="Search by title or slug..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-64"
+                className="w-64 pl-10"
               />
             </div>
 
@@ -177,19 +222,21 @@ export default function AdminPoliciesPage() {
               onClick={() => setShowActivePolicies(true)}
               className="border-blue-600 text-blue-600 hover:bg-blue-50"
             >
-              <ScrollText className="h-4 w-4 mr-2" /> Preview Active
+              <ScrollText className="mr-2 h-4 w-4" />
+              Preview Active
             </Button>
 
             <Link href="/admin/policies/new">
               <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" /> New Policy
+                <Plus className="mr-2 h-4 w-4" />
+                New Policy
               </Button>
             </Link>
           </div>
         </div>
 
         {/* Summary cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <Card>
             <CardHeader>
               <CardTitle>Total Policies</CardTitle>
@@ -204,7 +251,9 @@ export default function AdminPoliciesPage() {
               <CardTitle>Active</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">{activePolicies.length}</div>
+              <div className="text-3xl font-bold text-green-600">
+                {activePolicies.length}
+              </div>
             </CardContent>
           </Card>
 
@@ -213,7 +262,9 @@ export default function AdminPoliciesPage() {
               <CardTitle>Draft</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-gray-600">{draftPolicies.length}</div>
+              <div className="text-3xl font-bold text-gray-600">
+                {draftPolicies.length}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -224,24 +275,48 @@ export default function AdminPoliciesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead onClick={() => handleSort("title")} className="cursor-pointer select-none">
+                  <TableHead
+                    onClick={() => handleSort("title")}
+                    className="cursor-pointer select-none"
+                  >
                     Title {renderSortIcon("title")}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("mainType")} className="cursor-pointer select-none">
+
+                  <TableHead
+                    onClick={() => handleSort("mainType")}
+                    className="cursor-pointer select-none"
+                  >
                     Main Type {renderSortIcon("mainType")}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("subCategory")} className="cursor-pointer select-none">
+
+                  <TableHead
+                    onClick={() => handleSort("subCategory")}
+                    className="cursor-pointer select-none"
+                  >
                     Category {renderSortIcon("subCategory")}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("status")} className="cursor-pointer select-none">
+
+                  <TableHead
+                    onClick={() => handleSort("status")}
+                    className="cursor-pointer select-none"
+                  >
                     Status {renderSortIcon("status")}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("isPublic")} className="cursor-pointer select-none">
+
+                  <TableHead
+                    onClick={() => handleSort("isPublic")}
+                    className="cursor-pointer select-none"
+                  >
                     Public {renderSortIcon("isPublic")}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("updatedAt")} className="cursor-pointer select-none">
+
+                  <TableHead
+                    onClick={() => handleSort("updatedAt")}
+                    className="cursor-pointer select-none"
+                  >
                     Updated {renderSortIcon("updatedAt")}
                   </TableHead>
+
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -250,24 +325,47 @@ export default function AdminPoliciesPage() {
                 {paginatedPolicies.map((policy) => (
                   <TableRow key={policy._id}>
                     <TableCell>{policy.title}</TableCell>
+
                     <TableCell>{policy.mainType}</TableCell>
-                    <TableCell className="capitalize">{policy.subCategory}</TableCell>
+
+                    <TableCell className="capitalize">
+                      {policy.subCategory}
+                    </TableCell>
+
                     <TableCell>
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border ${getStatusColor(
+                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs ${getStatusColor(
                           policy.status
                         )}`}
                       >
                         {policy.status}
                       </span>
                     </TableCell>
-                    <TableCell>{policy.isPublic ? "✅" : "❌"}</TableCell>
-                    <TableCell>{new Date(policy.updatedAt).toLocaleDateString("vi-VN")}</TableCell>
+
+                    <TableCell>
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs ${getPublicColor(
+                          policy.isPublic
+                        )}`}
+                      >
+                        {policy.isPublic ? "Public" : "Private"}
+                      </span>
+                    </TableCell>
+
+                    <TableCell>
+                      {new Date(policy.updatedAt).toLocaleDateString("vi-VN")}
+                    </TableCell>
+
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedPolicy(policy)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedPolicy(policy)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
+
                         <Link href={`/admin/policies/${policy._id}`}>
                           <Button variant="ghost" size="sm">
                             <Pencil className="h-4 w-4" />
@@ -277,13 +375,24 @@ export default function AdminPoliciesPage() {
                     </TableCell>
                   </TableRow>
                 ))}
+
+                {!loading && paginatedPolicies.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="py-8 text-center text-sm text-gray-500"
+                    >
+                      No policies found.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
 
-            {loading && <p className="text-sm text-gray-500 p-4">Loading...</p>}
+            {loading && <p className="p-4 text-sm text-gray-500">Loading...</p>}
 
             {/* Pagination Controls */}
-            <div className="flex justify-between items-center px-4 py-3 border-t bg-gray-50">
+            <div className="flex items-center justify-between border-t bg-gray-50 px-4 py-3">
               <Button
                 variant="outline"
                 size="sm"
@@ -291,7 +400,8 @@ export default function AdminPoliciesPage() {
                 disabled={currentPage === 1}
                 className="flex items-center gap-1"
               >
-                <ChevronLeft className="w-4 h-4" /> Previous
+                <ChevronLeft className="h-4 w-4" />
+                Previous
               </Button>
 
               <p className="text-sm text-gray-600">
@@ -306,7 +416,8 @@ export default function AdminPoliciesPage() {
                 disabled={currentPage === totalPages || totalPages === 0}
                 className="flex items-center gap-1"
               >
-                Next <ChevronRight className="w-4 h-4" />
+                Next
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </CardContent>
@@ -314,16 +425,17 @@ export default function AdminPoliciesPage() {
 
         {/* Policy Detail Dialog */}
         <Dialog open={!!selectedPolicy} onOpenChange={() => setSelectedPolicy(null)}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{selectedPolicy?.title}</DialogTitle>
               <DialogDescription>
                 {selectedPolicy?.mainType} — {selectedPolicy?.subCategory}
               </DialogDescription>
             </DialogHeader>
+
             <div className="space-y-4">
               <p className="text-gray-600">{selectedPolicy?.description}</p>
-              <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap text-gray-800">
+              <div className="whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-gray-800">
                 {selectedPolicy?.content}
               </div>
             </div>
@@ -332,23 +444,31 @@ export default function AdminPoliciesPage() {
 
         {/* Active Policies Dialog */}
         <Dialog open={showActivePolicies} onOpenChange={setShowActivePolicies}>
-          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Active Policies</DialogTitle>
-              <DialogDescription>Policies currently in effect</DialogDescription>
+              <DialogDescription>
+                Policies currently in effect
+              </DialogDescription>
             </DialogHeader>
+
             <div className="space-y-6">
               {activePolicies.map((p) => (
                 <div key={p._id} className="border-b pb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">{p.title}</h3>
-                  <p className="text-sm text-gray-500 mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {p.title}
+                  </h3>
+                  <p className="mb-3 text-sm text-gray-500">
                     {p.mainType} — {p.subCategory}
                   </p>
-                  <div className="bg-gray-50 p-4 rounded text-gray-800 whitespace-pre-wrap">{p.content}</div>
+                  <div className="whitespace-pre-wrap rounded bg-gray-50 p-4 text-gray-800">
+                    {p.content}
+                  </div>
                 </div>
               ))}
             </div>
-            <div className="pt-4 border-t mt-4 text-right">
+
+            <div className="mt-4 border-t pt-4 text-right">
               <Button onClick={() => setShowActivePolicies(false)}>Close</Button>
             </div>
           </DialogContent>
