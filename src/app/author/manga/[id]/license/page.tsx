@@ -1,505 +1,579 @@
-"use client"
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { useParams } from "next/navigation"
-import axios from "axios"
-import Link from "next/link"
-import { X, Clock, ArrowLeft, ShieldCheck, AlertTriangle, UploadCloud, FileText, Image as ImageIcon } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "next/navigation";
+import axios from "axios";
+import Link from "next/link";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  ShieldCheck,
+  UploadCloud,
+} from "lucide-react";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Navbar } from "@/components/navbar"
-import { Separator } from "@/components/ui/separator"
-
-type LicenseStatus = "none" | "pending" | "approved" | "rejected"
-
-type LicenseStatusResponse = {
-  licenseStatus?: string
-  licenseRejectReason?: string
-  licenseSubmittedAt?: string
-  licenseReviewedAt?: string
-
-  // tolerant legacy
-  status?: string
-  rejectReason?: string
-}
+import { Navbar } from "@/components/navbar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { StoryRightsSection } from "@/components/story-rights/story-rights-section";
+import {
+  buildRightsPayload,
+  evaluateClientPublishReadiness,
+  getDefaultRights,
+  LICENSE_STATUS_META,
+  RIGHTS_STATUS_META,
+  type StoryRights,
+  type StoryRightsResponse,
+} from "@/lib/story-rights";
 
 type MangaDetailResponse = {
-  _id: string
-  title: string
-  coverImage?: string
+  _id: string;
+  title: string;
+  coverImage?: string;
+};
+
+function getAssetCandidates(
+  apiBase: string,
+  filePath?: string,
+  folder = "assets/licenses",
+) {
+  if (!filePath) return [];
+  if (/^https?:\/\//i.test(filePath)) return [filePath];
+  if (filePath.startsWith("/")) return [`${apiBase}${filePath}`];
+  if (filePath.includes(folder)) {
+    return [`${apiBase}/${filePath.replace(/^\/+/, "")}`];
+  }
+  return [`${apiBase}/${folder}/${filePath.replace(/^\/+/, "")}`];
 }
 
-const STATUS_CONFIG: Record<LicenseStatus, { color: string; label: string; hint: string }> = {
-  none: {
-    color: "bg-gray-100 text-gray-800",
-    label: "No License",
-    hint: "Upload copyright proof to get verified badge.",
-  },
-  pending: {
-    color: "bg-yellow-100 text-yellow-800",
-    label: "Under Review",
-    hint: "Your submission is being reviewed. Upload is disabled to avoid duplicates.",
-  },
-  approved: {
-    color: "bg-green-100 text-green-800",
-    label: "Verified",
-    hint: "Approved. Your story can show the verified badge.",
-  },
-  rejected: {
-    color: "bg-red-100 text-red-800",
-    label: "Rejected",
-    hint: "Please fix issues and re-upload documents.",
-  },
+function normalizeLicenseStatus(input?: string) {
+  const value = String(input || "none").toLowerCase();
+  if (value === "pending") return "pending";
+  if (value === "approved") return "approved";
+  if (value === "rejected") return "rejected";
+  return "none";
 }
 
-export default function AuthorLicensePage() {
-  const params = useParams()
-  const id = Array.isArray((params as any)?.id) ? (params as any).id[0] : (params as any)?.id
+function normalizeRightsResponse(payload: StoryRightsResponse | null | undefined): StoryRights {
+  return {
+    ...getDefaultRights(),
+    ...(payload?.rights || {}),
+  };
+}
 
-  const [story, setStory] = useState<MangaDetailResponse | null>(null)
+export default function AuthorStoryLicensePage() {
+  const params = useParams();
+  const id = Array.isArray((params as any)?.id)
+    ? (params as any).id[0]
+    : (params as any)?.id;
 
-  const [licenseStatus, setLicenseStatus] = useState<LicenseStatus>("none")
-  const [rejectReason, setRejectReason] = useState<string | null>(null)
-  const [submittedAt, setSubmittedAt] = useState<string | null>(null)
-  const [reviewedAt, setReviewedAt] = useState<string | null>(null)
-
-  const [files, setFiles] = useState<File[]>([])
-  const [note, setNote] = useState("")
-
-  const [loading, setLoading] = useState(false)
-  const [isInitialLoading, setIsInitialLoading] = useState(true)
-
-  const [statusError, setStatusError] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
-
-  // ✅ nicer picker: hidden input + dropzone
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
+  const apiBase = useMemo(
+    () => (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, ""),
+    [],
+  );
 
   const api = useMemo(() => {
     return axios.create({
-      baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api`,
+      baseURL: `${apiBase}/api`,
       withCredentials: true,
-    })
-  }, [])
+    });
+  }, [apiBase]);
+
+  const [story, setStory] = useState<MangaDetailResponse | null>(null);
+  const [rightsPayload, setRightsPayload] = useState<StoryRightsResponse | null>(null);
+  const [rights, setRights] = useState<StoryRights>(getDefaultRights());
+
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploadNote, setUploadNote] = useState("");
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isSavingRights, setIsSavingRights] = useState(false);
+  const [isSavingDeclaration, setIsSavingDeclaration] = useState(false);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const coverUrl = (coverImage?: string) => {
-    if (!coverImage) return ""
-    return `${process.env.NEXT_PUBLIC_API_URL}/assets/coverImages/${coverImage}`
-  }
+    if (!coverImage) return "";
+    if (/^https?:\/\//i.test(coverImage)) return coverImage;
+    if (coverImage.startsWith("/")) return `${apiBase}${coverImage}`;
+    return `${apiBase}/assets/coverImages/${coverImage}`;
+  };
 
-  const normalizeStatus = (raw?: string): LicenseStatus => {
-    if (!raw) return "none"
-    const s = String(raw).trim().toLowerCase()
-    if (s === "pending") return "pending"
-    if (s === "approved") return "approved"
-    if (s === "rejected") return "rejected"
-    return "none"
-  }
+  const fetchStory = async () => {
+    const res = await api.get<MangaDetailResponse>(`/manga/author/story/${id}`);
+    setStory(res.data);
+  };
 
-  const fetchStoryInfo = async () => {
-    if (!id) return
+  const fetchRights = async () => {
+    const res = await api.get<StoryRightsResponse>(`/manga/${id}/rights`);
+    setRightsPayload(res.data);
+    const normalized = normalizeRightsResponse(res.data);
+    setRights(normalized);
+    setUploadNote(normalized.proofNote || "");
+  };
+
+  const loadAll = async () => {
     try {
-      const res = await api.get(`/manga/detail/${id}`)
-      setStory({
-        _id: res.data?._id || id,
-        title: res.data?.title || "Untitled",
-        coverImage: res.data?.coverImage,
-      })
-    } catch {
-      setStory({ _id: id, title: "Story", coverImage: "" })
-    }
-  }
-
-  const fetchLicenseStatus = async () => {
-    if (!id) return
-    try {
-      const res = await api.get<LicenseStatusResponse>(`/manga/${id}/license-status`)
-
-      const rawStatus = res.data.licenseStatus ?? res.data.status
-      const rawReject = res.data.licenseRejectReason ?? res.data.rejectReason
-
-      setLicenseStatus(normalizeStatus(rawStatus))
-      setRejectReason(rawReject ? String(rawReject) : null)
-
-      setSubmittedAt(res.data.licenseSubmittedAt ? String(res.data.licenseSubmittedAt) : null)
-      setReviewedAt(res.data.licenseReviewedAt ? String(res.data.licenseReviewedAt) : null)
-
-      setStatusError(null)
+      setIsInitialLoading(true);
+      setStatusError(null);
+      await Promise.all([fetchStory(), fetchRights()]);
     } catch (err: any) {
-      setStatusError(err?.response?.data?.message || "Failed to load license status")
-      setLicenseStatus("none")
-      setRejectReason(null)
-      setSubmittedAt(null)
-      setReviewedAt(null)
+      setStatusError(err?.response?.data?.message || "Failed to load story rights.");
+    } finally {
+      setIsInitialLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    const run = async () => {
-      if (!id) return
-      setIsInitialLoading(true)
-      await Promise.allSettled([fetchStoryInfo(), fetchLicenseStatus()])
-      setIsInitialLoading(false)
+    if (!id) return;
+    loadAll();
+  }, [id]);
+
+  const handleSaveRights = async () => {
+    try {
+      setIsSavingRights(true);
+      setStatusError(null);
+      setSuccessMessage(null);
+
+      const res = await api.patch<StoryRightsResponse>(
+        `/manga/${id}/rights`,
+        buildRightsPayload(rights),
+      );
+
+      setRightsPayload(res.data);
+      setRights(normalizeRightsResponse(res.data));
+      setSuccessMessage("Story rights information updated.");
+    } catch (err: any) {
+      setStatusError(err?.response?.data?.message || "Failed to save story rights.");
+    } finally {
+      setIsSavingRights(false);
     }
-    run()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
+  };
 
-  const canUpload = licenseStatus === "none" || licenseStatus === "rejected"
-  const isPending = licenseStatus === "pending"
-  const isApproved = licenseStatus === "approved"
+  const handleSaveDeclaration = async () => {
+    try {
+      setIsSavingDeclaration(true);
+      setStatusError(null);
+      setSuccessMessage(null);
 
-  const validateFiles = (incoming: File[]) => {
-    const MAX_FILES = 5
-    const MAX_SIZE = 10 * 1024 * 1024 // 10MB
+      const res = await api.patch<StoryRightsResponse>(
+        `/manga/${id}/rights/declaration`,
+        {
+          accepted: rights.declarationAccepted,
+          declarationVersion: rights.declarationVersion || "v1",
+        },
+      );
 
-    const valid: File[] = []
-    const errors: string[] = []
-
-    for (const f of incoming) {
-      const isPdf = f.type === "application/pdf"
-      const isImg = f.type.startsWith("image/")
-      if (!isPdf && !isImg) {
-        errors.push(`${f.name}: only PDF or image allowed`)
-        continue
-      }
-      if (f.size > MAX_SIZE) {
-        errors.push(`${f.name}: exceeds 10MB`)
-        continue
-      }
-      valid.push(f)
+      setRightsPayload(res.data);
+      setRights(normalizeRightsResponse(res.data));
+      setSuccessMessage("Declaration updated.");
+    } catch (err: any) {
+      setStatusError(err?.response?.data?.message || "Failed to save declaration.");
+    } finally {
+      setIsSavingDeclaration(false);
     }
+  };
 
-    if (valid.length > MAX_FILES) errors.push(`Max ${MAX_FILES} files allowed`)
-
-    return { valid: valid.slice(0, MAX_FILES), errors }
-  }
-
-  const addFiles = (incoming: File[]) => {
-    setSuccessMessage(null)
-
-    const merged = [...files, ...incoming]
-    const { valid, errors } = validateFiles(merged)
-
-    setFiles(valid)
-
-    if (errors.length) {
-      setStatusError(errors.slice(0, 3).join(" • "))
-    } else {
-      setStatusError(null)
-    }
-  }
-
-  const onPickClick = () => {
-    if (!canUpload) return
-    fileInputRef.current?.click()
-  }
-
-  const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = e.target.files ? Array.from(e.target.files) : []
-    if (list.length) addFiles(list)
-    // reset input so selecting same file again still triggers change
-    e.target.value = ""
-  }
-
-  const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    if (!canUpload) return
-    setIsDragging(false)
-    const dropped = e.dataTransfer.files ? Array.from(e.dataTransfer.files) : []
-    if (dropped.length) addFiles(dropped)
-  }
-
-  const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    if (!canUpload) return
-    setIsDragging(true)
-  }
-
-  const onDragLeave = () => setIsDragging(false)
-
-  const removeFile = (idx: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== idx))
-  }
-
-  const handleSubmit = async () => {
-    setSuccessMessage(null)
-    setStatusError(null)
-
-    if (!canUpload) {
-      setStatusError("Upload is disabled while your license is under review or already verified.")
-      return
-    }
-
+  const handleUploadProof = async () => {
     if (!files.length) {
-      setStatusError("Please add at least one file.")
-      return
+      setStatusError("Please select at least one proof file.");
+      return;
     }
 
     try {
-      setLoading(true)
+      setIsUploadingProof(true);
+      setStatusError(null);
+      setSuccessMessage(null);
 
-      const formData = new FormData()
-      files.forEach((file) => formData.append("files", file))
-      formData.append("note", note.trim())
+      const formData = new FormData();
+      files.forEach((file) => formData.append("files", file));
+      formData.append("note", uploadNote);
 
       await api.post(`/manga/${id}/license`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
-      })
+      });
 
-      setSuccessMessage("License submitted successfully! Waiting for review...")
-      setFiles([])
-      setNote("")
-      await fetchLicenseStatus()
-    } catch (error: any) {
-      setStatusError(error?.response?.data?.message || "Upload failed")
+      await fetchRights();
+      setFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setSuccessMessage("Proof documents uploaded and submitted for review.");
+    } catch (err: any) {
+      setStatusError(err?.response?.data?.message || "Failed to upload proof files.");
     } finally {
-      setLoading(false)
+      setIsUploadingProof(false);
     }
-  }
-
-  const currentStatus = STATUS_CONFIG[licenseStatus] ?? STATUS_CONFIG.none
+  };
 
   if (isInitialLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <Navbar />
-        <main className="pt-24 flex justify-center items-center h-96">Loading...</main>
+        <div className="container mx-auto max-w-6xl px-4 pb-10 pt-24">
+          <div className="flex h-[50vh] items-center justify-center">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Loading story rights...
+            </div>
+          </div>
+        </div>
       </div>
-    )
+    );
   }
 
+  const safeRights = rights;
+  const rightsMeta =
+    RIGHTS_STATUS_META[safeRights.reviewStatus || "not_required"];
+  const licenseMeta =
+    LICENSE_STATUS_META[
+      normalizeLicenseStatus(rightsPayload?.licenseStatus) as keyof typeof LICENSE_STATUS_META
+    ];
+  const readiness =
+    rightsPayload?.publishEligibility ||
+    evaluateClientPublishReadiness(safeRights);
+  const proofFiles = safeRights.proofFiles || [];
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="pt-24 px-4 sm:px-6 lg:px-8 pb-12">
-        <div className="max-w-3xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Link href="/author/dashboard">
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <ArrowLeft className="h-4 w-4" />
-                    Back
-                  </Button>
-                </Link>
+      <div className="container mx-auto max-w-6xl px-4 pb-12 pt-24">
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <Link href="/author/dashboard">
+              <Button variant="ghost" className="mb-3 gap-2 px-0 text-muted-foreground">
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            </Link>
 
-                {isApproved && (
-                  <Badge className="bg-green-600 text-white gap-1">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-3xl font-bold">Story Rights</h1>
+                {rightsPayload?.verifiedBadge ? (
+                  <Badge className="gap-1 bg-green-600 text-white">
                     <ShieldCheck className="h-4 w-4" />
                     Verified
                   </Badge>
-                )}
+                ) : null}
               </div>
-
-              <h1 className="text-3xl font-bold">License Verification</h1>
-              <p className="mt-2 text-gray-600">Submit copyright documents for this story to display verified badge.</p>
+              <p className="text-sm text-muted-foreground md:text-base">
+                Manage ownership declaration, source/license references, and proof
+                documents for this story.
+              </p>
             </div>
           </div>
 
-          {/* Story preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Story</CardTitle>
-              <CardDescription>Make sure you are uploading for the correct story.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex gap-4">
-              <div className="w-28 aspect-[3/4] rounded-md overflow-hidden border bg-gray-100 shrink-0">
-                {story?.coverImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={coverUrl(story.coverImage)} alt={story.title} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">No cover</div>
-                )}
-              </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge className={`border ${rightsMeta.className}`}>
+              Rights: {rightsMeta.label}
+            </Badge>
+            <Badge className={`border ${licenseMeta.className}`}>
+              Review: {licenseMeta.label}
+            </Badge>
+          </div>
+        </div>
 
-              <div className="min-w-0">
-                <div className="text-sm text-gray-500">Title</div>
-                <div className="text-lg font-semibold truncate">{story?.title || "Untitled"}</div>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-6">
+            {statusError ? (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Something went wrong</AlertTitle>
+                <AlertDescription>{statusError}</AlertDescription>
+              </Alert>
+            ) : null}
 
-                <div className="mt-3 flex flex-wrap gap-2 items-center">
-                  <Badge className={currentStatus.color}>{currentStatus.label}</Badge>
-                  <span className="text-xs text-gray-500 flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    {currentStatus.hint}
-                  </span>
-                </div>
+            {successMessage ? (
+              <Alert>
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertTitle>Saved</AlertTitle>
+                <AlertDescription>{successMessage}</AlertDescription>
+              </Alert>
+            ) : null}
 
-                <div className="mt-3 text-xs text-gray-500 space-y-1">
-                  {submittedAt && <div>Submitted: {new Date(submittedAt).toLocaleString()}</div>}
-                  {reviewedAt && <div>Reviewed: {new Date(reviewedAt).toLocaleString()}</div>}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            <StoryRightsSection
+              value={rights}
+              onChange={setRights}
+              publishError={readiness.canPublish ? null : readiness.reason}
+            />
 
-          {/* Alerts */}
-          {statusError && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{statusError}</AlertDescription>
-            </Alert>
-          )}
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardHeader className="border-b border-border/60 pb-5">
+                <CardTitle>Save Rights Setup</CardTitle>
+                <CardDescription>
+                  Save your rights metadata before uploading proof documents.
+                </CardDescription>
+              </CardHeader>
 
-          {successMessage && (
-            <Alert className="border-green-200 bg-green-50 text-green-800">
-              <ShieldCheck className="h-4 w-4" />
-              <AlertTitle>Success</AlertTitle>
-              <AlertDescription>{successMessage}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Rejected reason */}
-          {licenseStatus === "rejected" && rejectReason && (
-            <Alert className="border-red-200 bg-red-50 text-red-800">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Rejected Reason</AlertTitle>
-              <AlertDescription>{rejectReason}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Pending notice */}
-          {isPending && (
-            <Card>
               <CardContent className="pt-6">
-                <div className="text-sm text-yellow-900 bg-yellow-50 border border-yellow-200 rounded p-3">
-                  Your license is currently <b>under review</b>. Upload is disabled to prevent duplicate submissions.
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Button
+                    onClick={handleSaveRights}
+                    disabled={isSavingRights}
+                    className="rounded-xl"
+                  >
+                    {isSavingRights ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    Save Rights Metadata
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    onClick={handleSaveDeclaration}
+                    disabled={isSavingDeclaration}
+                    className="rounded-xl"
+                  >
+                    {isSavingDeclaration ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    Save Declaration
+                  </Button>
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* Approved notice */}
-          {isApproved && (
-            <Card>
-              <CardContent className="p-6 text-center text-green-700 font-semibold">
-                Your license has been verified successfully.
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardHeader className="border-b border-border/60 pb-5">
+                <CardTitle>Proof Documents</CardTitle>
+                <CardDescription>
+                  Upload proof files for translated, adapted, repost, or other
+                  moderator-reviewed cases.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-5 pt-6">
+                <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-5">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Choose files</p>
+                      <p className="text-sm text-muted-foreground">
+                        PDF, images, contracts, permission screenshots, or other
+                        supporting documents.
+                      </p>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-xl"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <UploadCloud className="mr-2 h-4 w-4" />
+                      Select files
+                    </Button>
+                  </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    multiple
+                    onChange={(e) => setFiles(Array.from(e.target.files || []))}
+                  />
+
+                  {files.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {files.map((file, index) => (
+                        <div
+                          key={`${file.name}-${index}`}
+                          className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-2 text-sm"
+                        >
+                          <span className="truncate">{file.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Submission note</label>
+                  <Textarea
+                    rows={4}
+                    value={uploadNote}
+                    onChange={(e) => setUploadNote(e.target.value)}
+                    placeholder="Explain what these documents prove."
+                    className="rounded-xl"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    onClick={handleUploadProof}
+                    disabled={isUploadingProof || files.length === 0}
+                    className="rounded-xl"
+                  >
+                    {isUploadingProof ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    Upload Proof
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={isUploadingProof}
+                    className="rounded-xl"
+                    onClick={() => {
+                      setFiles([]);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                  >
+                    Clear selection
+                  </Button>
+                </div>
+
+                {proofFiles.length > 0 ? (
+                  <>
+                    <Separator />
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium">Current proof files</p>
+                      <div className="space-y-2">
+                        {proofFiles.map((file, index) => {
+                          const url = getAssetCandidates(apiBase, file)[0];
+                          const isPdf = file.toLowerCase().endsWith(".pdf");
+
+                          return (
+                            <a
+                              key={`${file}-${index}`}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-3 text-sm transition hover:bg-muted/30"
+                            >
+                              <span className="flex items-center gap-2 truncate">
+                                {isPdf ? (
+                                  <FileText className="h-4 w-4 shrink-0" />
+                                ) : (
+                                  <ImageIcon className="h-4 w-4 shrink-0" />
+                                )}
+                                <span className="truncate">
+                                  {file.split("/").pop()}
+                                </span>
+                              </span>
+
+                              <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </CardContent>
             </Card>
-          )}
+          </div>
 
-          {/* Upload form (ONLY none/rejected) */}
-          {canUpload && (
-            <Card>
+          <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+            <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader>
-                <CardTitle>Upload Documents</CardTitle>
-                <CardDescription>PDF or image files only (Max 10MB each, up to 5 files)</CardDescription>
+                <CardTitle>Story</CardTitle>
+                <CardDescription>
+                  Check that you are editing the correct story.
+                </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-4">
-                {/* ✅ Friendly dropzone */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={onPickClick}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") onPickClick()
-                  }}
-                  onDrop={onDrop}
-                  onDragOver={onDragOver}
-                  onDragLeave={onDragLeave}
-                  className={[
-                    "w-full rounded-lg border-2 border-dashed p-6 transition cursor-pointer select-none",
-                    isDragging ? "border-blue-500 bg-blue-50" : "border-gray-300 bg-white",
-                  ].join(" ")}
-                >
-                  <div className="flex flex-col items-center text-center gap-2">
-                    <div className="rounded-full p-3 bg-gray-100">
-                      <UploadCloud className="h-6 w-6 text-gray-700" />
+                <div className="aspect-[2/3] w-full overflow-hidden rounded-2xl border border-border/70 bg-muted/20">
+                  {story?.coverImage ? (
+                    <img
+                      src={coverUrl(story.coverImage)}
+                      alt={story.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      No cover
                     </div>
-                    <div className="text-sm font-medium text-gray-900">
-                      Click to choose files or drag & drop here
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Accepts PDF / Images · Max 10MB each · Up to 5 files
-                    </div>
-
-                    <div className="mt-2">
-                      <Button type="button" variant="outline" size="sm" className="gap-2">
-                        <UploadCloud className="h-4 w-4" />
-                        Choose files
-                      </Button>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
-                {/* Hidden input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="application/pdf,image/*"
-                  className="hidden"
-                  onChange={onInputChange}
-                />
-
-                {/* Selected files list */}
-                {files.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium text-gray-900">Selected files</div>
-                    {files.map((file, index) => {
-                      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
-                      return (
-                        <div key={index} className="flex items-center justify-between border p-2 rounded bg-white">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="shrink-0">
-                              {isPdf ? (
-                                <FileText className="h-4 w-4 text-red-600" />
-                              ) : (
-                                <ImageIcon className="h-4 w-4 text-blue-600" />
-                              )}
-                            </div>
-
-                            <div className="min-w-0">
-                              <div className="text-sm truncate">{file.name}</div>
-                              <div className="text-xs text-gray-500">{(file.size / (1024 * 1024)).toFixed(2)} MB</div>
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => removeFile(index)}
-                            className="p-1 rounded hover:bg-gray-100"
-                            aria-label="remove file"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-
-                <Textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value.slice(0, 500))}
-                  placeholder="Optional note (max 500 chars)..."
-                />
-
-                <Separator />
-
-                <Button onClick={handleSubmit} disabled={loading} className="w-full">
-                  {loading ? "Submitting..." : "Submit License"}
-                </Button>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Title
+                  </p>
+                  <p className="mt-1 text-lg font-semibold">
+                    {story?.title || "Untitled"}
+                  </p>
+                </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* Info */}
-          <div className="border p-4 rounded bg-white">
-            <Clock className="h-5 w-5 text-blue-600 mb-2" />
-            <p className="text-sm text-gray-700">Reviews typically take 3–5 business days.</p>
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardHeader>
+                <CardTitle>Publish Eligibility</CardTitle>
+                <CardDescription>
+                  Synced from backend publish policy.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                <Badge
+                  className={`border ${
+                    rightsPayload?.publishEligibility?.canPublish
+                      ? "border-green-200 bg-green-50 text-green-700"
+                      : "border-orange-200 bg-orange-50 text-orange-700"
+                  }`}
+                >
+                  {rightsPayload?.publishEligibility?.canPublish
+                    ? "Can publish"
+                    : "Cannot publish yet"}
+                </Badge>
+
+                <p className="text-sm text-muted-foreground">
+                  {rightsPayload?.publishEligibility?.reason ||
+                    "This story currently satisfies the backend publish policy."}
+                </p>
+
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  {rightsPayload?.licenseSubmittedAt ? (
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Submitted:{" "}
+                      {new Date(rightsPayload.licenseSubmittedAt).toLocaleString()}
+                    </div>
+                  ) : null}
+
+                  {rightsPayload?.licenseReviewedAt ? (
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Reviewed:{" "}
+                      {new Date(rightsPayload.licenseReviewedAt).toLocaleString()}
+                    </div>
+                  ) : null}
+                </div>
+
+                {rightsPayload?.licenseRejectReason ? (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    <p className="font-medium">Reviewer feedback</p>
+                    <p className="mt-1">{rightsPayload.licenseRejectReason}</p>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </main>
+      </div>
     </div>
-  )
+  );
 }

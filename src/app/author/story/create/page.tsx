@@ -2,11 +2,28 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import axios, { AxiosInstance } from "axios";
+import Cookies from "js-cookie";
+import {
+  Check,
+  ChevronRight,
+  Image as ImageIcon,
+  Loader2,
+  UploadCloud,
+  X,
+} from "lucide-react";
+
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -15,57 +32,49 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import axios from "axios";
-import Cookies from "js-cookie";
-import { availableStatuses } from "@/lib/data";
+
+import { StoryRightsSection } from "@/components/story-rights/story-rights-section";
 import {
-  BookOpen,
-  Check,
-  ChevronRight,
-  ImageIcon,
-  Loader2,
-  Search,
-  Trash2,
-  Upload,
-  X,
-} from "lucide-react";
+  buildRightsPayload,
+  evaluateClientPublishReadiness,
+  getDefaultRights,
+  type StoryRights,
+} from "@/lib/story-rights";
 
-interface StyleDoc {
-  _id: string;
-  name: string;
-}
-
-interface GenreDoc {
-  _id: string;
-  name: string;
-}
-
-type SubmitMode = "publish" | "draft";
-
-type TouchedFields = {
-  title: boolean;
-  summary: boolean;
-  styles: boolean;
-  genres: boolean;
-  cover: boolean;
+type JwtPayload = {
+  user_id?: string;
+  userId?: string;
+  role?: string;
+  email?: string;
 };
 
-type FormErrors = {
+type OptionItem = {
+  _id: string;
+  name: string;
+};
+
+type CreateMode = "draft" | "publish";
+
+type PublishErrors = {
   title?: string;
   summary?: string;
-  styles?: string;
-  genres?: string;
   cover?: string;
+  genres?: string;
+  style?: string;
+  visibility?: string;
 };
 
-const MAX_COVER_SIZE_MB = 5;
-const MAX_COVER_SIZE_BYTES = MAX_COVER_SIZE_MB * 1024 * 1024;
+const statusOptions = [
+  { value: "ongoing", label: "Ongoing" },
+  { value: "completed", label: "Completed" },
+  { value: "hiatus", label: "Hiatus" },
+] as const;
 
-const RequiredMark = () => (
-  <span className="ml-1 align-middle text-sm font-semibold text-red-500">*</span>
-);
+function RequiredMark() {
+  return <span className="ml-1 text-red-500">*</span>;
+}
 
 function SectionHeader({
   title,
@@ -76,10 +85,8 @@ function SectionHeader({
 }) {
   return (
     <div className="space-y-1">
-      <CardTitle className="text-lg font-semibold tracking-tight">
-        {title}
-      </CardTitle>
-      <p className="text-sm text-muted-foreground">{description}</p>
+      <CardTitle className="text-lg">{title}</CardTitle>
+      <CardDescription>{description}</CardDescription>
     </div>
   );
 }
@@ -90,399 +97,372 @@ function FieldHint({ children }: { children: React.ReactNode }) {
 
 function FieldError({ children }: { children?: React.ReactNode }) {
   if (!children) return null;
-  return <p className="text-xs font-medium text-red-500">{children}</p>;
+  return <p className="text-xs text-red-500">{children}</p>;
 }
 
-function slugify(value: string) {
-  return value
+function slugify(input: string) {
+  return input
     .toLowerCase()
+    .trim()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+function decodeUserFromCookie(): JwtPayload | null {
+  const raw = Cookies.get("user_normal_info");
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(decodeURIComponent(raw));
+  } catch {
+    return null;
+  }
+}
+
+function firstNonEmptyArray(value: any): any[] {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value?.items)) return value.items;
+  if (Array.isArray(value?.results)) return value.results;
+  if (Array.isArray(value?.genres)) return value.genres;
+  if (Array.isArray(value?.styles)) return value.styles;
+  return [];
+}
+
+function mapOptions(raw: any): OptionItem[] {
+  const arr = firstNonEmptyArray(raw);
+
+  return arr
+    .map((item: any) => ({
+      _id: String(item?._id || item?.id || ""),
+      name: String(item?.name || item?.title || "").trim(),
+    }))
+    .filter((item: OptionItem) => item._id && item.name);
+}
+
+async function requestFirstSuccessful<T = any>(
+  api: AxiosInstance,
+  candidates: Array<{
+    method?: "get" | "post" | "patch";
+    url: string;
+    data?: any;
+    config?: any;
+  }>,
+): Promise<T> {
+  let lastError: any = null;
+
+  for (const candidate of candidates) {
+    try {
+      const method = candidate.method || "get";
+      const res =
+        method === "get"
+          ? await api.get(candidate.url, candidate.config)
+          : method === "post"
+            ? await api.post(candidate.url, candidate.data, candidate.config)
+            : await api.patch(candidate.url, candidate.data, candidate.config);
+
+      return res.data as T;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError;
 }
 
 export default function CreateStoryPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [availableGenres, setAvailableGenres] = useState<GenreDoc[]>([]);
-  const [availableStyles, setAvailableStyles] = useState<StyleDoc[]>([]);
+  const apiBase = useMemo(
+    () => (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, ""),
+    [],
+  );
+
+  const api = useMemo(() => {
+    return axios.create({
+      baseURL: `${apiBase}/api`,
+      withCredentials: true,
+    });
+  }, [apiBase]);
+
+  const [availableStyles, setAvailableStyles] = useState<OptionItem[]>([]);
+  const [availableGenres, setAvailableGenres] = useState<OptionItem[]>([]);
 
   const [storyTitle, setStoryTitle] = useState("");
   const [storySummary, setStorySummary] = useState("");
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
-  const [storyStatus, setStoryStatus] = useState("ongoing");
+  const [storyStatus, setStoryStatus] = useState<
+    "ongoing" | "completed" | "hiatus"
+  >("ongoing");
+  const [selectedStyleId, setSelectedStyleId] = useState("");
+  const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>([]);
+  const [genreSearch, setGenreSearch] = useState("");
   const [isPublish, setIsPublish] = useState(true);
 
-  const [genreSearch, setGenreSearch] = useState("");
   const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [storyRights, setStoryRights] = useState<StoryRights>(getDefaultRights());
+
+  const [publishErrors, setPublishErrors] = useState<PublishErrors>({});
+  const [rightsError, setRightsError] = useState<string | null>(null);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const [loadingPage, setLoadingPage] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [attemptedPublish, setAttemptedPublish] = useState(false);
 
-  const [touched, setTouched] = useState<TouchedFields>({
-    title: false,
-    summary: false,
-    styles: false,
-    genres: false,
-    cover: false,
-  });
+  const selectedStyleDoc =
+    availableStyles.find((item) => item._id === selectedStyleId) || null;
 
-  const markTouched = (field: keyof TouchedFields) => {
+  const selectedGenreDocs = availableGenres.filter((genre) =>
+    selectedGenreIds.includes(genre._id),
+  );
+
+  const filteredGenres = availableGenres.filter((genre) =>
+    genre.name.toLowerCase().includes(genreSearch.trim().toLowerCase()),
+  );
+
+  const selectedStatusLabel =
+    statusOptions.find((item) => item.value === storyStatus)?.label || "Ongoing";
+
+  const slugPreview = slugify(storyTitle || "untitled-story");
+
+  const markTouched = (field: string) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
-  const markAllTouched = () => {
-    setTouched({
-      title: true,
-      summary: true,
-      styles: true,
-      genres: true,
-      cover: true,
-    });
+  const shouldShowError = (field: keyof PublishErrors) => {
+    return Boolean(touched[field] && publishErrors[field]);
   };
 
-  const decodeToken = () => {
-    const raw = Cookies.get("user_normal_info");
-    if (!raw) return null;
-    try {
-      return JSON.parse(decodeURIComponent(raw));
-    } catch {
-      return null;
+  const validateForm = (mode: CreateMode) => {
+    const nextErrors: PublishErrors = {};
+
+    if (!storyTitle.trim()) nextErrors.title = "Story title is required.";
+    else if (storyTitle.trim().length > 100)
+      nextErrors.title = "Story title must be 100 characters or fewer.";
+
+    if (!storySummary.trim()) nextErrors.summary = "Description is required.";
+    else if (storySummary.trim().length < 10)
+      nextErrors.summary = "Description should be at least 10 characters.";
+    else if (storySummary.trim().length > 1000)
+      nextErrors.summary = "Description must be 1000 characters or fewer.";
+
+    if (!coverFile) nextErrors.cover = "Please upload a cover image.";
+
+    if (!selectedStyleId) nextErrors.style = "Please choose a story type.";
+    if (selectedGenreIds.length === 0)
+      nextErrors.genres = "Please select at least one genre.";
+
+    if (mode === "publish" && !isPublish) {
+      nextErrors.visibility =
+        "Enable Public visibility if you want to publish immediately.";
     }
+
+    setPublishErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
-  useEffect(() => {
-    let mounted = true;
+  const formReady =
+    storyTitle.trim().length > 0 &&
+    storySummary.trim().length >= 10 &&
+    !!coverFile &&
+    !!selectedStyleId &&
+    selectedGenreIds.length > 0;
 
-    (async () => {
+  const remainingRequiredCount = [
+    !storyTitle.trim(),
+    storySummary.trim().length < 10,
+    !coverFile,
+    !selectedStyleId,
+    selectedGenreIds.length === 0,
+  ].filter(Boolean).length;
+
+  useEffect(() => {
+    const loadOptions = async () => {
       try {
-        const genreRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/genre/`,
-          { withCredentials: true }
-        );
+        setLoadingPage(true);
 
-        const styleRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/styles/active`,
-          { withCredentials: true }
-        );
+        const [stylesData, genresData] = await Promise.all([
+          requestFirstSuccessful(api, [
+            { url: "/styles" },
+            { url: "/styles/view" },
+            { url: "/style" },
+            { url: "/style/view" },
+            { url: "/styles/all" },
+          ]),
+          requestFirstSuccessful(api, [
+            { url: "/genre" },
+            { url: "/genre/view" },
+            { url: "/genres" },
+            { url: "/genres/view" },
+            { url: "/genre/all" },
+          ]),
+        ]);
 
-        const genresList: GenreDoc[] = Array.isArray(genreRes.data)
-          ? genreRes.data
-          : [];
-        const stylesList: StyleDoc[] = Array.isArray(styleRes.data)
-          ? styleRes.data
-          : [];
-
-        if (!mounted) return;
-
-        setAvailableGenres(genresList);
-        setAvailableStyles(stylesList);
-
-        if (stylesList.length > 0) {
-          setSelectedStyles([stylesList[0]._id]);
-        }
-      } catch (error) {
-        console.error("Failed to load genres/styles:", error);
-        if (!mounted) return;
-        setAvailableGenres([]);
-        setAvailableStyles([]);
+        setAvailableStyles(mapOptions(stylesData));
+        setAvailableGenres(mapOptions(genresData));
+      } catch {
+        toast({
+          title: "Failed to load form options",
+          description:
+            "Please check your genres/styles endpoints and try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingPage(false);
       }
-    })();
-
-    return () => {
-      mounted = false;
     };
-  }, []);
+
+    loadOptions();
+  }, [api, toast]);
 
   useEffect(() => {
     return () => {
-      if (coverPreview?.startsWith("blob:")) {
-        URL.revokeObjectURL(coverPreview);
-      }
+      if (coverPreview) URL.revokeObjectURL(coverPreview);
     };
   }, [coverPreview]);
 
-  const cleanedGenres = useMemo(() => {
-    const map = new Map<string, GenreDoc>();
-
-    for (const item of availableGenres) {
-      const cleanName = item.name?.trim();
-      if (!cleanName) continue;
-
-      const key = cleanName.toLowerCase();
-      if (!map.has(key)) {
-        map.set(key, { ...item, name: cleanName });
-      }
-    }
-
-    return Array.from(map.values()).sort((a, b) =>
-      a.name.localeCompare(b.name)
-    );
-  }, [availableGenres]);
-
-  const filteredGenres = useMemo(() => {
-    const keyword = genreSearch.trim().toLowerCase();
-    if (!keyword) return cleanedGenres;
-
-    return cleanedGenres.filter((genre) =>
-      genre.name.toLowerCase().includes(keyword)
-    );
-  }, [cleanedGenres, genreSearch]);
-
-  const selectedStyleDoc = useMemo(() => {
-    const selectedId = selectedStyles[0];
-    return availableStyles.find((style) => style._id === selectedId) || null;
-  }, [availableStyles, selectedStyles]);
-
-  const selectedGenreDocs = useMemo(() => {
-    return cleanedGenres.filter((genre) => selectedGenres.includes(genre._id));
-  }, [cleanedGenres, selectedGenres]);
-
-  const slugPreview = useMemo(() => {
-    const slug = slugify(storyTitle.trim());
-    return slug || "your-story-url";
-  }, [storyTitle]);
-
-  const statusOptions = useMemo(() => {
-    return availableStatuses.map((status: any) => {
-      const value = (
-        typeof status === "string" ? status : status.value
-      ).toLowerCase();
-      const label = typeof status === "string" ? status : status.label;
-      return { value, label };
-    });
-  }, []);
-
-  const selectedStatusLabel = useMemo(() => {
-    return (
-      statusOptions.find((item) => item.value === storyStatus)?.label ||
-      storyStatus
-    );
-  }, [statusOptions, storyStatus]);
-
-  // Publish validate full
-  // Draft validate light
-  const validateForm = (mode: SubmitMode): FormErrors => {
-    const errors: FormErrors = {};
-
-    // Title
-    if (mode === "publish") {
-      if (!storyTitle.trim()) {
-        errors.title = "Please enter story title.";
-      } else if (storyTitle.trim().length < 3) {
-        errors.title = "Story title must be at least 3 characters.";
-      } else if (storyTitle.trim().length > 100) {
-        errors.title = "Story title must not exceed 100 characters.";
-      }
-    } else {
-      if (storyTitle.trim() && storyTitle.trim().length > 100) {
-        errors.title = "Story title must not exceed 100 characters.";
-      }
-    }
-
-    // Summary
-    if (mode === "publish") {
-      if (!storySummary.trim()) {
-        errors.summary = "Please enter description.";
-      } else if (storySummary.trim().length < 10) {
-        errors.summary = "Description must be at least 10 characters.";
-      } else if (storySummary.trim().length > 1000) {
-        errors.summary = "Description must not exceed 1000 characters.";
-      }
-    } else {
-      if (storySummary.trim() && storySummary.trim().length > 1000) {
-        errors.summary = "Description must not exceed 1000 characters.";
-      }
-    }
-
-    if (mode === "publish") {
-      if (!selectedStyles.length) {
-        errors.styles = "Please select 1 story type.";
-      }
-
-      if (!selectedGenres.length) {
-        errors.genres = "Please select at least 1 genre.";
-      }
-
-      if (!coverFile) {
-        errors.cover = "Please select a cover image for the story.";
-      }
-    }
-
-    return errors;
-  };
-
-  // UI vẫn hiển thị trạng thái "ready to publish" theo luật publish
-  const publishErrors = useMemo(
-    () => validateForm("publish"),
-    [storyTitle, storySummary, selectedStyles, selectedGenres, coverFile]
-  );
-
-  const remainingRequiredCount = Object.keys(publishErrors).length;
-  const formReady = remainingRequiredCount === 0;
-
-  const shouldShowError = (field: keyof FormErrors) =>
-    attemptedPublish || touched[field as keyof TouchedFields];
-
-  const handleSelectStyle = (style: StyleDoc) => {
-    setSelectedStyles([style._id]);
-    markTouched("styles");
-  };
-
-  const toggleGenre = (genreId: string) => {
-    markTouched("genres");
-
-    setSelectedGenres((prev) =>
-      prev.includes(genreId)
-        ? prev.filter((id) => id !== genreId)
-        : [...prev, genreId]
-    );
-  };
-
-  const handleCoverChange = (file?: File | null) => {
-    markTouched("cover");
-
+  const handleSelectCover = (file?: File | null) => {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
       toast({
         title: "Invalid file",
-        description: "Please select an image file.",
+        description: "Please choose an image file.",
         variant: "destructive",
       });
       return;
     }
 
-    if (file.size > MAX_COVER_SIZE_BYTES) {
-      toast({
-        title: "Image too large",
-        description: `Cover image must be smaller than ${MAX_COVER_SIZE_MB}MB.`,
-        variant: "destructive",
-      });
-      return;
-    }
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
 
-    if (coverPreview?.startsWith("blob:")) {
-      URL.revokeObjectURL(coverPreview);
-    }
-
-    const previewUrl = URL.createObjectURL(file);
     setCoverFile(file);
-    setCoverPreview(previewUrl);
-  };
-
-  const removeCover = () => {
+    setCoverPreview(URL.createObjectURL(file));
     markTouched("cover");
-
-    if (coverPreview?.startsWith("blob:")) {
-      URL.revokeObjectURL(coverPreview);
-    }
-
-    setCoverFile(null);
-    setCoverPreview(null);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
   };
 
-  const submitStory = async (mode: SubmitMode) => {
-    if (mode === "publish") {
-      setAttemptedPublish(true);
-      markAllTouched();
-    }
+  const handleToggleGenre = (genreId: string) => {
+    setSelectedGenreIds((prev) =>
+      prev.includes(genreId)
+        ? prev.filter((id) => id !== genreId)
+        : [...prev, genreId],
+    );
+    markTouched("genres");
+  };
 
-    const validationErrors = validateForm(mode);
-    if (Object.keys(validationErrors).length > 0) {
-      toast({
-        title:
-          mode === "publish"
-            ? "Please complete required fields"
-            : "Draft cannot be saved",
-        description:
-          mode === "publish"
-            ? "Check the fields marked in red before continuing."
-            : "Please check the entered data before saving draft.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleRightsChange = (next: StoryRights) => {
+    setStoryRights(next);
+    if (rightsError) setRightsError(null);
+  };
 
-    const tokenPayload = decodeToken();
-    const authorId = tokenPayload?.user_id;
+  const submitStory = async (mode: CreateMode) => {
+    const payload = decodeUserFromCookie();
+    const authorId = payload?.user_id || payload?.userId;
 
     if (!authorId) {
       toast({
-        title: "Not logged in",
-        description: "Please log in again.",
+        title: "Authentication required",
+        description: "Please log in again before creating a story.",
         variant: "destructive",
       });
       return;
     }
 
+    setTouched({
+      title: true,
+      summary: true,
+      cover: true,
+      genres: true,
+      style: true,
+      visibility: true,
+    });
+
+    const formOk = validateForm(mode);
+    if (!formOk) return;
+
     if (mode === "publish") {
-      setIsPublishing(true);
-    } else {
-      setIsSavingDraft(true);
+      const rightsCheck = evaluateClientPublishReadiness(storyRights);
+      if (!rightsCheck.canPublish) {
+        setRightsError(rightsCheck.reason);
+        toast({
+          title: "Cannot publish yet",
+          description: rightsCheck.reason || "Story rights are incomplete.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setRightsError(null);
     }
 
-    const fd = new FormData();
-    fd.append("title", storyTitle.trim());
-    fd.append("summary", storySummary.trim());
-    selectedGenres.forEach((genreId) => fd.append("genres", genreId));
-    selectedStyles.forEach((styleId) => fd.append("styles", styleId));
-    fd.append("status", storyStatus);
-    fd.append("isPublish", String(mode === "publish" ? isPublish : false));
-    fd.append("isDraft", String(mode === "draft"));
-
-    if (coverFile) {
-      fd.append("coverImage", coverFile);
-    }
+    if (mode === "publish") setIsPublishing(true);
+    else setIsSavingDraft(true);
 
     try {
-      // Debug payload
-      for (const [key, value] of fd.entries()) {
-        console.log("FormData =>", key, value);
+      const formData = new FormData();
+      formData.append("title", storyTitle.trim());
+      formData.append("summary", storySummary.trim());
+      formData.append("status", storyStatus);
+      formData.append("isPublish", "false");
+      formData.append("styles", selectedStyleId);
+      selectedGenreIds.forEach((genreId) => formData.append("genres", genreId));
+      if (coverFile) formData.append("coverImage", coverFile);
+
+      const created = await requestFirstSuccessful<any>(api, [
+        {
+          method: "post",
+          url: `/manga/author/${authorId}`,
+          data: formData,
+          config: { headers: { "Content-Type": "multipart/form-data" } },
+        },
+      ]);
+
+      const storyId = String(created?._id || created?.id || "");
+      if (!storyId) {
+        throw new Error("Story created but no story id returned.");
       }
 
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/manga/author/${authorId}`,
-        fd,
-        {
-          withCredentials: true,
-        }
-      );
+      await api.patch(`/manga/${storyId}/rights`, buildRightsPayload(storyRights));
+
+      if (storyRights.declarationAccepted) {
+        await api.patch(`/manga/${storyId}/rights/declaration`, {
+          accepted: true,
+          declarationVersion: storyRights.declarationVersion || "v1",
+        });
+      }
+
+      if (mode === "publish") {
+        const updateForm = new FormData();
+        updateForm.append("title", storyTitle.trim());
+        updateForm.append("summary", storySummary.trim());
+        updateForm.append("status", storyStatus);
+        updateForm.append("isPublish", String(Boolean(isPublish)));
+        updateForm.append("styles", selectedStyleId);
+        selectedGenreIds.forEach((genreId) => updateForm.append("genres", genreId));
+
+        await api.patch(`/manga/update/${storyId}`, updateForm, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
 
       toast({
-        title:
-          mode === "publish"
-            ? "Story created successfully!"
-            : "Draft saved successfully!",
+        title: mode === "publish" ? "Story created" : "Draft saved",
         description:
           mode === "publish"
-            ? "Your story has been published successfully."
-            : "Your draft has been saved successfully.",
+            ? "Your story has been created and the publish state was updated."
+            : "Your story draft has been created.",
         variant: "success",
       });
 
       router.push("/author/dashboard");
-    } catch (error: any) {
-      console.error("Create story error:", error);
-      console.error("Response status:", error?.response?.status);
-      console.error("Response data:", error?.response?.data);
-
+    } catch (err: any) {
       const rawMessage =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error?.message ||
-        "Please check your data or login again.";
-
+        err?.response?.data?.message || err?.message || "Unknown error";
       const serverMessage = Array.isArray(rawMessage)
         ? rawMessage.join(", ")
         : String(rawMessage);
@@ -500,6 +480,20 @@ export default function CreateStoryPage() {
       setIsSavingDraft(false);
     }
   };
+
+  if (loadingPage) {
+    return (
+      <div className="min-h-screen bg-muted/30">
+        <Navbar />
+        <div className="container mx-auto max-w-7xl px-4 pb-10 pt-24">
+          <div className="flex h-[50vh] items-center justify-center text-muted-foreground">
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            Loading create form...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -542,10 +536,7 @@ export default function CreateStoryPage() {
                     <div className="space-y-6">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-3">
-                          <Label
-                            htmlFor="story-title"
-                            className="text-sm font-medium"
-                          >
+                          <Label htmlFor="story-title" className="text-sm font-medium">
                             Story Title
                             <RequiredMark />
                           </Label>
@@ -607,9 +598,7 @@ export default function CreateStoryPage() {
                           Recommended length: 10–1000 characters.
                         </FieldHint>
                         <FieldError>
-                          {shouldShowError("summary")
-                            ? publishErrors.summary
-                            : ""}
+                          {shouldShowError("summary") ? publishErrors.summary : ""}
                         </FieldError>
                       </div>
                     </div>
@@ -644,21 +633,17 @@ export default function CreateStoryPage() {
                               className="h-full w-full object-cover"
                             />
                             <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                              <div className="rounded-full bg-white/95 px-4 py-2 text-sm font-medium text-black shadow-sm">
-                                Change cover
+                              <div className="rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-black shadow-sm">
+                                Change Cover
                               </div>
                             </div>
                           </>
                         ) : (
                           <div className="flex flex-col items-center justify-center px-6 text-center">
-                            <div className="mb-4 rounded-full bg-muted p-4">
-                              <ImageIcon className="h-7 w-7 text-muted-foreground" />
-                            </div>
-                            <p className="text-sm font-medium text-foreground">
-                              Upload story cover
-                            </p>
+                            <UploadCloud className="mb-3 h-8 w-8 text-muted-foreground" />
+                            <p className="text-sm font-medium">Upload cover</p>
                             <p className="mt-1 text-xs text-muted-foreground">
-                              Recommended 2:3 ratio for the best appearance.
+                              Click to choose an image
                             </p>
                           </div>
                         )}
@@ -667,183 +652,106 @@ export default function CreateStoryPage() {
                       <input
                         ref={fileInputRef}
                         type="file"
-                        className="hidden"
                         accept="image/*"
-                        onChange={(e) => handleCoverChange(e.target.files?.[0])}
+                        className="hidden"
+                        onChange={(e) => handleSelectCover(e.target.files?.[0] || null)}
                       />
 
-                      <FieldHint>
-                        JPG/PNG, poster style, max {MAX_COVER_SIZE_MB}MB.
-                      </FieldHint>
+                      <FieldHint>Recommended portrait cover image.</FieldHint>
                       <FieldError>
                         {shouldShowError("cover") ? publishErrors.cover : ""}
                       </FieldError>
 
-                      <div className="flex flex-wrap gap-2">
+                      {coverFile ? (
                         <Button
                           type="button"
-                          variant="outline"
-                          className="rounded-xl"
-                          onClick={() => fileInputRef.current?.click()}
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 rounded-lg px-2 text-muted-foreground"
+                          onClick={() => {
+                            if (coverPreview) URL.revokeObjectURL(coverPreview);
+                            setCoverFile(null);
+                            setCoverPreview("");
+                          }}
                         >
-                          <Upload className="mr-2 h-4 w-4" />
-                          {coverPreview ? "Replace" : "Upload"}
+                          <X className="mr-1 h-4 w-4" />
+                          Remove cover
                         </Button>
-
-                        {coverPreview ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="rounded-xl text-muted-foreground hover:text-foreground"
-                            onClick={removeCover}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Remove
-                          </Button>
-                        ) : null}
-                      </div>
+                      ) : null}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
 
-              <Card className="rounded-2xl border-border/70 shadow-sm">
-                <CardHeader className="border-b border-border/60 pb-5">
-                  <SectionHeader
-                    title="Classification"
-                    description="Choose how your story is categorized for readers."
-                  />
-                </CardHeader>
-
-                <CardContent className="space-y-6 pt-6">
-                  <div className="space-y-3">
-                    <Label className="text-sm font-medium">
-                      Story Type
-                      <RequiredMark />
-                    </Label>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {availableStyles.map((style) => {
-                        const isActive = selectedStyles.includes(style._id);
-
-                        return (
-                          <button
-                            key={style._id}
-                            type="button"
-                            onClick={() => handleSelectStyle(style)}
-                            className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
-                              isActive
-                                ? "border-primary bg-primary/10 shadow-sm"
-                                : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/40"
-                            }`}
-                          >
-                            <div className="flex min-w-0 items-center gap-3">
-                              <div
-                                className={`rounded-lg p-2 ${
-                                  isActive
-                                    ? "bg-primary/15 text-primary"
-                                    : "bg-muted text-muted-foreground"
-                                }`}
-                              >
-                                {style.name.toLowerCase() === "manga" ? (
-                                  <ImageIcon className="h-4 w-4" />
-                                ) : (
-                                  <BookOpen className="h-4 w-4" />
-                                )}
-                              </div>
-
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium">
-                                  {style.name}
-                                </p>
-                              </div>
-                            </div>
-
-                            {isActive ? (
-                              <div className="rounded-full bg-primary/15 p-1 text-primary">
-                                <Check className="h-4 w-4" />
-                              </div>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <FieldHint>Select one main story format.</FieldHint>
-                    <FieldError>
-                      {shouldShowError("styles") ? publishErrors.styles : ""}
-                    </FieldError>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="mt-8 grid gap-6">
+                    <div className="space-y-3">
                       <Label className="text-sm font-medium">
-                        Genres
+                        Story Type
                         <RequiredMark />
                       </Label>
 
-                      <span className="text-xs text-muted-foreground">
-                        {selectedGenres.length} selected
-                      </span>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {availableStyles.map((style) => {
+                          const isSelected = style._id === selectedStyleId;
+
+                          return (
+                            <button
+                              key={style._id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedStyleId(style._id);
+                                markTouched("style");
+                              }}
+                              className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${
+                                isSelected
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/40"
+                              }`}
+                            >
+                              <span>{style.name}</span>
+                              {isSelected ? <Check className="h-4 w-4" /> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <FieldHint>Choose the primary format of your story.</FieldHint>
+                      <FieldError>
+                        {shouldShowError("style") ? publishErrors.style : ""}
+                      </FieldError>
                     </div>
 
-                    <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm">
-                      <div className="mb-3">
-                        <div className="relative">
-                          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            value={genreSearch}
-                            onChange={(e) => setGenreSearch(e.target.value)}
-                            placeholder="Search genres..."
-                            className="h-10 rounded-xl border-border/70 pl-9"
-                          />
-                        </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label className="text-sm font-medium">
+                          Genres
+                          <RequiredMark />
+                        </Label>
+
+                        <Input
+                          value={genreSearch}
+                          onChange={(e) => setGenreSearch(e.target.value)}
+                          placeholder="Search genres..."
+                          className="h-9 max-w-[220px] rounded-xl"
+                        />
                       </div>
 
-                      <div className="mb-4 min-h-[44px] rounded-xl border border-dashed border-border/70 bg-muted/20 p-3">
-                        {selectedGenreDocs.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {selectedGenreDocs.map((genre) => (
-                              <button
-                                key={genre._id}
-                                type="button"
-                                onClick={() => toggleGenre(genre._id)}
-                                className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/15"
-                              >
-                                <span>{genre.name}</span>
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">
-                            Selected genres will appear here.
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="max-h-72 overflow-y-auto pr-1">
+                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
                         {filteredGenres.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-3">
                             {filteredGenres.map((genre) => {
-                              const isSelected = selectedGenres.includes(
-                                genre._id
-                              );
+                              const isSelected = selectedGenreIds.includes(genre._id);
 
                               return (
                                 <button
                                   key={genre._id}
                                   type="button"
-                                  onClick={() => toggleGenre(genre._id)}
-                                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-all ${
+                                  onClick={() => handleToggleGenre(genre._id)}
+                                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
                                     isSelected
                                       ? "border-primary bg-primary/10 text-primary"
                                       : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/40"
                                   }`}
                                 >
-                                  {isSelected ? (
-                                    <Check className="h-4 w-4" />
-                                  ) : null}
+                                  {isSelected ? <Check className="h-4 w-4" /> : null}
                                   <span>{genre.name}</span>
                                 </button>
                               );
@@ -855,69 +763,86 @@ export default function CreateStoryPage() {
                           </div>
                         )}
                       </div>
+
+                      <FieldHint>
+                        Choose one or more genres to improve discoverability.
+                      </FieldHint>
+                      <FieldError>
+                        {shouldShowError("genres") ? publishErrors.genres : ""}
+                      </FieldError>
                     </div>
 
-                    <FieldHint>
-                      Choose one or more genres to improve discoverability.
-                    </FieldHint>
-                    <FieldError>
-                      {shouldShowError("genres") ? publishErrors.genres : ""}
-                    </FieldError>
-                  </div>
+                    <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Status</Label>
+                        <Select
+                          value={storyStatus}
+                          onValueChange={(value) =>
+                            setStoryStatus(value as "ongoing" | "completed" | "hiatus")
+                          }
+                        >
+                          <SelectTrigger className="h-11 rounded-xl border-border/70 bg-background shadow-sm">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
 
-                  <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Status</Label>
-                      <Select
-                        value={storyStatus}
-                        onValueChange={setStoryStatus}
-                      >
-                        <SelectTrigger className="h-11 rounded-xl border-border/70 bg-background shadow-sm">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
+                          <SelectContent>
+                            {statusOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
 
-                        <SelectContent>
-                          {statusOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        <FieldHint>Set the current release status.</FieldHint>
+                      </div>
 
-                      <FieldHint>Set the current release status.</FieldHint>
-                    </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Visibility</Label>
 
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Visibility</Label>
+                        <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              id="is-public"
+                              checked={isPublish}
+                              onCheckedChange={(value) => {
+                                setIsPublish(!!value);
+                                markTouched("visibility");
+                              }}
+                              className="mt-0.5"
+                            />
 
-                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            id="is-public"
-                            checked={isPublish}
-                            onCheckedChange={(value) => setIsPublish(!!value)}
-                            className="mt-0.5"
-                          />
-
-                          <div className="space-y-1">
-                            <Label
-                              htmlFor="is-public"
-                              className="cursor-pointer text-sm font-medium"
-                            >
-                              Public visibility
-                            </Label>
-                            <p className="text-sm text-muted-foreground">
-                              Readers can discover and access this story after
-                              publishing.
-                            </p>
+                            <div className="space-y-1">
+                              <Label
+                                htmlFor="is-public"
+                                className="cursor-pointer text-sm font-medium"
+                              >
+                                Public visibility
+                              </Label>
+                              <p className="text-sm text-muted-foreground">
+                                Readers can discover and access this story after
+                                publishing.
+                              </p>
+                            </div>
                           </div>
                         </div>
+
+                        <FieldError>
+                          {shouldShowError("visibility")
+                            ? publishErrors.visibility
+                            : ""}
+                        </FieldError>
                       </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
+
+              <StoryRightsSection
+                value={storyRights}
+                onChange={handleRightsChange}
+                publishError={rightsError}
+              />
 
               <Card className="rounded-2xl border-border/70 shadow-sm">
                 <CardHeader className="border-b border-border/60 pb-5">
@@ -1073,29 +998,18 @@ export default function CreateStoryPage() {
                       /story/{slugPreview}
                     </p>
                   </div>
-                </CardContent>
-              </Card>
 
-              <Card className="rounded-2xl border-border/70 shadow-sm">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-base font-semibold">
-                    Quick Tips
-                  </CardTitle>
-                </CardHeader>
-
-                <CardContent className="space-y-3 text-sm text-muted-foreground">
-                  <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-                    Use a short, strong title that readers can remember easily.
-                  </div>
-
-                  <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-                    Covers with a 2:3 poster ratio usually look best in story
-                    listings.
-                  </div>
-
-                  <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-                    Pick genres carefully so readers can discover your story
-                    faster.
+                  <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                    <p className="text-sm font-medium">Rights preview</p>
+                    <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                      <div>Origin: {storyRights.originType}</div>
+                      <div>Monetization: {storyRights.monetizationType}</div>
+                      <div>Basis: {storyRights.basis}</div>
+                      <div>
+                        Declaration:{" "}
+                        {storyRights.declarationAccepted ? "Accepted" : "Not accepted"}
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1103,8 +1017,11 @@ export default function CreateStoryPage() {
           </div>
         ) : (
           <Card className="rounded-2xl border-border/70 shadow-sm">
-            <CardContent className="py-10 text-center text-muted-foreground">
-              Currently no story types are available to create.
+            <CardContent className="py-12 text-center">
+              <p className="text-sm text-muted-foreground">
+                No styles available. Please create at least one style before creating
+                a story.
+              </p>
             </CardContent>
           </Card>
         )}
