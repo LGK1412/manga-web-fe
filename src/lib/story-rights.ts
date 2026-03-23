@@ -224,15 +224,15 @@ export const LICENSE_STATUS_META: Record<
   },
 };
 
-const ORIGIN_VALUES = new Set<StoryOriginType>(
+export const ORIGIN_VALUES = new Set<StoryOriginType>(
   ORIGIN_OPTIONS.map((item) => item.value),
 );
 
-const MONETIZATION_VALUES = new Set<StoryMonetizationType>(
+export const MONETIZATION_VALUES = new Set<StoryMonetizationType>(
   MONETIZATION_OPTIONS.map((item) => item.value),
 );
 
-const BASIS_VALUES = new Set<RightsBasis>(
+export const BASIS_VALUES = new Set<RightsBasis>(
   RIGHTS_BASIS_OPTIONS.map((item) => item.value),
 );
 

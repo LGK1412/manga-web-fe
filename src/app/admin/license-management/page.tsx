@@ -6,8 +6,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   ExternalLink,
-  FileText,
-  Image as ImageIcon,
   Loader2,
   Search,
   ShieldCheck,
@@ -16,7 +14,13 @@ import {
 import AdminLayout from "../adminLayout/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -75,18 +79,26 @@ type LicenseQueueResponse = {
   stats: Record<string, number>;
 };
 
-function getAssetCandidates(apiBase: string, filePath?: string, folder = "assets/licenses") {
+function getAssetCandidates(
+  apiBase: string,
+  filePath?: string,
+  folder = "assets/licenses",
+) {
   if (!filePath) return [];
   if (/^https?:\/\//i.test(filePath)) return [filePath];
   if (filePath.startsWith("/")) return [`${apiBase}${filePath}`];
-  if (filePath.includes(folder)) return [`${apiBase}/${filePath.replace(/^\/+/, "")}`];
+  if (filePath.includes(folder)) {
+    return [`${apiBase}/${filePath.replace(/^\/+/, "")}`];
+  }
   return [`${apiBase}/${folder}/${filePath.replace(/^\/+/, "")}`];
 }
 
 export default function AdminStoryRightsModerationPage() {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [selected, setSelected] = useState<LicenseDetail | null>(null);
-  const [statusFilter, setStatusFilter] = useState<MangaLicenseStatus | "all">("pending");
+  const [statusFilter, setStatusFilter] = useState<
+    MangaLicenseStatus | "all"
+  >("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -116,14 +128,16 @@ export default function AdminStoryRightsModerationPage() {
     });
   }, [apiBase]);
 
-  const getFileUrls = (filePath?: string) => getAssetCandidates(apiBase, filePath, "assets/licenses");
-  const getCoverUrls = (coverImage?: string) => getAssetCandidates(apiBase, coverImage, "assets/coverImages");
+  const getFileUrls = (filePath?: string) =>
+    getAssetCandidates(apiBase, filePath, "assets/licenses");
+  const getCoverUrls = (coverImage?: string) =>
+    getAssetCandidates(apiBase, coverImage, "assets/coverImages");
 
   const fetchQueue = async (nextPage = page) => {
     try {
       setLoading(true);
 
-      const res = await api.get<LicenseQueueResponse>("/manga/admin/licenses", {
+      const res = await api.get<LicenseQueueResponse>("/license/queue", {
         params: {
           status: statusFilter,
           q: searchQuery,
@@ -155,7 +169,7 @@ export default function AdminStoryRightsModerationPage() {
   const fetchDetail = async (mangaId: string) => {
     try {
       setDetailLoading(true);
-      const res = await api.get<LicenseDetail>(`/manga/admin/license/${mangaId}`);
+      const res = await api.get<LicenseDetail>(`/license/${mangaId}`);
       setSelected(res.data);
       setSelectedFileIndex(0);
       setRejectionReason("");
@@ -196,7 +210,7 @@ export default function AdminStoryRightsModerationPage() {
     }
 
     try {
-      await api.patch(`/manga/admin/license/${selected._id}/review`, {
+      await api.patch(`/license/${selected._id}/review`, {
         status,
         rejectReason: status === "rejected" ? rejectionReason : "",
         publishAfterApprove: status === "approved" ? publishAfterApprove : false,
@@ -329,7 +343,6 @@ export default function AdminStoryRightsModerationPage() {
                           <div className="flex items-start gap-3">
                             <div className="h-16 w-12 shrink-0 overflow-hidden rounded-md border bg-gray-100">
                               {item.coverImage ? (
-                                // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                   src={getCoverUrls(item.coverImage)[0]}
                                   alt={item.title}
@@ -399,7 +412,6 @@ export default function AdminStoryRightsModerationPage() {
                     <div className="flex flex-col gap-4 lg:flex-row">
                       <div className="h-48 w-36 shrink-0 overflow-hidden rounded-xl border bg-gray-100">
                         {selected.coverImage ? (
-                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={getCoverUrls(selected.coverImage)[0]}
                             alt={selected.title}
@@ -456,7 +468,9 @@ export default function AdminStoryRightsModerationPage() {
                           </div>
                           <div className="rounded-xl border bg-gray-50 p-3">
                             <div className="text-xs text-gray-500">Enforcement</div>
-                            <div className="mt-1 font-medium">{selected.enforcementStatus || "normal"}</div>
+                            <div className="mt-1 font-medium">
+                              {selected.enforcementStatus || "normal"}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -474,8 +488,15 @@ export default function AdminStoryRightsModerationPage() {
                             <InfoBlock label="Source URL" value={selected.rights?.sourceUrl} isLink />
                             <InfoBlock label="License name" value={selected.rights?.licenseName} />
                             <InfoBlock label="License URL" value={selected.rights?.licenseUrl} isLink />
-                            <InfoBlock label="Claim status" value={selected.rights?.claimStatus || "none"} />
-                            <InfoBlock label="License submitted at" value={selected.licenseSubmittedAt} isDate />
+                            <InfoBlock
+                              label="Claim status"
+                              value={selected.rights?.claimStatus || "none"}
+                            />
+                            <InfoBlock
+                              label="License submitted at"
+                              value={selected.licenseSubmittedAt}
+                              isDate
+                            />
                           </div>
 
                           {selected.licenseNote ? (
@@ -543,7 +564,6 @@ export default function AdminStoryRightsModerationPage() {
                                         title="Proof document"
                                       />
                                     ) : (
-                                      // eslint-disable-next-line @next/next/no-img-element
                                       <img
                                         src={currentFileUrl}
                                         alt="Proof document"

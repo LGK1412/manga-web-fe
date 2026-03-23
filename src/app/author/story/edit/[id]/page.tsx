@@ -11,7 +11,6 @@ import {
   Loader2,
   UploadCloud,
   X,
-  FileCheck,
 } from "lucide-react";
 
 import { Navbar } from "@/components/navbar";
@@ -35,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+
 import { StoryRightsSection } from "@/components/story-rights/story-rights-section";
 import {
   buildRightsPayload,
@@ -49,6 +49,18 @@ type OptionItem = {
   name: string;
 };
 
+type StoryDetailResponse = {
+  _id: string;
+  title: string;
+  summary: string;
+  status: "ongoing" | "completed" | "hiatus";
+  isPublish: boolean;
+  isDraft?: boolean;
+  coverImage?: string;
+  styles?: Array<string | { _id?: string; id?: string }>;
+  genres?: Array<string | { _id?: string; id?: string }>;
+};
+
 type EditMode = "draft" | "publish";
 
 type PublishErrors = {
@@ -58,18 +70,6 @@ type PublishErrors = {
   genres?: string;
   style?: string;
   visibility?: string;
-};
-
-type StoryDetailResponse = {
-  _id: string;
-  title?: string;
-  summary?: string;
-  status?: "ongoing" | "completed" | "hiatus";
-  isPublish?: boolean;
-  isDraft?: boolean;
-  coverImage?: string;
-  styles?: Array<string | { _id?: string; id?: string; name?: string }>;
-  genres?: Array<string | { _id?: string; id?: string; name?: string }>;
 };
 
 const statusOptions = [
@@ -121,37 +121,35 @@ function firstNonEmptyArray(value: any): any[] {
   if (Array.isArray(value)) return value;
   if (Array.isArray(value?.data)) return value.data;
   if (Array.isArray(value?.items)) return value.items;
-  if (Array.isArray(value?.results)) return value.results;
-  if (Array.isArray(value?.genres)) return value.genres;
-  if (Array.isArray(value?.styles)) return value.styles;
+  if (Array.isArray(value?.result)) return value.result;
   return [];
 }
 
+function unwrapEntity<T = any>(raw: any): T {
+  if (raw?.data && typeof raw.data === "object") return raw.data as T;
+  if (raw?.result && typeof raw.result === "object") return raw.result as T;
+  return raw as T;
+}
+
 function mapOptions(raw: any): OptionItem[] {
-  const arr = firstNonEmptyArray(raw);
-
-  return arr
-    .map((item: any) => ({
-      _id: String(item?._id || item?.id || "").trim(),
-      name: String(item?.name || item?.title || "").trim(),
+  return firstNonEmptyArray(raw)
+    .map((item) => ({
+      _id: String(item?._id || item?.id || ""),
+      name: String(item?.name || item?.title || ""),
     }))
-    .filter((item: OptionItem) => item._id && item.name);
-}
-
-function unwrapEntity<T = any>(payload: any): T {
-  return (payload?.data?.data ??
-    payload?.data ??
-    payload?.manga ??
-    payload) as T;
-}
-
-function toId(value: any): string {
-  return String(value?._id || value?.id || value || "").trim();
+    .filter((item) => item._id && item.name);
 }
 
 function toIdArray(value: any): string[] {
   if (!Array.isArray(value)) return [];
-  return value.map((item) => toId(item)).filter(Boolean);
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (item?._id) return String(item._id);
+      if (item?.id) return String(item.id);
+      return "";
+    })
+    .filter(Boolean);
 }
 
 function toCoverUrl(apiBase: string, coverImage?: string) {
@@ -182,7 +180,9 @@ function normalizeStory(raw: any): StoryDetailResponse {
   };
 }
 
-function normalizeRightsResponse(payload: StoryRightsResponse | null | undefined): StoryRights {
+function normalizeRightsResponse(
+  payload: StoryRightsResponse | null | undefined,
+): StoryRights {
   return {
     ...getDefaultRights(),
     ...(payload?.rights || {}),
@@ -256,106 +256,104 @@ export default function EditStoryPage() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState("");
   const [existingCoverImage, setExistingCoverImage] = useState("");
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [storyRights, setStoryRights] = useState<StoryRights>(getDefaultRights());
-
-  const [publishErrors, setPublishErrors] = useState<PublishErrors>({});
   const [rightsError, setRightsError] = useState<string | null>(null);
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const [loadingPage, setLoadingPage] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
-  const selectedStyleDoc =
-    availableStyles.find((item) => item._id === selectedStyleId) || null;
+  const [touched, setTouched] = useState<Record<string, boolean>>({
+    title: false,
+    summary: false,
+    cover: false,
+    genres: false,
+    style: false,
+    visibility: false,
+  });
 
-  const selectedGenreDocs = availableGenres.filter((genre) =>
-    selectedGenreIds.includes(genre._id),
+  const [publishErrors, setPublishErrors] = useState<PublishErrors>({});
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const slugPreview = useMemo(() => slugify(storyTitle || "your-story"), [storyTitle]);
+
+  const filteredGenres = useMemo(() => {
+    const keyword = genreSearch.trim().toLowerCase();
+    if (!keyword) return availableGenres;
+
+    return availableGenres.filter((genre) =>
+      genre.name.toLowerCase().includes(keyword),
+    );
+  }, [availableGenres, genreSearch]);
+
+  const selectedStyleDoc = useMemo(
+    () => availableStyles.find((style) => style._id === selectedStyleId) || null,
+    [availableStyles, selectedStyleId],
   );
 
-  const filteredGenres = availableGenres.filter((genre) =>
-    genre.name.toLowerCase().includes(genreSearch.trim().toLowerCase()),
+  const selectedGenreDocs = useMemo(
+    () => availableGenres.filter((genre) => selectedGenreIds.includes(genre._id)),
+    [availableGenres, selectedGenreIds],
   );
 
-  const selectedStatusLabel =
-    statusOptions.find((item) => item.value === storyStatus)?.label || "Ongoing";
-
-  const slugPreview = slugify(storyTitle || "untitled-story");
-
-  const markTouched = (field: string) => {
+  const markTouched = (field: keyof PublishErrors | "visibility") => {
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
-  const shouldShowError = (field: keyof PublishErrors) => {
-    return Boolean(touched[field] && publishErrors[field]);
+  const shouldShowError = (field: keyof PublishErrors | "visibility") => {
+    return Boolean(touched[field]);
   };
-
-  const hasCover = Boolean(coverFile || coverPreview || existingCoverImage);
 
   const validateForm = (mode: EditMode) => {
-    const nextErrors: PublishErrors = {};
+    const errors: PublishErrors = {};
 
-    if (!storyTitle.trim()) nextErrors.title = "Story title is required.";
-    else if (storyTitle.trim().length > 100) {
-      nextErrors.title = "Story title must be 100 characters or fewer.";
+    if (!storyTitle.trim()) {
+      errors.title = "Title is required.";
+    } else if (storyTitle.trim().length < 2) {
+      errors.title = "Title must be at least 2 characters.";
+    } else if (storyTitle.trim().length > 150) {
+      errors.title = "Title must be 150 characters or fewer.";
     }
 
-    if (!storySummary.trim()) nextErrors.summary = "Description is required.";
-    else if (storySummary.trim().length < 10) {
-      nextErrors.summary = "Description should be at least 10 characters.";
+    if (!storySummary.trim()) {
+      errors.summary = "Description is required.";
+    } else if (storySummary.trim().length < 10) {
+      errors.summary = "Description must be at least 10 characters.";
     } else if (storySummary.trim().length > 1000) {
-      nextErrors.summary = "Description must be 1000 characters or fewer.";
+      errors.summary = "Description must be 1000 characters or fewer.";
     }
 
-    if (!hasCover) nextErrors.cover = "Please upload a cover image.";
+    if (!coverFile && !existingCoverImage) {
+      errors.cover = "Cover image is required.";
+    }
 
-    if (!selectedStyleId) nextErrors.style = "Please choose a story type.";
+    if (!selectedStyleId) {
+      errors.style = "Please select a style.";
+    }
+
     if (selectedGenreIds.length === 0) {
-      nextErrors.genres = "Please select at least one genre.";
+      errors.genres = "Please choose at least 1 genre.";
+    } else if (selectedGenreIds.length > 3) {
+      errors.genres = "You can choose up to 3 genres.";
     }
 
-    if (mode === "publish" && !isPublish) {
-      nextErrors.visibility =
-        "Enable Public visibility if you want to publish immediately.";
+    if (mode === "publish") {
+      const rightsCheck = evaluateClientPublishReadiness(storyRights);
+      if (!rightsCheck.canPublish) {
+        setRightsError(rightsCheck.reason);
+      }
     }
 
-    setPublishErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    setPublishErrors(errors);
+    return Object.keys(errors).length === 0;
   };
-
-  const formReady =
-    storyTitle.trim().length > 0 &&
-    storySummary.trim().length >= 10 &&
-    hasCover &&
-    !!selectedStyleId &&
-    selectedGenreIds.length > 0;
-
-  const remainingRequiredCount = [
-    !storyTitle.trim(),
-    storySummary.trim().length < 10,
-    !hasCover,
-    !selectedStyleId,
-    selectedGenreIds.length === 0,
-  ].filter(Boolean).length;
 
   const loadOptions = async () => {
     const [stylesData, genresData] = await Promise.all([
-      requestFirstSuccessful(api, [
-        { url: "/styles" },
-        { url: "/styles/view" },
-        { url: "/style" },
-        { url: "/style/view" },
-        { url: "/styles/all" },
-      ]),
-      requestFirstSuccessful(api, [
-        { url: "/genre" },
-        { url: "/genre/view" },
-        { url: "/genres" },
-        { url: "/genres/view" },
-        { url: "/genre/all" },
-      ]),
+      requestFirstSuccessful(api, [{ url: "/styles/all" }]),
+      requestFirstSuccessful(api, [{ url: "/genre" }]),
     ]);
 
     setAvailableStyles(mapOptions(stylesData));
@@ -387,7 +385,7 @@ export default function EditStoryPage() {
 
   const loadRights = async () => {
     try {
-      const res = await api.get<StoryRightsResponse>(`/manga/${id}/rights`);
+      const res = await api.get<StoryRightsResponse>(`/license/${id}/rights`);
       setStoryRights(normalizeRightsResponse(res.data));
     } catch {
       setStoryRights(getDefaultRights());
@@ -395,12 +393,13 @@ export default function EditStoryPage() {
   };
 
   useEffect(() => {
+    console.log("params =", params);
+console.log("id =", id);
     const loadAll = async () => {
       if (!id) return;
 
       try {
         setLoadingPage(true);
-
         await Promise.all([loadOptions(), loadStory(), loadRights()]);
       } catch (err: any) {
         toast({
@@ -498,7 +497,10 @@ export default function EditStoryPage() {
       formData.append("title", storyTitle.trim());
       formData.append("summary", storySummary.trim());
       formData.append("status", storyStatus);
-      formData.append("isPublish", String(mode === "publish" ? Boolean(isPublish) : false));
+      formData.append(
+        "isPublish",
+        String(mode === "publish" ? Boolean(isPublish) : false),
+      );
       formData.append("styles", selectedStyleId);
       selectedGenreIds.forEach((genreId) => formData.append("genres", genreId));
 
@@ -510,9 +512,9 @@ export default function EditStoryPage() {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      await api.patch(`/manga/${id}/rights`, buildRightsPayload(storyRights));
+      await api.patch(`/license/${id}/rights`, buildRightsPayload(storyRights));
 
-      await api.patch(`/manga/${id}/rights/declaration`, {
+      await api.patch(`/license/${id}/rights/declaration`, {
         accepted: storyRights.declarationAccepted,
         declarationVersion: storyRights.declarationVersion || "v1",
       });
@@ -535,7 +537,10 @@ export default function EditStoryPage() {
         : String(rawMessage);
 
       toast({
-        title: mode === "publish" ? "Failed to update story" : "Failed to save draft",
+        title:
+          mode === "publish"
+            ? "Failed to update story"
+            : "Failed to save draft",
         description: serverMessage,
         variant: "destructive",
       });
@@ -547,12 +552,17 @@ export default function EditStoryPage() {
 
   if (loadingPage) {
     return (
-      <div className="min-h-screen bg-muted/30">
+      <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="container mx-auto max-w-7xl px-4 pb-10 pt-24">
-          <div className="flex h-[50vh] items-center justify-center text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Loading edit form...
+        <div className="container mx-auto flex min-h-[70vh] max-w-7xl items-center justify-center px-4 pt-24">
+          <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card px-5 py-4 shadow-sm">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <div>
+              <p className="text-sm font-medium">Loading story editor</p>
+              <p className="text-xs text-muted-foreground">
+                Fetching story details, genres, styles, and rights.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -560,69 +570,101 @@ export default function EditStoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto max-w-7xl px-4 pb-10 pt-20">
-        <div className="mb-8 space-y-3">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Dashboard</span>
-            <ChevronRight className="h-4 w-4" />
-            <span>Stories</span>
-            <ChevronRight className="h-4 w-4" />
-            <span className="font-medium text-foreground">Edit</span>
-          </div>
-
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-                Edit Story
-              </h1>
-              <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
-                Update story details, cover, categories, and publishing settings.
-              </p>
+      <div className="container mx-auto max-w-7xl px-4 pb-12 pt-24">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Link
+                href="/author/dashboard"
+                className="transition-colors hover:text-foreground"
+              >
+                Dashboard
+              </Link>
+              <ChevronRight className="h-4 w-4" />
+              <span>Edit story</span>
             </div>
 
-            <Link href={`/author/manga/${id}/license`}>
-              <Button variant="outline" className="gap-2 rounded-xl">
-                <FileCheck className="h-4 w-4" />
-                Manage License Files
-              </Button>
-            </Link>
+            <h1 className="text-3xl font-bold tracking-tight">Edit Story</h1>
+            <p className="text-sm text-muted-foreground">
+              Update your story details, visibility, and rights information.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Button asChild variant="outline" className="rounded-xl">
+              <Link href={`/author/manga/${id}/license`}>Open Story Rights Page</Link>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => router.push("/author/dashboard")}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              variant="secondary"
+              className="rounded-xl"
+              disabled={isSavingDraft || isUpdating}
+              onClick={() => submitStory("draft")}
+            >
+              {isSavingDraft ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving draft...
+                </>
+              ) : (
+                "Save Draft"
+              )}
+            </Button>
+
+            <Button
+              className="rounded-xl"
+              disabled={isSavingDraft || isUpdating}
+              onClick={() => submitStory("publish")}
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Story"
+              )}
+            </Button>
           </div>
         </div>
 
         {availableStyles.length > 0 ? (
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="space-y-6">
               <Card className="rounded-2xl border-border/70 shadow-sm">
-                <CardHeader className="border-b border-border/60 pb-5">
+                <CardHeader className="border-b border-border/60">
                   <SectionHeader
                     title="Basic Information"
-                    description="Edit the core details readers will see first."
+                    description="Edit the main information readers will see before opening your story."
                   />
                 </CardHeader>
 
-                <CardContent className="pt-6">
+                <CardContent className="space-y-6 pt-6">
                   <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
                     <div className="space-y-6">
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-3">
-                          <Label htmlFor="story-title" className="text-sm font-medium">
-                            Story Title
-                            <RequiredMark />
-                          </Label>
-                          <span className="text-xs text-muted-foreground">
-                            {storyTitle.trim().length}/100
-                          </span>
-                        </div>
+                        <Label htmlFor="story-title" className="text-sm font-medium">
+                          Story Title
+                          <RequiredMark />
+                        </Label>
 
                         <Input
                           id="story-title"
                           value={storyTitle}
                           onChange={(e) => setStoryTitle(e.target.value)}
                           onBlur={() => markTouched("title")}
-                          placeholder="Enter story title"
+                          placeholder="Enter your story title"
                           className={`h-11 rounded-xl border-border/70 bg-background shadow-sm ${
                             shouldShowError("title") && publishErrors.title
                               ? "border-red-500 focus-visible:ring-red-500"
@@ -630,9 +672,7 @@ export default function EditStoryPage() {
                           }`}
                         />
 
-                        <FieldHint>
-                          Use a clear, memorable title for your story.
-                        </FieldHint>
+                        <FieldHint>Use a clear, memorable title for your story.</FieldHint>
                         <FieldError>
                           {shouldShowError("title") ? publishErrors.title : ""}
                         </FieldError>
@@ -705,18 +745,25 @@ export default function EditStoryPage() {
                               className="h-full w-full object-cover"
                             />
                             <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                              <div className="rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-black shadow-sm">
-                                Change Cover
+                              <div className="flex items-center gap-2 rounded-full bg-white/90 px-3 py-2 text-sm font-medium text-black">
+                                <UploadCloud className="h-4 w-4" />
+                                Change cover
                               </div>
                             </div>
                           </>
                         ) : (
-                          <div className="flex flex-col items-center justify-center px-6 text-center">
-                            <UploadCloud className="mb-3 h-8 w-8 text-muted-foreground" />
-                            <p className="text-sm font-medium">Upload cover</p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              Click to choose an image
-                            </p>
+                          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                            <div className="rounded-full bg-muted p-4">
+                              <ImageIcon className="h-6 w-6" />
+                            </div>
+                            <div className="space-y-1 text-center">
+                              <p className="text-sm font-medium text-foreground">
+                                Upload cover image
+                              </p>
+                              <p className="text-xs">
+                                PNG, JPG, or WEBP. Best ratio: 2:3.
+                              </p>
+                            </div>
                           </div>
                         )}
                       </button>
@@ -729,67 +776,53 @@ export default function EditStoryPage() {
                         onChange={(e) => handleSelectCover(e.target.files?.[0] || null)}
                       />
 
-                      <FieldHint>Recommended portrait cover image.</FieldHint>
                       <FieldError>
                         {shouldShowError("cover") ? publishErrors.cover : ""}
                       </FieldError>
 
-                      {hasCover ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 rounded-lg px-2 text-muted-foreground"
-                          onClick={() => {
-                            if (coverPreview.startsWith("blob:")) {
-                              URL.revokeObjectURL(coverPreview);
-                            }
-                            setCoverFile(null);
-                            setCoverPreview("");
-                            setExistingCoverImage("");
-                            markTouched("cover");
-                          }}
-                        >
-                          <X className="mr-1 h-4 w-4" />
-                          Remove cover
-                        </Button>
+                      {existingCoverImage && !coverFile ? (
+                        <p className="text-xs text-muted-foreground">
+                          Current cover is being used.
+                        </p>
                       ) : null}
                     </div>
                   </div>
 
-                  <div className="mt-8 grid gap-6">
-                    <div className="space-y-3">
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <div className="space-y-2">
                       <Label className="text-sm font-medium">
-                        Story Type
+                        Style
                         <RequiredMark />
                       </Label>
 
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {availableStyles.map((style) => {
-                          const isSelected = style._id === selectedStyleId;
+                      <Select
+                        value={selectedStyleId}
+                        onValueChange={(value) => {
+                          setSelectedStyleId(value);
+                          markTouched("style");
+                        }}
+                      >
+                        <SelectTrigger
+                          className={`h-11 rounded-xl ${
+                            shouldShowError("style") && publishErrors.style
+                              ? "border-red-500 focus:ring-red-500"
+                              : ""
+                          }`}
+                        >
+                          <SelectValue placeholder="Choose a style" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableStyles.map((style) => (
+                            <SelectItem key={style._id} value={style._id}>
+                              {style.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
 
-                          return (
-                            <button
-                              key={style._id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedStyleId(style._id);
-                                markTouched("style");
-                              }}
-                              className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${
-                                isSelected
-                                  ? "border-primary bg-primary/10 text-primary"
-                                  : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/40"
-                              }`}
-                            >
-                              <span>{style.name}</span>
-                              {isSelected ? <Check className="h-4 w-4" /> : null}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <FieldHint>Choose the primary format of your story.</FieldHint>
+                      <FieldHint>
+                        Select the main visual or narrative style for this story.
+                      </FieldHint>
                       <FieldError>
                         {shouldShowError("style") ? publishErrors.style : ""}
                       </FieldError>
@@ -798,121 +831,92 @@ export default function EditStoryPage() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-3">
                         <Label className="text-sm font-medium">
-                          Genres
-                          <RequiredMark />
+                          Publishing Status
                         </Label>
+                        <span className="text-xs text-muted-foreground">
+                          {isPublish ? "Public" : "Private"}
+                        </span>
+                      </div>
 
-                        <Input
-                          value={genreSearch}
-                          onChange={(e) => setGenreSearch(e.target.value)}
-                          placeholder="Search genres..."
-                          className="h-9 max-w-[220px] rounded-xl"
+                      <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background px-4 py-3">
+                        <Checkbox
+                          id="story-visibility"
+                          checked={isPublish}
+                          onCheckedChange={(checked) => {
+                            setIsPublish(Boolean(checked));
+                            markTouched("visibility");
+                          }}
                         />
+                        <div className="space-y-0.5">
+                          <Label
+                            htmlFor="story-visibility"
+                            className="cursor-pointer text-sm font-medium"
+                          >
+                            Make this story public
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Turn this off to keep the story private or saved as draft.
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                        {filteredGenres.length > 0 ? (
-                          <div className="flex flex-wrap gap-3">
-                            {filteredGenres.map((genre) => {
-                              const isSelected = selectedGenreIds.includes(genre._id);
-                              const isDisabled =
-                                !isSelected && selectedGenreIds.length >= 3;
-
-                              return (
-                                <button
-                                  key={genre._id}
-                                  type="button"
-                                  disabled={isDisabled}
-                                  onClick={() => handleToggleGenre(genre._id)}
-                                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
-                                    isSelected
-                                      ? "border-primary bg-primary/10 text-primary"
-                                      : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/40"
-                                  } ${isDisabled ? "cursor-not-allowed opacity-50" : ""}`}
-                                >
-                                  {isSelected ? <Check className="h-4 w-4" /> : null}
-                                  <span>{genre.name}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="rounded-xl border border-dashed border-border/70 py-8 text-center text-sm text-muted-foreground">
-                            No genres found for “{genreSearch}”.
-                          </div>
-                        )}
-                      </div>
-
-                      <FieldHint>
-                        Choose one to three genres to improve discoverability.
-                      </FieldHint>
                       <FieldError>
-                        {shouldShowError("genres") ? publishErrors.genres : ""}
+                        {shouldShowError("visibility")
+                          ? publishErrors.visibility
+                          : ""}
                       </FieldError>
                     </div>
+                  </div>
 
-                    <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Status</Label>
-                        <Select
-                          value={storyStatus}
-                          onValueChange={(value) =>
-                            setStoryStatus(value as "ongoing" | "completed" | "hiatus")
-                          }
-                        >
-                          <SelectTrigger className="h-11 rounded-xl border-border/70 bg-background shadow-sm">
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-
-                          <SelectContent>
-                            {statusOptions.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-
-                        <FieldHint>Set the current release status.</FieldHint>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Visibility</Label>
-
-                        <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                          <div className="flex items-start gap-3">
-                            <Checkbox
-                              id="is-public"
-                              checked={isPublish}
-                              onCheckedChange={(value) => {
-                                setIsPublish(!!value);
-                                markTouched("visibility");
-                              }}
-                              className="mt-0.5"
-                            />
-
-                            <div className="space-y-1">
-                              <Label
-                                htmlFor="is-public"
-                                className="cursor-pointer text-sm font-medium"
-                              >
-                                Public visibility
-                              </Label>
-                              <p className="text-sm text-muted-foreground">
-                                Readers can discover and access this story after
-                                publishing.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <FieldError>
-                          {shouldShowError("visibility")
-                            ? publishErrors.visibility
-                            : ""}
-                        </FieldError>
-                      </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label className="text-sm font-medium">
+                        Genres
+                        <RequiredMark />
+                      </Label>
+                      <span className="text-xs text-muted-foreground">
+                        {selectedGenreIds.length}/3 selected
+                      </span>
                     </div>
+
+                    <Input
+                      value={genreSearch}
+                      onChange={(e) => setGenreSearch(e.target.value)}
+                      placeholder="Search genres..."
+                      className="h-11 rounded-xl border-border/70 bg-background shadow-sm"
+                    />
+
+                    <div className="grid max-h-[260px] gap-2 overflow-auto rounded-2xl border border-border/70 p-3">
+                      {filteredGenres.map((genre) => {
+                        const checked = selectedGenreIds.includes(genre._id);
+                        return (
+                          <button
+                            key={genre._id}
+                            type="button"
+                            onClick={() => handleToggleGenre(genre._id)}
+                            className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left transition ${
+                              checked
+                                ? "border-primary bg-primary/5"
+                                : "border-border/70 hover:bg-muted/30"
+                            }`}
+                          >
+                            <span className="text-sm">{genre.name}</span>
+                            {checked ? <Check className="h-4 w-4 text-primary" /> : null}
+                          </button>
+                        );
+                      })}
+
+                      {filteredGenres.length === 0 ? (
+                        <p className="py-6 text-center text-sm text-muted-foreground">
+                          No genres found.
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <FieldHint>Choose up to 3 genres.</FieldHint>
+                    <FieldError>
+                      {shouldShowError("genres") ? publishErrors.genres : ""}
+                    </FieldError>
                   </div>
                 </CardContent>
               </Card>
@@ -923,127 +927,95 @@ export default function EditStoryPage() {
                 publishError={rightsError}
               />
 
-              <Card className="rounded-2xl border-border/70 shadow-sm">
-                <CardHeader className="border-b border-border/60 pb-5">
-                  <SectionHeader
-                    title="Publishing"
-                    description="Review your setup and choose what to do next."
-                  />
-                </CardHeader>
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button
+                  variant="outline"
+                  className="rounded-xl"
+                  disabled={isSavingDraft || isUpdating}
+                  onClick={() => submitStory("draft")}
+                >
+                  {isSavingDraft ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving draft...
+                    </>
+                  ) : (
+                    "Save Draft"
+                  )}
+                </Button>
 
-                <CardContent className="pt-6">
-                  <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold">
-                          {formReady
-                            ? "Ready to update"
-                            : `Complete ${remainingRequiredCount} more required ${
-                                remainingRequiredCount === 1 ? "field" : "fields"
-                              }`}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          You can still manage proof files separately from the
-                          license page.
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col-reverse gap-3 sm:flex-row">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="rounded-xl"
-                          onClick={() => router.push("/author/dashboard")}
-                          disabled={isUpdating || isSavingDraft}
-                        >
-                          Cancel
-                        </Button>
-
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="rounded-xl"
-                          onClick={() => submitStory("draft")}
-                          disabled={isUpdating || isSavingDraft}
-                        >
-                          {isSavingDraft ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : null}
-                          Save Draft
-                        </Button>
-
-                        <Button
-                          type="button"
-                          className="rounded-xl px-6 shadow-sm"
-                          onClick={() => submitStory("publish")}
-                          disabled={isUpdating || isSavingDraft}
-                        >
-                          {isUpdating ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : null}
-                          {isUpdating ? "Updating..." : "Update Story"}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                <Button
+                  className="rounded-xl"
+                  disabled={isSavingDraft || isUpdating}
+                  onClick={() => submitStory("publish")}
+                >
+                  {isUpdating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating story...
+                    </>
+                  ) : (
+                    "Update Story"
+                  )}
+                </Button>
+              </div>
             </div>
 
-            <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+            <div className="space-y-6">
               <Card className="rounded-2xl border-border/70 shadow-sm">
-                <CardHeader className="pb-4">
+                <CardHeader className="border-b border-border/60">
                   <SectionHeader
                     title="Live Preview"
-                    description="A quick overview of how your story setup looks."
+                    description="Review how the story is currently configured before saving."
                   />
                 </CardHeader>
 
-                <CardContent className="space-y-4">
-                  <div className="mx-auto aspect-[2/3] w-full max-w-[220px] overflow-hidden rounded-2xl border border-border/70 bg-muted/30">
+                <CardContent className="space-y-5 pt-6">
+                  <div className="overflow-hidden rounded-2xl border border-border/70 bg-muted/20">
                     {coverPreview ? (
                       <img
                         src={coverPreview}
-                        alt="Story cover preview"
-                        className="h-full w-full object-cover"
+                        alt="story cover preview"
+                        className="aspect-[2/3] w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-                        <ImageIcon className="mb-3 h-8 w-8 text-muted-foreground" />
-                        <p className="text-sm font-medium">No cover yet</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Your uploaded cover will appear here.
-                        </p>
+                      <div className="flex aspect-[2/3] items-center justify-center">
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                          <ImageIcon className="h-8 w-8" />
+                          <p className="text-sm">No cover selected</p>
+                        </div>
                       </div>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="text-lg font-semibold leading-snug text-foreground">
-                      {storyTitle.trim() || "Untitled Story"}
+                    <h3 className="line-clamp-2 text-lg font-semibold">
+                      {storyTitle.trim() || "Untitled story"}
                     </h3>
-                    <p className="text-sm leading-6 text-muted-foreground">
-                      {storySummary.trim() ||
-                        "Your story description will appear here once you start typing."}
+                    <p className="line-clamp-5 text-sm text-muted-foreground">
+                      {storySummary.trim() || "No description yet."}
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                      {selectedStyleDoc?.name || "Story type"}
-                    </span>
-                    <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                      {selectedStatusLabel}
-                    </span>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        isPublish
-                          ? "bg-primary/10 text-primary"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {isPublish ? "Public" : "Private"}
-                    </span>
+                  <div className="grid gap-3 rounded-2xl border border-border/70 bg-background p-4">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Status</span>
+                      <span className="font-medium capitalize">{storyStatus}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Style</span>
+                      <span className="font-medium">
+                        {selectedStyleDoc?.name || "Not selected"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Visibility</span>
+                      <span className="font-medium">
+                        {isPublish ? "Public" : "Private"}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -1089,6 +1061,39 @@ export default function EditStoryPage() {
                         {storyRights.declarationAccepted ? "Accepted" : "Not accepted"}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <Button asChild variant="outline" className="rounded-xl">
+                      <Link href={`/author/manga/${id}/license`}>
+                        Manage proof documents
+                      </Link>
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      className="rounded-xl"
+                      onClick={() => {
+                        setStoryTitle("");
+                        setStorySummary("");
+                        setSelectedGenreIds([]);
+                        setSelectedStyleId("");
+                        setStoryRights(getDefaultRights());
+                        setRightsError(null);
+
+                        if (coverPreview.startsWith("blob:")) {
+                          URL.revokeObjectURL(coverPreview);
+                        }
+                        setCoverFile(null);
+                        setCoverPreview(toCoverUrl(apiBase, existingCoverImage));
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = "";
+                        }
+                      }}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Reset unsaved changes
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

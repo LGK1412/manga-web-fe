@@ -69,7 +69,9 @@ function normalizeLicenseStatus(input?: string) {
   return "none";
 }
 
-function normalizeRightsResponse(payload: StoryRightsResponse | null | undefined): StoryRights {
+function normalizeRightsResponse(
+  payload: StoryRightsResponse | null | undefined,
+): StoryRights {
   return {
     ...getDefaultRights(),
     ...(payload?.rights || {}),
@@ -122,7 +124,7 @@ export default function AuthorStoryLicensePage() {
   };
 
   const fetchRights = async () => {
-    const res = await api.get<StoryRightsResponse>(`/manga/${id}/rights`);
+    const res = await api.get<StoryRightsResponse>(`/license/${id}/rights`);
     setRightsPayload(res.data);
     const normalized = normalizeRightsResponse(res.data);
     setRights(normalized);
@@ -153,7 +155,7 @@ export default function AuthorStoryLicensePage() {
       setSuccessMessage(null);
 
       const res = await api.patch<StoryRightsResponse>(
-        `/manga/${id}/rights`,
+        `/license/${id}/rights`,
         buildRightsPayload(rights),
       );
 
@@ -174,7 +176,7 @@ export default function AuthorStoryLicensePage() {
       setSuccessMessage(null);
 
       const res = await api.patch<StoryRightsResponse>(
-        `/manga/${id}/rights/declaration`,
+        `/license/${id}/rights/declaration`,
         {
           accepted: rights.declarationAccepted,
           declarationVersion: rights.declarationVersion || "v1",
@@ -206,7 +208,7 @@ export default function AuthorStoryLicensePage() {
       files.forEach((file) => formData.append("files", file));
       formData.append("note", uploadNote);
 
-      await api.post(`/manga/${id}/license`, formData, {
+      await api.post(`/license/${id}/files`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 

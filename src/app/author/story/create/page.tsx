@@ -427,10 +427,10 @@ export default function CreateStoryPage() {
         throw new Error("Story created but no story id returned.");
       }
 
-      await api.patch(`/manga/${storyId}/rights`, buildRightsPayload(storyRights));
+      await api.patch(`/license/${storyId}/rights`, buildRightsPayload(storyRights));
 
       if (storyRights.declarationAccepted) {
-        await api.patch(`/manga/${storyId}/rights/declaration`, {
+        await api.patch(`/license/${storyId}/rights/declaration`, {
           accepted: true,
           declarationVersion: storyRights.declarationVersion || "v1",
         });
