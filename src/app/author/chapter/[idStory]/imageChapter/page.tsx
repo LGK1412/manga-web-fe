@@ -21,6 +21,7 @@ import {
   ChevronsUp,
   ChevronsDown,
   RefreshCw,
+  HelpCircle,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 
@@ -429,6 +430,10 @@ export default function CreateChapterPage() {
 
   async function handleCreateOrUpdate() {
     if (!validate()) return;
+    const currentChapter = chapters.find((c) => c.id === currentEditingId);
+    const newPublishStatus = isCreatingMode
+      ? true
+      : !currentChapter?.is_published;
 
     startTransition(async () => {
       try {
@@ -436,7 +441,7 @@ export default function CreateChapterPage() {
         formData.append("title", title);
         formData.append("price", String(price));
         formData.append("order", String(order));
-        formData.append("is_published", "true");
+        formData.append("is_published", String(newPublishStatus));
         formData.append("content", content);
         formData.append("manga_id", mangaId as string);
 
@@ -463,6 +468,7 @@ export default function CreateChapterPage() {
         }
 
         let res;
+
         if (isCreatingMode) {
           res = await axios.post(
             `${process.env.NEXT_PUBLIC_API_URL}/api/image-chapter`,
@@ -497,19 +503,13 @@ export default function CreateChapterPage() {
                     title: chapterData.title,
                     order: chapterData.order,
                     price: chapterData.price ?? 0,
-                    is_published: true,
+                    is_published: chapterData.is_published,
                   }
                 : c,
             ),
           );
           setDirty(false);
         }
-
-        alert(
-          isCreatingMode
-            ? "Chapter created successfully!"
-            : "Chapter updated successfully!",
-        );
       } catch (err) {
         console.error("Error processing chapter", err);
         alert(
@@ -627,7 +627,7 @@ export default function CreateChapterPage() {
                 </div>
                 <div>
                   <h1 className="text-base font-semibold text-slate-900 tracking-tight">
-                    ChapterForge
+                    Chapter Forge
                   </h1>
                   <p className="text-xs text-slate-500">
                     Manage manga chapters
@@ -681,7 +681,7 @@ export default function CreateChapterPage() {
                   }
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  New
+                  Create New
                 </button>
               </div>
 
@@ -728,11 +728,6 @@ export default function CreateChapterPage() {
                               ) : (
                                 <span className="px-2 py-0.5 text-[10px] rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                                   Draft
-                                </span>
-                              )}
-                              {chapter.isActive && (
-                                <span className="px-2 py-0.5 text-[10px] rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                                  Editing
                                 </span>
                               )}
                             </div>
@@ -787,7 +782,7 @@ export default function CreateChapterPage() {
 
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium text-slate-600">
-                    {isCreatingMode ? `Ch. ${order} (new)` : `Ch. ${order}`}
+                    {isCreatingMode ? `Ch. ${order}` : `Ch. ${order}`}
                   </span>
                   {dirty && (
                     <span className="text-[11px] text-amber-600">
@@ -803,14 +798,9 @@ export default function CreateChapterPage() {
                   <button
                     onClick={handleDiscard}
                     className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                    title={isCreatingMode ? "Cancel creation" : "Undo changes"}
                   >
-                    {isCreatingMode ? (
-                      <X className="h-4 w-4" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                    {isCreatingMode ? "Cancel" : "Undo"}
+                    <X className="h-4 w-4" />
+                    {isCreatingMode ? "Cancel" : "Discard Changes"}
                   </button>
 
                   <button
@@ -827,20 +817,19 @@ export default function CreateChapterPage() {
                       ? "Saving..."
                       : isCreatingMode
                         ? "Save Draft"
-                        : "Save as Draft"}
+                        : "Save Changes"}
                   </button>
 
                   <button
                     onClick={handleCreateOrUpdate}
                     disabled={isPending || !mangaId}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    title={
-                      !mangaId
-                        ? "Add mangaId to URL first"
-                        : isCreatingMode
-                          ? "Create chapter"
-                          : "Update chapter"
-                    }
+                    className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-white transition-colors ${
+                      !isCreatingMode &&
+                      chapters.find((c) => c.id === currentEditingId)
+                        ?.is_published
+                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        : "bg-blue-600 hover:bg-blue-700"
+                    }`}
                   >
                     {isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -852,8 +841,11 @@ export default function CreateChapterPage() {
                         ? "Creating..."
                         : "Updating..."
                       : isCreatingMode
-                        ? "Publish Chapter"
-                        : "Update & Publish"}
+                        ? "Create Chapter"
+                        : chapters.find((c) => c.id === currentEditingId)
+                              ?.is_published
+                          ? "Unpublish"
+                          : "Publish"}
                   </button>
                 </div>
               </div>
@@ -931,10 +923,51 @@ export default function CreateChapterPage() {
                           )}
                         </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-2">
-                            Points
-                          </label>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <label className="block text-sm font-medium text-slate-700">
+                              Points
+                            </label>
+                            <div className="group relative flex items-center">
+                              <HelpCircle className="h-4 w-4 text-slate-400 cursor-help hover:text-blue-500 transition-colors" />
+
+                              {/* Tooltip content */}
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 bg-slate-800 text-white text-[11px] leading-relaxed rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-30 pointer-events-none">
+                                <p className="font-semibold border-b border-slate-600 pb-1 mb-1.5 text-blue-300">
+                                  Monetization Rules:
+                                </p>
+                                <ul className="space-y-1.5 list-none">
+                                  <li>
+                                    •{" "}
+                                    <span className="text-emerald-400 font-medium">
+                                      0 Points:
+                                    </span>{" "}
+                                    Chapter is free for everyone.
+                                  </li>
+                                  <li>
+                                    •{" "}
+                                    <span className="text-amber-400 font-medium">
+                                      &gt; 0 Points:
+                                    </span>{" "}
+                                    Users must pay the specified amount to
+                                    unlock.
+                                  </li>
+                                  <li>
+                                    •{" "}
+                                    <span className="text-blue-300 font-medium">
+                                      Earnings:
+                                    </span>{" "}
+                                    Points spent by users are converted into{" "}
+                                    <strong>Author Points</strong> for your
+                                    account.
+                                  </li>
+                                </ul>
+                                {/* Tooltip Arrow */}
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-800"></div>
+                              </div>
+                            </div>
+                          </div>
+
                           <input
                             type="number"
                             min={0}
@@ -949,8 +982,8 @@ export default function CreateChapterPage() {
                             placeholder="0"
                             className="w-full px-4 py-3 border border-slate-300 rounded-xl text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-slate-400"
                           />
-                          <p className="mt-2 text-xs text-slate-500">
-                            Set to 0 if free
+                          <p className="text-xs text-slate-500 italic">
+                            Set to 0 to make this chapter free to read.
                           </p>
                         </div>
                       </div>

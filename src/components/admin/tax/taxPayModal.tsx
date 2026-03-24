@@ -108,16 +108,17 @@ export default function PayTaxModal({
       );
 
       toast({
-        title: "Thành công",
-        description: "Đã xác nhận thanh toán thuế",
+        title: "Mark Successfully",
+        description: "Tax payment confirmed.",
+        variant: "success",
       });
       setOpen(false);
       onSuccess(); // Load lại danh sách
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể cập nhật trạng thái thanh toán",
+        title: "Error while marking",
+        description: "Cannot update status",
       });
     } finally {
       setSubmitting(false);
@@ -132,17 +133,17 @@ export default function PayTaxModal({
           variant="outline"
           className="text-green-600 border-green-200 hover:bg-green-50"
         >
-          <CheckCircle2 className="w-4 h-4 mr-1" /> Xác nhận thanh toán
+          <CheckCircle2 className="w-4 h-4 mr-1" /> Confirm
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Xác nhận thanh toán quyết toán</DialogTitle>
+          <DialogTitle>Confirm Tax Settlement</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Số chứng từ / Mã giao dịch</Label>
+            <Label>Receipt number</Label>
             <Input
               placeholder="VD: VCB-12345678"
               value={receiptNumber}
@@ -151,7 +152,7 @@ export default function PayTaxModal({
           </div>
 
           <div className="space-y-2">
-            <Label>Bằng chứng thanh toán (Ảnh/PDF)</Label>
+            <Label>Documents (Img/PDF)</Label>
             <div className="border-2 border-dashed rounded-lg p-4 text-center hover:bg-slate-50 transition-colors relative">
               <input
                 type="file"
@@ -162,7 +163,7 @@ export default function PayTaxModal({
               />
               <UploadCloud className="mx-auto h-8 w-8 text-slate-400" />
               <p className="text-sm text-slate-600 mt-2">
-                Kéo thả hoặc nhấp để chọn file
+                Drag and drop or click to select files.
               </p>
             </div>
 
@@ -193,9 +194,9 @@ export default function PayTaxModal({
           </div>
 
           <div className="space-y-2">
-            <Label>Ghi chú</Label>
+            <Label>Note</Label>
             <Textarea
-              placeholder="Nội dung ghi chú nếu có..."
+              placeholder="Notes, if any..."
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
@@ -204,14 +205,14 @@ export default function PayTaxModal({
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>
-            Hủy
+            Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={submitting || selectedFiles.length === 0}
           >
             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Xác nhận Paid
+            Confirm
           </Button>
         </DialogFooter>
       </DialogContent>

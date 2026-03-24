@@ -79,7 +79,9 @@ async function fakeAiModerate(inputHtml: string): Promise<{
       status: "AI_BLOCK",
       risk: 92,
       labels: ["policy_violation"],
-      findings: [{ section: "content", score: 0.92, note: "Sensitive keywords" }],
+      findings: [
+        { section: "content", score: 0.92, note: "Sensitive keywords" },
+      ],
     };
   }
   if (wc < 30) {
@@ -98,7 +100,11 @@ async function fakeAiModerate(inputHtml: string): Promise<{
   };
 }
 
-async function submitForAi(chapterId: string, policyVersion: string, contentHash: string) {
+async function submitForAi(
+  chapterId: string,
+  policyVersion: string,
+  contentHash: string,
+) {
   return api.post("/moderation/submit", {
     chapterId,
     policyVersion,
@@ -232,9 +238,7 @@ export default function CreateChapterPage({
       } catch (err: any) {
         console.error("Error saving draft", err);
         const errorMessage =
-          err?.response?.data?.message ||
-          err?.message ||
-          "Error saving draft";
+          err?.response?.data?.message || err?.message || "Error saving draft";
         alert(errorMessage);
       }
     });
@@ -313,7 +317,9 @@ export default function CreateChapterPage({
   // === Nút Kiểm tra Policy (AI) — yêu cầu chapterId có sẵn ===
   async function handleAiCheckForCreate() {
     // Tại trang tạo chương: chưa có chapterId → yêu cầu lưu/tạo trước
-    alert("Please Save draft or Create chapter first, then go to Edit page to run Policy (AI) check.");
+    alert(
+      "Please Save draft or Create chapter first, then go to Edit page to run Policy (AI) check.",
+    );
   }
 
   return (
@@ -328,7 +334,7 @@ export default function CreateChapterPage({
               </div>
               <div>
                 <h1 className="text-base font-semibold text-slate-900 tracking-tight">
-                  ChapterForge
+                  Chapter Forge
                 </h1>
                 <p className="text-xs text-slate-500">Manage text chapters</p>
               </div>
@@ -355,7 +361,7 @@ export default function CreateChapterPage({
                   "text-[10px] px-2 py-0.5 rounded-full border",
                   dirty
                     ? "bg-amber-50 text-amber-700 border-amber-200"
-                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200",
                 )}
                 title={dirty ? "Unsaved changes" : "Ready"}
               >
@@ -385,7 +391,10 @@ export default function CreateChapterPage({
                 <div className="flex items-center gap-2 text-xs text-blue-800">
                   <span className="font-medium">Quick tip</span>
                   <ChevronRight className="h-3 w-3" />
-                  <span>Fill in the information on the right then click "Create chapter".</span>
+                  <span>
+                    Fill in the information on the right then click "Create
+                    chapter".
+                  </span>
                 </div>
               </div>
 
@@ -496,13 +505,15 @@ export default function CreateChapterPage({
                 <button
                   onClick={handleCreate}
                   disabled={isPending || !mangaId}
-                  title={!mangaId ? "Add mangaId to URL first" : "Create chapter"}
+                  title={
+                    !mangaId ? "Add mangaId to URL first" : "Create chapter"
+                  }
                   className={clsx(
                     "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-white shadow-sm",
                     "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
                     isPending || !mangaId
                       ? "bg-blue-400 cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-700"
+                      : "bg-blue-600 hover:bg-blue-700",
                   )}
                 >
                   {isPending ? (
@@ -547,7 +558,7 @@ export default function CreateChapterPage({
                       className={clsx(
                         "mt-1 w-full rounded-xl border px-3.5 py-2.5 text-slate-900 placeholder-slate-400",
                         "focus:outline-none focus:ring-2 focus:ring-blue-200",
-                        errors.title ? "border-red-300" : "border-slate-300"
+                        errors.title ? "border-red-300" : "border-slate-300",
                       )}
                     />
                     <div className="mt-1 flex items-center justify-between">
@@ -584,7 +595,7 @@ export default function CreateChapterPage({
                         className={clsx(
                           "mt-1 w-full rounded-xl border px-3.5 py-2.5 text-slate-900",
                           "focus:outline-none focus:ring-2 focus:ring-blue-200",
-                          errors.number ? "border-red-300" : "border-slate-300"
+                          errors.number ? "border-red-300" : "border-slate-300",
                         )}
                       />
                       {errors.number && (

@@ -239,10 +239,8 @@ export default function PayoutCard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Settlement Batches</CardTitle>
-          <CardDescription>
-            Các đợt thanh toán đã export cho author
-          </CardDescription>
+          <CardTitle>Payout Settlement</CardTitle>
+          <CardDescription>Manage author withdrawal payments.</CardDescription>
         </CardHeader>
 
         <CardContent>
@@ -253,7 +251,7 @@ export default function PayoutCard() {
                 <TableHead className="text-right">Total Net</TableHead>
                 <TableHead>Withdraw Count</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Action</TableHead>
+                <TableHead className="text-center">Action</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -304,7 +302,6 @@ export default function PayoutCard() {
                     </TableCell>
 
                     <TableCell className="text-right flex justify-end gap-2">
-                      {/* Nút Tải file ZIP/Excel hiện tại */}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -312,7 +309,7 @@ export default function PayoutCard() {
                         className="hover:bg-primary/10 text-primary"
                       >
                         <FileDown className="w-4 h-4 mr-1" />
-                        Tải file
+                        Excel
                       </Button>
 
                       {p.status === "paid" ? (
@@ -325,7 +322,7 @@ export default function PayoutCard() {
                         </>
                       ) : p.status === "cancelled" ? (
                         <Badge variant="outline" className="text-red-400">
-                          Đã hủy ({p.note})
+                          Rejected ({p.note})
                         </Badge>
                       ) : (
                         <div className="flex gap-1">

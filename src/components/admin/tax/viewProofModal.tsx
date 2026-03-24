@@ -63,7 +63,7 @@ export default function ViewProofModal({ tax }: { tax: TaxSettlement }) {
           className="text-blue-600 border-blue-200 hover:bg-blue-50 gap-2"
         >
           <Eye className="w-4 h-4" />
-          Chứng từ ({tax.proofFiles?.length || 0})
+          Documents ({tax.proofFiles?.length || 0})
         </Button>
       </DialogTrigger>
 
@@ -71,15 +71,15 @@ export default function ViewProofModal({ tax }: { tax: TaxSettlement }) {
         <DialogHeader className="border-b pb-4">
           <DialogTitle className="text-xl flex items-center gap-2">
             <CheckCircle2 className="text-green-500 w-5 h-5" />
-            Chi tiết thanh toán
+            Payout Detail
           </DialogTitle>
           <div className="grid grid-cols-2 gap-4 mt-4 text-sm bg-slate-50 p-3 rounded-md">
             <div>
-              <p className="text-slate-500">Mã giao dịch/Số lệnh:</p>
+              <p className="text-slate-500">Receip number</p>
               <p className="font-bold">{tax.receiptNumber || "N/A"}</p>
             </div>
             <div>
-              <p className="text-slate-500">Ngày thanh toán:</p>
+              <p className="text-slate-500">Paid date</p>
               <p className="font-bold">
                 {tax.paidAt
                   ? new Date(tax.paidAt).toLocaleString("vi-VN")
@@ -88,7 +88,7 @@ export default function ViewProofModal({ tax }: { tax: TaxSettlement }) {
             </div>
             {tax.note && (
               <div className="col-span-2">
-                <p className="text-slate-500">Ghi chú:</p>
+                <p className="text-slate-500">Note:</p>
                 <p className="italic text-slate-700">&quot;{tax.note}&quot;</p>
               </div>
             )}
@@ -97,7 +97,7 @@ export default function ViewProofModal({ tax }: { tax: TaxSettlement }) {
 
         <div className="space-y-6 py-4">
           <h4 className="font-semibold text-slate-900 flex items-center gap-2">
-            <ImageIcon className="w-4 h-4" /> Danh sách tệp tin đính kèm
+            <ImageIcon className="w-4 h-4" /> List of attached files
           </h4>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -171,7 +171,7 @@ export default function ViewProofModal({ tax }: { tax: TaxSettlement }) {
               (document.querySelector('[data-state="open"]') as any)?.click()
             }
           >
-            Đóng
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>

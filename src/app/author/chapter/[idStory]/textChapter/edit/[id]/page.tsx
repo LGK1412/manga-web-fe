@@ -93,7 +93,9 @@ async function fakeAiModerate(inputHtml: string): Promise<{
       status: "AI_BLOCK",
       risk: 92,
       labels: ["policy_violation"],
-      findings: [{ section: "content", score: 0.92, note: "Sensitive keywords" }],
+      findings: [
+        { section: "content", score: 0.92, note: "Sensitive keywords" },
+      ],
     };
   }
   if (wc < 30) {
@@ -112,7 +114,11 @@ async function fakeAiModerate(inputHtml: string): Promise<{
   };
 }
 
-async function submitForAi(chapterId: string, policyVersion: string, contentHash: string) {
+async function submitForAi(
+  chapterId: string,
+  policyVersion: string,
+  contentHash: string,
+) {
   return api.post("/moderation/submit", {
     chapterId,
     policyVersion,
@@ -212,7 +218,7 @@ export default function EditChapterPage({
       try {
         setIsLoadingDetail(true);
         const res = await api.get<ChapterDetailResponse>(
-          `/text-chapter/id/${chapterId}`
+          `/text-chapter/id/${chapterId}`,
         );
         if (!mounted) return;
         const data = res.data;
@@ -273,8 +279,10 @@ export default function EditChapterPage({
 
         setChapters((prev) =>
           prev.map((c) =>
-            c.id === chapterId ? { ...c, title, number, price, isPublished } : c
-          )
+            c.id === chapterId
+              ? { ...c, title, number, price, isPublished }
+              : c,
+          ),
         );
         setDirty(false);
       } catch (err: any) {
@@ -301,8 +309,8 @@ export default function EditChapterPage({
       setIsPublished(nextPublished);
       setChapters((prev) =>
         prev.map((c) =>
-          c.id === chapterId ? { ...c, isPublished: nextPublished } : c
-        )
+          c.id === chapterId ? { ...c, isPublished: nextPublished } : c,
+        ),
       );
     } catch (err: any) {
       console.error("Error toggling publish status", err);
@@ -333,7 +341,7 @@ export default function EditChapterPage({
     try {
       setIsLoadingDetail(true);
       const res = await api.get<ChapterDetailResponse>(
-        `/text-chapter/id/${chapterId}`
+        `/text-chapter/id/${chapterId}`,
       );
       const data = res.data;
       setTitle(data.title ?? "");
@@ -387,7 +395,7 @@ export default function EditChapterPage({
           ? "✅ AI PASSED — you can publish."
           : ai.status === "AI_WARN"
             ? "⚠️ AI WARN — content has warnings, consider before publishing."
-            : "⛔ AI BLOCK — content blocked by policy."
+            : "⛔ AI BLOCK — content blocked by policy.",
       );
     } catch (e) {
       console.error("AI check failed:", e);
@@ -409,7 +417,7 @@ export default function EditChapterPage({
               </div>
               <div>
                 <h1 className="text-base font-semibold text-slate-900 tracking-tight">
-                  ChapterForge
+                  Chapter Forge
                 </h1>
                 <p className="text-xs text-slate-500">Manage text chapters</p>
               </div>
@@ -436,7 +444,7 @@ export default function EditChapterPage({
                   "text-[10px] px-2 py-0.5 rounded-full border",
                   dirty
                     ? "bg-amber-50 text-amber-700 border-amber-200"
-                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200",
                 )}
                 title={dirty ? "Unsaved changes" : "Ready"}
               >
@@ -466,7 +474,10 @@ export default function EditChapterPage({
                 <div className="flex items-center gap-2 text-xs text-blue-800">
                   <span className="font-medium">Quick tip</span>
                   <ChevronRight className="h-3 w-3" />
-                  <span>Fill in the information on the right then click "Create chapter".</span>
+                  <span>
+                    Fill in the information on the right then click "Create
+                    chapter".
+                  </span>
                 </div>
               </div>
 
@@ -580,7 +591,7 @@ export default function EditChapterPage({
                       !dirty ||
                       !!errors.title ||
                       !!errors.number) &&
-                    "opacity-60 cursor-not-allowed"
+                      "opacity-60 cursor-not-allowed",
                   )}
                   title={!dirty ? "No changes to save" : "Save changes"}
                 >
@@ -601,7 +612,7 @@ export default function EditChapterPage({
                       ? "bg-blue-400 cursor-not-allowed"
                       : isPublished
                         ? "bg-emerald-600 hover:bg-emerald-700"
-                        : "bg-blue-600 hover:bg-blue-700"
+                        : "bg-blue-600 hover:bg-blue-700",
                   )}
                   title={isPublished ? "Unpublish" : "Publish"}
                 >
@@ -657,7 +668,9 @@ export default function EditChapterPage({
                           className={clsx(
                             "mt-1 w-full rounded-xl border px-3.5 py-2.5 text-slate-900 placeholder-slate-400",
                             "focus:outline-none focus:ring-2 focus:ring-blue-200",
-                            errors.title ? "border-red-300" : "border-slate-300"
+                            errors.title
+                              ? "border-red-300"
+                              : "border-slate-300",
                           )}
                         />
                         <div className="mt-1 flex items-center justify-between">
@@ -695,7 +708,7 @@ export default function EditChapterPage({
                               "focus:outline-none focus:ring-2 focus:ring-blue-200",
                               errors.number
                                 ? "border-red-300"
-                                : "border-slate-300"
+                                : "border-slate-300",
                             )}
                           />
                           {errors.number && (
@@ -778,7 +791,7 @@ export default function EditChapterPage({
                         "inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs",
                         isAiRunning
                           ? "border-slate-200 bg-slate-100 cursor-wait"
-                          : "border-slate-200 bg-white hover:bg-slate-50"
+                          : "border-slate-200 bg-white hover:bg-slate-50",
                       )}
                       title="Run Policy (AI) check"
                     >
@@ -812,7 +825,8 @@ export default function EditChapterPage({
 
                       <div className="mt-2 flex items-center justify-between">
                         <p className="text-[11px] text-slate-500">
-                          You can publish/unpublish using the button in the top bar.
+                          You can publish/unpublish using the button in the top
+                          bar.
                         </p>
                         {dirty && (
                           <span className="text-[11px] text-amber-600">
