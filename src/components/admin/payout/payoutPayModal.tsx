@@ -116,17 +116,17 @@ export default function PayPayoutModal({
           variant="outline"
           className="text-green-600 border-green-200 hover:bg-green-50"
         >
-          <CheckCircle2 className="w-4 h-4 mr-1" /> Xác nhận thanh toán
+          <CheckCircle2 className="w-4 h-4 mr-1" /> Confirm
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Xác nhận thanh toán</DialogTitle>
+          <DialogTitle>Comfirm Payout Settlement</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Bằng chứng thanh toán (Ảnh/PDF)</Label>
+            <Label>Documents (Img/PDF)</Label>
             <div className="border-2 border-dashed rounded-lg p-4 text-center hover:bg-slate-50 transition-colors relative">
               <input
                 type="file"
@@ -137,7 +137,7 @@ export default function PayPayoutModal({
               />
               <UploadCloud className="mx-auto h-8 w-8 text-slate-400" />
               <p className="text-sm text-slate-600 mt-2">
-                Kéo thả hoặc nhấp để chọn file
+                Drag and drop or click to upload
               </p>
             </div>
 
@@ -168,9 +168,9 @@ export default function PayPayoutModal({
           </div>
 
           <div className="space-y-2">
-            <Label>Ghi chú</Label>
+            <Label>Note</Label>
             <Textarea
-              placeholder="Nội dung ghi chú nếu có..."
+              placeholder="Notes, if any..."
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
@@ -179,14 +179,14 @@ export default function PayPayoutModal({
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>
-            Hủy
+            Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={submitting || selectedFiles.length === 0}
           >
             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Xác nhận
+            Confirm
           </Button>
         </DialogFooter>
       </DialogContent>

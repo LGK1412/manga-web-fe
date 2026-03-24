@@ -64,7 +64,7 @@ export default function PayoutProfileManagement() {
   }, [fetchData]);
 
   const handleApprove = async (id: string) => {
-    if (!confirm("Xác nhận duyệt Profile này?")) return;
+    if (!confirm("Confirm approve?")) return;
     try {
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/payout-profile/admin/approve/${id}`,
@@ -85,7 +85,7 @@ export default function PayoutProfileManagement() {
   };
 
   const handleReject = async (id: string) => {
-    const reason = prompt("Lý do từ chối (bắt buộc):");
+    const reason = prompt("Reject reason:");
     if (!reason) return;
 
     try {
@@ -126,10 +126,10 @@ export default function PayoutProfileManagement() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">
-              Quản lý Payout Profile
+              Payout Profile Management
             </h1>
             <p className="text-sm text-gray-500">
-              Duyệt thông tin định danh và thuế của tác giả
+              To process the author&apos;s withdrawal profiles.
             </p>
           </div>
         </div>
@@ -138,10 +138,10 @@ export default function PayoutProfileManagement() {
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-[200px]">
             <label className="block text-xs font-medium text-gray-400 uppercase mb-1">
-              Tìm kiếm
+              Search
             </label>
             <input
-              placeholder="Tên, số CCCD..."
+              placeholder="Search by name, citizen ID..."
               className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               value={keyword}
               onChange={(e) => {
@@ -153,7 +153,7 @@ export default function PayoutProfileManagement() {
 
           <div className="w-48">
             <label className="block text-xs font-medium text-gray-400 uppercase mb-1">
-              Trạng thái
+              Status
             </label>
             <select
               className="w-full border border-gray-300 p-2.5 rounded-lg outline-none cursor-pointer"
@@ -163,7 +163,7 @@ export default function PayoutProfileManagement() {
                 setPage(1);
               }}
             >
-              <option value="">Tất cả</option>
+              <option value="">All</option>
               <option value="pending">Pending</option>
               <option value="verified">Verified</option>
               <option value="rejected">Rejected</option>
@@ -283,14 +283,14 @@ export default function PayoutProfileManagement() {
                         <div className="flex justify-end gap-2">
                           {p.isHistory ? (
                             <span className="text-[11px] text-gray-400 italic py-2">
-                              No actions (Old)
+                              No actions
                             </span>
                           ) : p.kycStatus === "pending" ? (
                             <>
                               <button
                                 onClick={() => handleApprove(p._id)}
                                 className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-200"
-                                title="Duyệt hồ sơ mới"
+                                title="Approve"
                               >
                                 <svg
                                   className="w-5 h-5"
@@ -309,7 +309,7 @@ export default function PayoutProfileManagement() {
                               <button
                                 onClick={() => handleReject(p._id)}
                                 className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-200"
-                                title="Từ chối hồ sơ mới"
+                                title="Reject"
                               >
                                 <svg
                                   className="w-5 h-5"
@@ -351,14 +351,14 @@ export default function PayoutProfileManagement() {
                 onClick={() => setPage((p) => p - 1)}
                 className="px-4 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Trước
+                Front
               </button>
               <button
                 disabled={page === totalPages}
                 onClick={() => setPage((p) => p + 1)}
                 className="px-4 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Sau
+                Back
               </button>
             </div>
           </div>

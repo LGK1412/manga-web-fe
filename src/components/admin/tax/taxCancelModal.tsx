@@ -70,24 +70,24 @@ export default function CancelTaxModal({
           variant="ghost"
           className="text-red-500 hover:text-red-700 hover:bg-red-50"
         >
-          <Ban className="w-4 h-4 mr-1" /> Hủy bỏ
+          <Ban className="w-4 h-4 mr-1" /> Cancel
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Hủy hồ sơ quyết toán</DialogTitle>
+          <DialogTitle>Cancel Tax Settlement</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-4">
-          <Label>Lý do hủy (Bắt buộc)</Label>
+          <Label>Reason</Label>
           <Textarea
-            placeholder="Nhập lý do sai sót hoặc thông tin còn thiếu..."
+            placeholder="Enter reason..."
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>
-            Quay lại
+            Back
           </Button>
           <Button
             variant="destructive"
@@ -95,7 +95,7 @@ export default function CancelTaxModal({
             disabled={loading}
           >
             {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Xác nhận Hủy
+            Confirm
           </Button>
         </DialogFooter>
       </DialogContent>

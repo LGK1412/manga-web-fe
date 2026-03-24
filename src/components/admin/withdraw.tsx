@@ -199,7 +199,7 @@ export default function WithdrawCard() {
 
       case "approved":
         return (
-          <Badge className="bg-green-100 text-green-800 hover:bg-green-400">
+          <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-400">
             Approved
           </Badge>
         );
@@ -213,7 +213,7 @@ export default function WithdrawCard() {
 
       case "paid":
         return (
-          <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-400">
+          <Badge className="bg-green-100 text-green-800 hover:bg-green-400">
             Paid
           </Badge>
         );
@@ -481,18 +481,18 @@ export default function WithdrawCard() {
           {dialogType === "approve" && (
             <>
               <DialogHeader>
-                <DialogTitle>Xác nhận duyệt</DialogTitle>
+                <DialogTitle>Confirm approve</DialogTitle>
                 <DialogDescription>
-                  Bạn có chắc chắn muốn duyệt yêu cầu rút tiền này không?
+                  Are you sure to approve this withdraw?
                 </DialogDescription>
               </DialogHeader>
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDialogType(null)}>
-                  Hủy
+                  Cancel
                 </Button>
                 <Button onClick={handleApprove} disabled={isSubmitting}>
-                  {isSubmitting ? "Đang duyệt..." : "Xác nhận"}
+                  {isSubmitting ? "Approving..." : "Approve"}
                 </Button>
               </DialogFooter>
             </>
@@ -502,24 +502,22 @@ export default function WithdrawCard() {
           {dialogType === "reject" && (
             <>
               <DialogHeader>
-                <DialogTitle>Từ chối yêu cầu</DialogTitle>
-                <DialogDescription>
-                  Nhập lý do từ chối để thông báo cho tác giả
-                </DialogDescription>
+                <DialogTitle>Reject</DialogTitle>
+                <DialogDescription>Enter reject reason</DialogDescription>
               </DialogHeader>
 
               <Input
-                placeholder="Nhập lý do..."
+                placeholder="Enter reason..."
                 value={rejectNote}
                 onChange={(e) => setRejectNote(e.target.value)}
               />
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDialogType(null)}>
-                  Hủy
+                  Cancel
                 </Button>
                 <Button variant="destructive" onClick={() => handleReject()}>
-                  Từ chối
+                  Reject
                 </Button>
               </DialogFooter>
             </>

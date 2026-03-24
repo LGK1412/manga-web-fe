@@ -250,8 +250,8 @@ export default function TaxCard() {
     } catch {
       toast({
         variant: "destructive",
-        title: "Lỗi tải file",
-        description: "File không tồn tại hoặc bạn đã hết phiên đăng nhập.",
+        title: "Error while download file",
+        description: "The file does not exist.",
       });
     }
   };
@@ -267,17 +267,16 @@ export default function TaxCard() {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-primary" />
-            Công cụ xuất quyết toán thuế
+            Tax return export tool
           </CardTitle>
           <CardDescription>
-            Hệ thống sẽ tự động gom các khoản Withdraw &quot;Paid&quot; để tạo
-            bộ hồ sơ ZIP.
+            system for creating payment and tax settlement file templates
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-end gap-4 flex-wrap bg-slate-50 p-4 rounded-lg border">
             <div className="space-y-2">
-              <Label>Loại báo cáo</Label>
+              <Label>Report type</Label>
               <Select
                 value={reportType}
                 onValueChange={(v: any) => setReportType(v)}
@@ -286,14 +285,14 @@ export default function TaxCard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="QUARTERLY">Quyết toán Quý</SelectItem>
-                  <SelectItem value="ANNUAL">Quyết toán Năm</SelectItem>
+                  <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                  <SelectItem value="ANNUAL">Annual</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Năm quyết toán</Label>
+              <Label>Year of settlement</Label>
               <Select value={selectedYear} onValueChange={setSelectedYear}>
                 <SelectTrigger className="w-[120px] bg-white">
                   <SelectValue />
@@ -310,7 +309,7 @@ export default function TaxCard() {
 
             {reportType === "QUARTERLY" && (
               <div className="space-y-2">
-                <Label>Chọn Quý</Label>
+                <Label>Choose quarter</Label>
                 <Select
                   value={selectedQuarter}
                   onValueChange={setSelectedQuarter}
@@ -319,10 +318,10 @@ export default function TaxCard() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">Quý I</SelectItem>
-                    <SelectItem value="2">Quý II</SelectItem>
-                    <SelectItem value="3">Quý III</SelectItem>
-                    <SelectItem value="4">Quý IV</SelectItem>
+                    <SelectItem value="1">Quarter I</SelectItem>
+                    <SelectItem value="2">Quarter II</SelectItem>
+                    <SelectItem value="3">Quarter III</SelectItem>
+                    <SelectItem value="4">Quarter IV</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -338,7 +337,7 @@ export default function TaxCard() {
               ) : (
                 <FileDown className="w-4 h-4" />
               )}
-              {exporting ? "Đang xử lý..." : "Export Tax Settlement"}
+              {exporting ? "Exporting..." : "Excel"}
             </Button>
           </div>
         </CardContent>
@@ -347,18 +346,18 @@ export default function TaxCard() {
       {/* Bảng danh sách lịch sử giữ nguyên logic Table của bạn */}
       <Card>
         <CardHeader>
-          <CardTitle>Lịch sử quyết toán</CardTitle>
+          <CardTitle>Tax Settlement History</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Kỳ báo cáo</TableHead>
-                <TableHead>Loại</TableHead>
-                <TableHead className="text-right">Tổng thuế (VNĐ)</TableHead>
-                <TableHead className="text-center">Số lệnh rút</TableHead>
-                <TableHead>Trạng thái</TableHead>
-                <TableHead className="text-right">Hành động</TableHead>
+                <TableHead>Reporting period</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead className="text-right">Total tax (VNĐ)</TableHead>
+                <TableHead className="text-center">Total withdraws</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-center">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -387,11 +386,20 @@ export default function TaxCard() {
                     </TableCell>
                     <TableCell>
                       <Badge
-                        className={
-                          t.status === "paid" ? "bg-green-500" : "bg-blue-500"
-                        }
+                        className={`
+      px-2 py-1 rounded-full font-bold capitalize
+      ${
+        t.status === "paid"
+          ? "bg-green-100 text-green-800 hover:bg-green-100"
+          : t.status === "exported"
+            ? "bg-blue-100 text-blue-800 hover:bg-blue-100"
+            : t.status === "cancelled"
+              ? "bg-red-100 text-red-800 hover:bg-red-100"
+              : "bg-slate-100 text-slate-800"
+      }
+    `}
                       >
-                        {t.status.toUpperCase()}
+                        {t.status}
                       </Badge>
                     </TableCell>
 
@@ -404,7 +412,7 @@ export default function TaxCard() {
                         className="hover:bg-primary/10 text-primary"
                       >
                         <FileDown className="w-4 h-4 mr-1" />
-                        Tải file
+                        Download
                       </Button>
 
                       {t.status === "paid" ? (
@@ -413,8 +421,11 @@ export default function TaxCard() {
                           <UpdatePaidTaxModal tax={t} onSuccess={fetchTaxs} />
                         </>
                       ) : t.status === "cancelled" ? (
-                        <Badge variant="outline" className="text-red-400">
-                          Đã hủy
+                        <Badge
+                          variant="outline"
+                          className="bg-red-100 text-red-800"
+                        >
+                          Canceled
                         </Badge>
                       ) : (
                         <div className="flex gap-1">

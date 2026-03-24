@@ -75,19 +75,19 @@ export default function CancelPayoutModal({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Hủy hồ sơ thanh toán</DialogTitle>
+          <DialogTitle>Cancel Payout Settlement</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-4">
-          <Label>Lý do hủy (Bắt buộc)</Label>
+          <Label>Reason</Label>
           <Textarea
-            placeholder="Nhập lý do sai sót hoặc thông tin còn thiếu..."
+            placeholder="Enter reason..."
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>
-            Quay lại
+            Back
           </Button>
           <Button
             variant="destructive"
@@ -95,7 +95,7 @@ export default function CancelPayoutModal({
             disabled={loading}
           >
             {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Xác nhận Hủy
+            Confirm
           </Button>
         </DialogFooter>
       </DialogContent>

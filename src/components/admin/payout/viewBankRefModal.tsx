@@ -57,7 +57,7 @@ export default function ViewBankRefModal({
           className="text-blue-600 border-blue-200 hover:bg-blue-50 gap-2"
         >
           <Eye className="w-4 h-4" />
-          Chứng từ ({payout.bankBatchRef?.length || 0})
+          Document ({payout.bankBatchRef?.length || 0})
         </Button>
       </DialogTrigger>
 
@@ -65,11 +65,11 @@ export default function ViewBankRefModal({
         <DialogHeader className="border-b pb-4">
           <DialogTitle className="text-xl flex items-center gap-2">
             <CheckCircle2 className="text-green-500 w-5 h-5" />
-            Chi tiết thanh toán
+            Payout Detail
           </DialogTitle>
           <div className="grid grid-cols-2 gap-4 mt-4 text-sm bg-slate-50 p-3 rounded-md">
             <div>
-              <p className="text-slate-500">Ngày thanh toán:</p>
+              <p className="text-slate-500">Paid date</p>
               <p className="font-bold">
                 {payout.paidAt
                   ? new Date(payout.paidAt).toLocaleString("vi-VN")
@@ -78,7 +78,7 @@ export default function ViewBankRefModal({
             </div>
             {payout.note && (
               <div className="col-span-2">
-                <p className="text-slate-500">Ghi chú:</p>
+                <p className="text-slate-500">Note:</p>
                 <p className="italic text-slate-700">
                   &quot;{payout.note}&quot;
                 </p>
@@ -89,7 +89,7 @@ export default function ViewBankRefModal({
 
         <div className="space-y-6 py-4">
           <h4 className="font-semibold text-slate-900 flex items-center gap-2">
-            <ImageIcon className="w-4 h-4" /> Danh sách tệp tin đính kèm
+            <ImageIcon className="w-4 h-4" /> List of attached files
           </h4>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -163,7 +163,7 @@ export default function ViewBankRefModal({
               (document.querySelector('[data-state="open"]') as any)?.click()
             }
           >
-            Đóng
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>

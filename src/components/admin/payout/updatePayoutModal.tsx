@@ -93,7 +93,7 @@ export default function UpdatePayoutModal({
           variant="ghost"
           className="text-blue-600 hover:bg-blue-50"
         >
-          <Edit3 className="w-4 h-4 mr-1" /> Chỉnh sửa
+          <Edit3 className="w-4 h-4 mr-1" /> Update
         </Button>
       </DialogTrigger>
 
@@ -101,7 +101,7 @@ export default function UpdatePayoutModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Edit3 className="w-5 h-5 text-blue-500" />
-            Cập nhật chứng từ thanh toán
+            Update Payout Settlement
           </DialogTitle>
         </DialogHeader>
 
@@ -109,11 +109,11 @@ export default function UpdatePayoutModal({
           {/* Inputs cơ bản */}
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
-              <Label>Ghi chú</Label>
+              <Label>Note</Label>
               <Textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Nhập ghi chú chỉnh sửa..."
+                placeholder="Enter note..."
               />
             </div>
           </div>
@@ -123,7 +123,7 @@ export default function UpdatePayoutModal({
           {/* Section: File đã có (UI giống ViewModal) */}
           <div className="space-y-3">
             <Label className="text-blue-600 font-bold flex items-center gap-2">
-              <ImageIcon className="w-4 h-4" /> Chứng từ hiện có (
+              <ImageIcon className="w-4 h-4" /> Documents (
               {existingFiles.length})
             </Label>
             <div className="grid grid-cols-2 gap-3">
@@ -188,7 +188,7 @@ export default function UpdatePayoutModal({
           {/* Section: Upload file mới */}
           <div className="space-y-3">
             <Label className="text-green-600 font-bold flex items-center gap-2">
-              <UploadCloud className="w-4 h-4" /> Bổ sung tệp tin mới
+              <UploadCloud className="w-4 h-4" /> Add new file
             </Label>
             <div className="border-2 border-dashed rounded-xl p-6 text-center relative hover:bg-slate-50 transition-all border-slate-200">
               <input
@@ -199,7 +199,7 @@ export default function UpdatePayoutModal({
               />
               <UploadCloud className="mx-auto h-8 w-8 text-slate-300" />
               <p className="text-sm text-slate-500 mt-2 font-medium">
-                Kéo thả hoặc nhấp để tải lên
+                Drag and drop or click to upload
               </p>
             </div>
 
@@ -230,7 +230,7 @@ export default function UpdatePayoutModal({
 
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={() => setOpen(false)}>
-            Hủy
+            Cancel
           </Button>
           <Button
             onClick={handleUpdate}
@@ -242,7 +242,7 @@ export default function UpdatePayoutModal({
             ) : (
               <Save className="w-4 h-4 mr-2" />
             )}
-            Lưu thay đổi
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
