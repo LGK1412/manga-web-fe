@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import axios from "axios";
 import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle2,
   Clock,
   ExternalLink,
@@ -47,6 +48,116 @@ type MangaDetailResponse = {
   coverImage?: string;
 };
 
+type GuideStep = {
+  title: string;
+  description: string;
+};
+
+type DocumentCase = {
+  title: string;
+  hint: string;
+  examples: string[];
+};
+
+type TemplateCard = {
+  title: string;
+  description: string;
+};
+
+const submissionSteps: GuideStep[] = [
+  {
+    title: "Choose rights type",
+    description:
+      "Select whether the story is original, translated, adapted, reposted, public domain, or open-license based.",
+  },
+  {
+    title: "Prepare supporting proof",
+    description:
+      "Collect contracts, permission screenshots, source links, declarations, or other records that match your selected rights type.",
+  },
+  {
+    title: "Upload files and add note",
+    description:
+      "Upload the proof files and write a short note explaining what the files prove and who granted permission.",
+  },
+  {
+    title: "Wait for review",
+    description:
+      "Moderators review the submission status, proof quality, and declaration completeness before approving publishing eligibility.",
+  },
+  {
+    title: "Fix and re-upload if rejected",
+    description:
+      "If the submission is rejected, review the feedback, update the rights details, and upload stronger proof again.",
+  },
+];
+
+const documentCases: DocumentCase[] = [
+  {
+    title: "Original work",
+    hint: "Use this when the story is created by you or your team.",
+    examples: [
+      "Signed self-declaration",
+      "Draft/manuscript screenshots",
+      "Creation timeline or working files",
+    ],
+  },
+  {
+    title: "Translated work",
+    hint: "Use this when you translated someone else's work.",
+    examples: [
+      "Authorization from the owner or publisher",
+      "Translation permission agreement",
+      "Permission email/chat screenshots",
+    ],
+  },
+  {
+    title: "Adapted work",
+    hint: "Use this when the story is adapted from another source.",
+    examples: [
+      "Adaptation agreement",
+      "Original source reference",
+      "Rights holder approval record",
+    ],
+  },
+  {
+    title: "Licensed / authorized work",
+    hint: "Use this for reposted or licensed distribution rights.",
+    examples: [
+      "Contract or license letter",
+      "Official permission screenshot",
+      "Publisher or platform authorization",
+    ],
+  },
+  {
+    title: "Public domain / open license",
+    hint: "Use this when the source is legally reusable.",
+    examples: [
+      "Source URL",
+      "License URL or public-domain reference",
+      "Attribution note or reuse terms screenshot",
+    ],
+  },
+];
+
+const templateCards: TemplateCard[] = [
+  {
+    title: "Self-declaration template",
+    description:
+      "A simple statement confirming you created the work or own the rights being submitted.",
+  },
+  {
+    title: "Authorization / permission template",
+    description:
+      "A sample document structure for permission from the original creator, owner, or publisher.",
+  },
+  {
+    title: "Submission checklist",
+    description:
+      "A quick checklist to verify that your rights type, note, and proof files are ready before upload.",
+  },
+];
+
 function getAssetCandidates(
   apiBase: string,
   filePath?: string,
@@ -63,10 +174,10 @@ function getAssetCandidates(
 
 function normalizeLicenseStatus(input?: string) {
   const value = String(input || "none").toLowerCase();
-  if (value === "pending") return "pending";
-  if (value === "approved") return "approved";
-  if (value === "rejected") return "rejected";
-  return "none";
+  if (value === "pending") return "pending" as const;
+  if (value === "approved") return "approved" as const;
+  if (value === "rejected") return "rejected" as const;
+  return "none" as const;
 }
 
 function normalizeRightsResponse(
@@ -76,6 +187,98 @@ function normalizeRightsResponse(
     ...getDefaultRights(),
     ...(payload?.rights || {}),
   };
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function getLicenseStatusCopy(status: ReturnType<typeof normalizeLicenseStatus>) {
+  switch (status) {
+    case "approved":
+      return {
+        title: "Approved and ready",
+        description:
+          "Your latest license submission has been approved. Keep the information and proof files up to date if anything changes.",
+      };
+    case "pending":
+      return {
+        title: "Under review",
+        description:
+          "Your submission is being reviewed. You can still refine your rights metadata, but approval depends on moderator review.",
+      };
+    case "rejected":
+      return {
+        title: "Fix and re-upload",
+        description:
+          "Your previous submission was rejected. Review the feedback carefully, update the rights details, and upload clearer proof files.",
+      };
+    default:
+      return {
+        title: "Start your submission",
+        description:
+          "Complete the rights setup, declaration, and proof upload so your story can move toward publishing eligibility.",
+      };
+  }
+}
+
+function getNextAction(
+  status: ReturnType<typeof normalizeLicenseStatus>,
+  canPublish: boolean,
+) {
+  if (status === "rejected") {
+    return "Update the rights form, fix the reviewer concerns, and upload stronger proof files.";
+  }
+
+  if (status === "pending") {
+    return "Wait for review or add clearer supporting documents if moderators requested more evidence.";
+  }
+
+  if (canPublish) {
+    return "Your rights setup currently satisfies publish checks. Keep this page updated if ownership or source information changes.";
+  }
+
+  return "Finish the rights form, save declaration, and upload the supporting files needed for your case.";
+}
+
+function StepCard({
+  index,
+  title,
+  description,
+}: {
+  index: number;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm">
+      <div className="mb-3 flex items-center gap-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+          {index}
+        </div>
+        <p className="font-medium text-foreground">{title}</p>
+      </div>
+      <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function InfoChip({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-full border border-border/70 bg-background px-3 py-1 text-xs text-muted-foreground">
+      {children}
+    </div>
+  );
 }
 
 export default function AuthorStoryLicensePage() {
@@ -97,7 +300,9 @@ export default function AuthorStoryLicensePage() {
   }, [apiBase]);
 
   const [story, setStory] = useState<MangaDetailResponse | null>(null);
-  const [rightsPayload, setRightsPayload] = useState<StoryRightsResponse | null>(null);
+  const [rightsPayload, setRightsPayload] = useState<StoryRightsResponse | null>(
+    null,
+  );
   const [rights, setRights] = useState<StoryRights>(getDefaultRights());
 
   const [files, setFiles] = useState<File[]>([]);
@@ -187,7 +392,9 @@ export default function AuthorStoryLicensePage() {
       setRights(normalizeRightsResponse(res.data));
       setSuccessMessage("Declaration updated.");
     } catch (err: any) {
-      setStatusError(err?.response?.data?.message || "Failed to save declaration.");
+      setStatusError(
+        err?.response?.data?.message || "Failed to save declaration.",
+      );
     } finally {
       setIsSavingDeclaration(false);
     }
@@ -217,7 +424,9 @@ export default function AuthorStoryLicensePage() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       setSuccessMessage("Proof documents uploaded and submitted for review.");
     } catch (err: any) {
-      setStatusError(err?.response?.data?.message || "Failed to upload proof files.");
+      setStatusError(
+        err?.response?.data?.message || "Failed to upload proof files.",
+      );
     } finally {
       setIsUploadingProof(false);
     }
@@ -227,7 +436,7 @@ export default function AuthorStoryLicensePage() {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="container mx-auto max-w-6xl px-4 pb-10 pt-24">
+        <div className="container mx-auto max-w-7xl px-4 pb-10 pt-24">
           <div className="flex h-[50vh] items-center justify-center">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -240,26 +449,35 @@ export default function AuthorStoryLicensePage() {
   }
 
   const safeRights = rights;
-  const rightsMeta =
-    RIGHTS_STATUS_META[safeRights.reviewStatus || "not_required"];
+  const rightsMeta = RIGHTS_STATUS_META[safeRights.reviewStatus || "not_required"];
+  const normalizedLicense = normalizeLicenseStatus(rightsPayload?.licenseStatus);
   const licenseMeta =
     LICENSE_STATUS_META[
-      normalizeLicenseStatus(rightsPayload?.licenseStatus) as keyof typeof LICENSE_STATUS_META
+      normalizedLicense as keyof typeof LICENSE_STATUS_META
     ];
+  const licenseCopy = getLicenseStatusCopy(normalizedLicense);
   const readiness =
     rightsPayload?.publishEligibility ||
     evaluateClientPublishReadiness(safeRights);
   const proofFiles = safeRights.proofFiles || [];
+  const selectedFilesSizeMb =
+    files.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024;
+  const submittedAt = formatDateTime(rightsPayload?.licenseSubmittedAt);
+  const reviewedAt = formatDateTime(rightsPayload?.licenseReviewedAt);
+  const reviewerFeedback = rightsPayload?.licenseRejectReason || "";
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto max-w-6xl px-4 pb-12 pt-24">
+      <div className="container mx-auto max-w-7xl px-4 pb-12 pt-24">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <Link href="/author/dashboard">
-              <Button variant="ghost" className="mb-3 gap-2 px-0 text-muted-foreground">
+              <Button
+                variant="ghost"
+                className="mb-3 gap-2 px-0 text-muted-foreground"
+              >
                 <ArrowLeft className="h-4 w-4" />
                 Back
               </Button>
@@ -275,9 +493,9 @@ export default function AuthorStoryLicensePage() {
                   </Badge>
                 ) : null}
               </div>
-              <p className="text-sm text-muted-foreground md:text-base">
-                Manage ownership declaration, source/license references, and proof
-                documents for this story.
+              <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
+                Manage ownership declaration, source or license references, and
+                proof documents through a clearer submission workflow.
               </p>
             </div>
           </div>
@@ -292,7 +510,7 @@ export default function AuthorStoryLicensePage() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-6">
             {statusError ? (
               <Alert variant="destructive">
@@ -310,6 +528,123 @@ export default function AuthorStoryLicensePage() {
               </Alert>
             ) : null}
 
+            {normalizedLicense === "rejected" && reviewerFeedback ? (
+              <Alert
+                variant="destructive"
+                className="border-red-200 bg-red-50 text-red-900 dark:text-red-100"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Reviewer feedback requires action</AlertTitle>
+                <AlertDescription>{reviewerFeedback}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardHeader className="border-b border-border/60 pb-5">
+                <CardTitle>Submission Guide</CardTitle>
+                <CardDescription>
+                  Follow these steps to prepare a clean, review-ready rights
+                  submission.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-5 pt-6">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {submissionSteps.map((step, index) => (
+                    <StepCard
+                      key={step.title}
+                      index={index + 1}
+                      title={step.title}
+                      description={step.description}
+                    />
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <InfoChip>Save metadata before upload</InfoChip>
+                  <InfoChip>Add a short proof note</InfoChip>
+                  <InfoChip>Re-upload if reviewer requests changes</InfoChip>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardHeader className="border-b border-border/60 pb-5">
+                <CardTitle>What documents should I upload?</CardTitle>
+                <CardDescription>
+                  Choose examples that match your story origin and rights basis.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-3">
+                {documentCases.map((item) => (
+                  <div
+                    key={item.title}
+                    className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm"
+                  >
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">{item.title}</p>
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        {item.hint}
+                      </p>
+                    </div>
+
+                    <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                      {item.examples.map((example) => (
+                        <li key={example} className="flex items-start gap-2">
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                          <span>{example}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardHeader className="border-b border-border/60 pb-5">
+                <CardTitle>Templates</CardTitle>
+                <CardDescription>
+                  Sample templates help authors prepare a more consistent
+                  submission.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="grid gap-4 pt-6 md:grid-cols-3">
+                {templateCards.map((template) => (
+                  <div
+                    key={template.title}
+                    className="flex h-full flex-col justify-between rounded-2xl border border-border/70 bg-background p-4 shadow-sm"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="rounded-xl bg-muted p-2">
+                          <FileText className="h-4 w-4" />
+                        </div>
+                        <Badge className="border border-dashed bg-background text-muted-foreground">
+                          Coming soon
+                        </Badge>
+                      </div>
+
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {template.title}
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                          {template.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button variant="outline" className="mt-5 rounded-xl" disabled>
+                      Download template
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
             <StoryRightsSection
               value={rights}
               onChange={setRights}
@@ -320,7 +655,8 @@ export default function AuthorStoryLicensePage() {
               <CardHeader className="border-b border-border/60 pb-5">
                 <CardTitle>Save Rights Setup</CardTitle>
                 <CardDescription>
-                  Save your rights metadata before uploading proof documents.
+                  Save your rights metadata and declaration before uploading
+                  supporting files.
                 </CardDescription>
               </CardHeader>
 
@@ -356,19 +692,47 @@ export default function AuthorStoryLicensePage() {
               <CardHeader className="border-b border-border/60 pb-5">
                 <CardTitle>Proof Documents</CardTitle>
                 <CardDescription>
-                  Upload proof files for translated, adapted, repost, or other
-                  moderator-reviewed cases.
+                  Upload contracts, permission screenshots, declarations, or
+                  other evidence that supports your rights claim.
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-5 pt-6">
+                <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Accepted types
+                    </p>
+                    <p className="mt-1 text-sm text-foreground">
+                      PDF, PNG, JPG, WEBP
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Good examples
+                    </p>
+                    <p className="mt-1 text-sm text-foreground">
+                      Contracts, permission chats, source pages, declarations
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Best practice
+                    </p>
+                    <p className="mt-1 text-sm text-foreground">
+                      Upload multiple files when one screenshot alone is not
+                      enough
+                    </p>
+                  </div>
+                </div>
+
                 <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-5">
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="space-y-1">
                       <p className="text-sm font-medium">Choose files</p>
                       <p className="text-sm text-muted-foreground">
-                        PDF, images, contracts, permission screenshots, or other
-                        supporting documents.
+                        Upload the files that directly support your selected
+                        rights case.
                       </p>
                     </div>
 
@@ -392,31 +756,57 @@ export default function AuthorStoryLicensePage() {
                   />
 
                   {files.length > 0 ? (
-                    <div className="mt-4 space-y-2">
-                      {files.map((file, index) => (
-                        <div
-                          key={`${file.name}-${index}`}
-                          className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-2 text-sm"
-                        >
-                          <span className="truncate">{file.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                          </span>
-                        </div>
-                      ))}
+                    <div className="mt-4 space-y-3">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <InfoChip>{files.length} selected</InfoChip>
+                        <InfoChip>
+                          {selectedFilesSizeMb.toFixed(2)} MB total
+                        </InfoChip>
+                      </div>
+
+                      <div className="space-y-2">
+                        {files.map((file, index) => (
+                          <div
+                            key={`${file.name}-${index}`}
+                            className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-2 text-sm"
+                          >
+                            <span className="truncate pr-3">{file.name}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {(file.size / 1024 / 1024).toFixed(2)} MB
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="mt-4 rounded-2xl border border-border/70 bg-background px-4 py-6 text-center">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                        <UploadCloud className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <p className="mt-3 font-medium text-foreground">
+                        No files selected yet
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Select one or more files, then add a short note before
+                        uploading.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Submission note</label>
                   <Textarea
-                    rows={4}
+                    rows={5}
                     value={uploadNote}
                     onChange={(e) => setUploadNote(e.target.value)}
-                    placeholder="Explain what these documents prove."
+                    placeholder="Example: This story is a translated work. Attached are the owner authorization screenshot, source page, and our signed declaration."
                     className="rounded-xl"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Briefly explain what the files prove, who granted
+                    permission, and how the story may be used.
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
@@ -445,43 +835,54 @@ export default function AuthorStoryLicensePage() {
                   </Button>
                 </div>
 
-                {proofFiles.length > 0 ? (
-                  <>
-                    <Separator />
-                    <div className="space-y-3">
-                      <p className="text-sm font-medium">Current proof files</p>
-                      <div className="space-y-2">
-                        {proofFiles.map((file, index) => {
-                          const url = getAssetCandidates(apiBase, file)[0];
-                          const isPdf = file.toLowerCase().endsWith(".pdf");
+                <Separator />
 
-                          return (
-                            <a
-                              key={`${file}-${index}`}
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-3 text-sm transition hover:bg-muted/30"
-                            >
-                              <span className="flex items-center gap-2 truncate">
-                                {isPdf ? (
-                                  <FileText className="h-4 w-4 shrink-0" />
-                                ) : (
-                                  <ImageIcon className="h-4 w-4 shrink-0" />
-                                )}
-                                <span className="truncate">
-                                  {file.split("/").pop()}
-                                </span>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Current proof files</p>
+                    <p className="text-sm text-muted-foreground">
+                      These are the files currently attached to this story rights
+                      record.
+                    </p>
+                  </div>
+
+                  {proofFiles.length > 0 ? (
+                    <div className="space-y-2">
+                      {proofFiles.map((file, index) => {
+                        const url = getAssetCandidates(apiBase, file)[0];
+                        const isPdf = file.toLowerCase().endsWith(".pdf");
+
+                        return (
+                          <a
+                            key={`${file}-${index}`}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-3 text-sm transition hover:bg-muted/30"
+                          >
+                            <span className="flex items-center gap-2 truncate">
+                              {isPdf ? (
+                                <FileText className="h-4 w-4 shrink-0" />
+                              ) : (
+                                <ImageIcon className="h-4 w-4 shrink-0" />
+                              )}
+                              <span className="truncate">
+                                {file.split("/").pop()}
                               </span>
+                            </span>
 
-                              <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            </a>
-                          );
-                        })}
-                      </div>
+                            <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          </a>
+                        );
+                      })}
                     </div>
-                  </>
-                ) : null}
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                      No proof files uploaded yet. Add supporting documents to
+                      make the review process easier.
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -518,57 +919,83 @@ export default function AuthorStoryLicensePage() {
                     {story?.title || "Untitled"}
                   </p>
                 </div>
+
+                <Button asChild variant="outline" className="w-full rounded-xl">
+                  <Link href={`/author/story/edit/${id}`}>Back to Edit Story</Link>
+                </Button>
               </CardContent>
             </Card>
 
             <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader>
-                <CardTitle>Publish Eligibility</CardTitle>
+                <CardTitle>Review & Eligibility</CardTitle>
                 <CardDescription>
-                  Synced from backend publish policy.
+                  Keep track of the current review state and what to do next.
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-4">
-                <Badge
-                  className={`border ${
-                    rightsPayload?.publishEligibility?.canPublish
-                      ? "border-green-200 bg-green-50 text-green-700"
-                      : "border-orange-200 bg-orange-50 text-orange-700"
-                  }`}
-                >
-                  {rightsPayload?.publishEligibility?.canPublish
-                    ? "Can publish"
-                    : "Cannot publish yet"}
-                </Badge>
-
-                <p className="text-sm text-muted-foreground">
-                  {rightsPayload?.publishEligibility?.reason ||
-                    "This story currently satisfies the backend publish policy."}
-                </p>
-
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  {rightsPayload?.licenseSubmittedAt ? (
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      Submitted:{" "}
-                      {new Date(rightsPayload.licenseSubmittedAt).toLocaleString()}
-                    </div>
-                  ) : null}
-
-                  {rightsPayload?.licenseReviewedAt ? (
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      Reviewed:{" "}
-                      {new Date(rightsPayload.licenseReviewedAt).toLocaleString()}
-                    </div>
-                  ) : null}
+                <div className="flex flex-wrap gap-2">
+                  <Badge className={`border ${rightsMeta.className}`}>
+                    Rights: {rightsMeta.label}
+                  </Badge>
+                  <Badge className={`border ${licenseMeta.className}`}>
+                    Review: {licenseMeta.label}
+                  </Badge>
                 </div>
 
-                {rightsPayload?.licenseRejectReason ? (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                  <p className="font-medium text-foreground">{licenseCopy.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    {licenseCopy.description}
+                  </p>
+                </div>
+
+                <div
+                  className={`rounded-2xl border p-4 text-sm ${
+                    readiness.canPublish
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100"
+                      : "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100"
+                  }`}
+                >
+                  <p className="font-medium">
+                    {readiness.canPublish ? "Eligible / ready" : "Cannot publish yet"}
+                  </p>
+                  <p className="mt-1">
+                    {readiness.reason ||
+                      "This story currently satisfies the backend publish policy."}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-border/70 bg-background p-4">
+                  <p className="text-sm font-medium text-foreground">Next step</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    {getNextAction(normalizedLicense, Boolean(readiness.canPublish))}
+                  </p>
+                </div>
+
+                {(submittedAt || reviewedAt) && (
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    {submittedAt ? (
+                      <div className="flex items-start gap-2">
+                        <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>Submitted: {submittedAt}</span>
+                      </div>
+                    ) : null}
+
+                    {reviewedAt ? (
+                      <div className="flex items-start gap-2">
+                        <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>Reviewed: {reviewedAt}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
+                {reviewerFeedback ? (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100">
                     <p className="font-medium">Reviewer feedback</p>
-                    <p className="mt-1">{rightsPayload.licenseRejectReason}</p>
+                    <p className="mt-1 leading-6">{reviewerFeedback}</p>
                   </div>
                 ) : null}
               </CardContent>

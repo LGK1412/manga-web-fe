@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import axios, { AxiosInstance } from "axios";
 import {
+  AlertTriangle,
   Check,
   ChevronRight,
+  ExternalLink,
   Image as ImageIcon,
   Loader2,
+  ShieldCheck,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -18,9 +21,9 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -35,9 +38,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
-import { StoryRightsSection } from "@/components/story-rights/story-rights-section";
 import {
-  buildRightsPayload,
   evaluateClientPublishReadiness,
   getDefaultRights,
   type StoryRights,
@@ -61,6 +62,17 @@ type StoryDetailResponse = {
   genres?: Array<string | { _id?: string; id?: string }>;
 };
 
+type StoryFormSnapshot = {
+  title: string;
+  summary: string;
+  status: "ongoing" | "completed" | "hiatus";
+  isPublish: boolean;
+  styleId: string;
+  genreIds: string[];
+  coverImage: string;
+  coverPreview: string;
+};
+
 type EditMode = "draft" | "publish";
 
 type PublishErrors = {
@@ -70,6 +82,17 @@ type PublishErrors = {
   genres?: string;
   style?: string;
   visibility?: string;
+};
+
+type NormalizedLicenseStatus = "none" | "pending" | "approved" | "rejected";
+
+type LicenseMetaState = {
+  licenseStatus: NormalizedLicenseStatus;
+  publishReason: string | null;
+  verifiedBadge: boolean;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  rejectReason: string;
 };
 
 const statusOptions = [
@@ -189,6 +212,117 @@ function normalizeRightsResponse(
   };
 }
 
+function normalizeLicenseStatus(value?: string | null): NormalizedLicenseStatus {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  if (
+    normalized === "approved" ||
+    normalized === "verified" ||
+    normalized === "success"
+  ) {
+    return "approved";
+  }
+
+  if (
+    normalized === "rejected" ||
+    normalized === "deny" ||
+    normalized === "denied"
+  ) {
+    return "rejected";
+  }
+
+  if (
+    normalized === "pending" ||
+    normalized === "submitted" ||
+    normalized === "reviewing" ||
+    normalized === "under_review" ||
+    normalized === "in_review"
+  ) {
+    return "pending";
+  }
+
+  return "none";
+}
+
+function deriveLicenseStatus(
+  payload: StoryRightsResponse | null | undefined,
+  rights: StoryRights,
+): NormalizedLicenseStatus {
+  const direct = normalizeLicenseStatus(payload?.licenseStatus);
+  if (direct !== "none") return direct;
+
+  if (rights.reviewStatus === "approved") return "approved";
+  if (rights.reviewStatus === "rejected") return "rejected";
+  if (
+    rights.reviewStatus === "pending" ||
+    rights.reviewStatus === "under_claim"
+  ) {
+    return "pending";
+  }
+
+  return "none";
+}
+
+function getLicenseStatusMeta(status: NormalizedLicenseStatus) {
+  switch (status) {
+    case "approved":
+      return {
+        label: "Approved",
+        badgeClass:
+          "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300",
+        helper:
+          "Your story rights setup has been approved. Publish eligibility still depends on the current rights data remaining valid.",
+      };
+    case "pending":
+      return {
+        label: "Pending review",
+        badgeClass:
+          "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300",
+        helper:
+          "Your rights submission is under review. Edit story metadata here, then use the Story Rights page for any legal or proof updates.",
+      };
+    case "rejected":
+      return {
+        label: "Needs update",
+        badgeClass:
+          "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300",
+        helper:
+          "Your previous rights submission was not approved. Review the feedback and fix it on the Story Rights page before publishing.",
+      };
+    default:
+      return {
+        label: "Not submitted",
+        badgeClass:
+          "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-300",
+        helper:
+          "No approved rights submission is on file yet. Use the Story Rights page to set up origin, proof, and declaration details.",
+      };
+  }
+}
+
+function sentenceCase(input?: string | null) {
+  const value = String(input || "").trim();
+  if (!value) return "Not set";
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
 async function requestFirstSuccessful<T = any>(
   api: AxiosInstance,
   candidates: Array<{
@@ -259,6 +393,18 @@ export default function EditStoryPage() {
 
   const [storyRights, setStoryRights] = useState<StoryRights>(getDefaultRights());
   const [rightsError, setRightsError] = useState<string | null>(null);
+  const [rightsMeta, setRightsMeta] = useState<LicenseMetaState>({
+    licenseStatus: "none",
+    publishReason: null,
+    verifiedBadge: false,
+    submittedAt: null,
+    reviewedAt: null,
+    rejectReason: "",
+  });
+
+  const [initialSnapshot, setInitialSnapshot] = useState<StoryFormSnapshot | null>(
+    null,
+  );
 
   const [loadingPage, setLoadingPage] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -277,7 +423,10 @@ export default function EditStoryPage() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const slugPreview = useMemo(() => slugify(storyTitle || "your-story"), [storyTitle]);
+  const slugPreview = useMemo(
+    () => slugify(storyTitle || "your-story"),
+    [storyTitle],
+  );
 
   const filteredGenres = useMemo(() => {
     const keyword = genreSearch.trim().toLowerCase();
@@ -297,6 +446,31 @@ export default function EditStoryPage() {
     () => availableGenres.filter((genre) => selectedGenreIds.includes(genre._id)),
     [availableGenres, selectedGenreIds],
   );
+
+  const publishEligibility = useMemo(
+    () => evaluateClientPublishReadiness(storyRights),
+    [storyRights],
+  );
+
+  const licenseStatusMeta = useMemo(
+    () => getLicenseStatusMeta(rightsMeta.licenseStatus),
+    [rightsMeta.licenseStatus],
+  );
+
+  const reviewerFeedback = useMemo(() => {
+    if (rightsMeta.licenseStatus !== "rejected") return "";
+    return (
+      rightsMeta.rejectReason ||
+      storyRights.rejectReason ||
+      rightsMeta.publishReason ||
+      ""
+    );
+  }, [
+    rightsMeta.licenseStatus,
+    rightsMeta.publishReason,
+    rightsMeta.rejectReason,
+    storyRights.rejectReason,
+  ]);
 
   const markTouched = (field: keyof PublishErrors | "visibility") => {
     setTouched((prev) => ({ ...prev, [field]: true }));
@@ -339,11 +513,10 @@ export default function EditStoryPage() {
       errors.genres = "You can choose up to 3 genres.";
     }
 
-    if (mode === "publish") {
-      const rightsCheck = evaluateClientPublishReadiness(storyRights);
-      if (!rightsCheck.canPublish) {
-        setRightsError(rightsCheck.reason);
-      }
+    if (mode === "publish" && !publishEligibility.canPublish) {
+      setRightsError(
+        publishEligibility.reason || "Story rights are incomplete for publishing.",
+      );
     }
 
     setPublishErrors(errors);
@@ -367,34 +540,72 @@ export default function EditStoryPage() {
     ]);
 
     const story = normalizeStory(data);
+    const resolvedCoverPreview = toCoverUrl(apiBase, story.coverImage);
+    const styleIds = toIdArray(story.styles);
+    const genreIds = toIdArray(story.genres).slice(0, 3);
 
     setStoryTitle(story.title || "");
     setStorySummary(story.summary || "");
     setStoryStatus(story.status || "ongoing");
     setIsPublish(Boolean(story.isPublish));
-
-    const styleIds = toIdArray(story.styles);
     setSelectedStyleId(styleIds[0] || "");
-
-    const genreIds = toIdArray(story.genres).slice(0, 3);
     setSelectedGenreIds(genreIds);
-
     setExistingCoverImage(story.coverImage || "");
-    setCoverPreview(toCoverUrl(apiBase, story.coverImage));
+    setCoverPreview(resolvedCoverPreview);
+
+    setInitialSnapshot({
+      title: story.title || "",
+      summary: story.summary || "",
+      status: story.status || "ongoing",
+      isPublish: Boolean(story.isPublish),
+      styleId: styleIds[0] || "",
+      genreIds,
+      coverImage: story.coverImage || "",
+      coverPreview: resolvedCoverPreview,
+    });
   };
 
   const loadRights = async () => {
     try {
       const res = await api.get<StoryRightsResponse>(`/license/${id}/rights`);
-      setStoryRights(normalizeRightsResponse(res.data));
+      const normalizedRights = normalizeRightsResponse(res.data);
+      const derivedStatus = deriveLicenseStatus(res.data, normalizedRights);
+
+      setStoryRights(normalizedRights);
+      setRightsMeta({
+        licenseStatus: derivedStatus,
+        publishReason:
+          typeof res.data?.publishReason === "string"
+            ? res.data.publishReason
+            : null,
+        verifiedBadge: Boolean(res.data?.verifiedBadge),
+        submittedAt:
+          typeof res.data?.licenseSubmittedAt === "string"
+            ? res.data.licenseSubmittedAt
+            : null,
+        reviewedAt:
+          typeof res.data?.licenseReviewedAt === "string"
+            ? res.data.licenseReviewedAt
+            : null,
+        rejectReason:
+          typeof res.data?.licenseRejectReason === "string"
+            ? res.data.licenseRejectReason
+            : normalizedRights.rejectReason || "",
+      });
     } catch {
       setStoryRights(getDefaultRights());
+      setRightsMeta({
+        licenseStatus: "none",
+        publishReason: null,
+        verifiedBadge: false,
+        submittedAt: null,
+        reviewedAt: null,
+        rejectReason: "",
+      });
     }
   };
 
   useEffect(() => {
-    console.log("params =", params);
-console.log("id =", id);
     const loadAll = async () => {
       if (!id) return;
 
@@ -457,9 +668,37 @@ console.log("id =", id);
     markTouched("genres");
   };
 
-  const handleRightsChange = (next: StoryRights) => {
-    setStoryRights(next);
-    if (rightsError) setRightsError(null);
+  const resetMetadataChanges = () => {
+    if (!initialSnapshot) return;
+
+    setStoryTitle(initialSnapshot.title);
+    setStorySummary(initialSnapshot.summary);
+    setStoryStatus(initialSnapshot.status);
+    setIsPublish(initialSnapshot.isPublish);
+    setSelectedStyleId(initialSnapshot.styleId);
+    setSelectedGenreIds(initialSnapshot.genreIds);
+    setExistingCoverImage(initialSnapshot.coverImage);
+    setRightsError(null);
+    setPublishErrors({});
+    setTouched({
+      title: false,
+      summary: false,
+      cover: false,
+      genres: false,
+      style: false,
+      visibility: false,
+    });
+
+    if (coverPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(coverPreview);
+    }
+
+    setCoverFile(null);
+    setCoverPreview(initialSnapshot.coverPreview);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const submitStory = async (mode: EditMode) => {
@@ -475,19 +714,20 @@ console.log("id =", id);
     const formOk = validateForm(mode);
     if (!formOk) return;
 
-    if (mode === "publish") {
-      const rightsCheck = evaluateClientPublishReadiness(storyRights);
-      if (!rightsCheck.canPublish) {
-        setRightsError(rightsCheck.reason);
-        toast({
-          title: "Cannot publish yet",
-          description: rightsCheck.reason || "Story rights are incomplete.",
-          variant: "destructive",
-        });
-        return;
-      }
-      setRightsError(null);
+    if (mode === "publish" && !publishEligibility.canPublish) {
+      setRightsError(
+        publishEligibility.reason || "Story rights are incomplete for publishing.",
+      );
+      toast({
+        title: "Cannot publish yet",
+        description:
+          publishEligibility.reason || "Story rights are incomplete.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    setRightsError(null);
 
     if (mode === "publish") setIsUpdating(true);
     else setIsSavingDraft(true);
@@ -510,13 +750,6 @@ console.log("id =", id);
 
       await api.patch(`/manga/update/${id}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      await api.patch(`/license/${id}/rights`, buildRightsPayload(storyRights));
-
-      await api.patch(`/license/${id}/rights/declaration`, {
-        accepted: storyRights.declarationAccepted,
-        declarationVersion: storyRights.declarationVersion || "v1",
       });
 
       toast({
@@ -560,7 +793,7 @@ console.log("id =", id);
             <div>
               <p className="text-sm font-medium">Loading story editor</p>
               <p className="text-xs text-muted-foreground">
-                Fetching story details, genres, styles, and rights.
+                Fetching story details, genres, styles, and license summary.
               </p>
             </div>
           </div>
@@ -589,13 +822,16 @@ console.log("id =", id);
 
             <h1 className="text-3xl font-bold tracking-tight">Edit Story</h1>
             <p className="text-sm text-muted-foreground">
-              Update your story details, visibility, and rights information.
+              Update your story metadata here. Story rights, proof files, and
+              review actions stay on the dedicated Story Rights page.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <Button asChild variant="outline" className="rounded-xl">
-              <Link href={`/author/manga/${id}/license`}>Open Story Rights Page</Link>
+              <Link href={`/author/manga/${id}/license`}>
+                Manage Story Rights
+              </Link>
             </Button>
 
             <Button
@@ -665,14 +901,15 @@ console.log("id =", id);
                           onChange={(e) => setStoryTitle(e.target.value)}
                           onBlur={() => markTouched("title")}
                           placeholder="Enter your story title"
-                          className={`h-11 rounded-xl border-border/70 bg-background shadow-sm ${
-                            shouldShowError("title") && publishErrors.title
+                          className={`h-11 rounded-xl border-border/70 bg-background shadow-sm ${shouldShowError("title") && publishErrors.title
                               ? "border-red-500 focus-visible:ring-red-500"
                               : ""
-                          }`}
+                            }`}
                         />
 
-                        <FieldHint>Use a clear, memorable title for your story.</FieldHint>
+                        <FieldHint>
+                          Use a clear, memorable title for your story.
+                        </FieldHint>
                         <FieldError>
                           {shouldShowError("title") ? publishErrors.title : ""}
                         </FieldError>
@@ -699,11 +936,10 @@ console.log("id =", id);
                           onChange={(e) => setStorySummary(e.target.value)}
                           onBlur={() => markTouched("summary")}
                           placeholder="Write a short description that helps readers understand the story."
-                          className={`min-h-[210px] rounded-xl border-border/70 bg-background shadow-sm ${
-                            shouldShowError("summary") && publishErrors.summary
+                          className={`min-h-[210px] rounded-xl border-border/70 bg-background shadow-sm ${shouldShowError("summary") && publishErrors.summary
                               ? "border-red-500 focus-visible:ring-red-500"
                               : ""
-                          }`}
+                            }`}
                         />
 
                         <FieldHint>
@@ -731,11 +967,10 @@ console.log("id =", id);
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className={`group relative flex aspect-[2/3] w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed bg-background transition-all hover:border-primary/50 hover:bg-muted/40 ${
-                          shouldShowError("cover") && publishErrors.cover
+                        className={`group relative flex aspect-[2/3] w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed bg-background transition-all hover:border-primary/50 hover:bg-muted/40 ${shouldShowError("cover") && publishErrors.cover
                             ? "border-red-500"
                             : "border-border/70"
-                        }`}
+                          }`}
                       >
                         {coverPreview ? (
                           <>
@@ -773,7 +1008,9 @@ console.log("id =", id);
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => handleSelectCover(e.target.files?.[0] || null)}
+                        onChange={(e) =>
+                          handleSelectCover(e.target.files?.[0] || null)
+                        }
                       />
 
                       <FieldError>
@@ -788,7 +1025,7 @@ console.log("id =", id);
                     </div>
                   </div>
 
-                  <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="grid gap-6 lg:grid-cols-3">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">
                         Style
@@ -803,11 +1040,10 @@ console.log("id =", id);
                         }}
                       >
                         <SelectTrigger
-                          className={`h-11 rounded-xl ${
-                            shouldShowError("style") && publishErrors.style
+                          className={`h-11 rounded-xl ${shouldShowError("style") && publishErrors.style
                               ? "border-red-500 focus:ring-red-500"
                               : ""
-                          }`}
+                            }`}
                         >
                           <SelectValue placeholder="Choose a style" />
                         </SelectTrigger>
@@ -826,6 +1062,34 @@ console.log("id =", id);
                       <FieldError>
                         {shouldShowError("style") ? publishErrors.style : ""}
                       </FieldError>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Story Status</Label>
+
+                      <Select
+                        value={storyStatus}
+                        onValueChange={(value) =>
+                          setStoryStatus(
+                            value as "ongoing" | "completed" | "hiatus",
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-11 rounded-xl">
+                          <SelectValue placeholder="Choose story status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <FieldHint>
+                        Helps readers understand whether the story is still updating.
+                      </FieldHint>
                     </div>
 
                     <div className="space-y-3">
@@ -855,7 +1119,8 @@ console.log("id =", id);
                             Make this story public
                           </Label>
                           <p className="text-xs text-muted-foreground">
-                            Turn this off to keep the story private or saved as draft.
+                            Turn this off to keep the story private or saved as
+                            draft.
                           </p>
                         </div>
                       </div>
@@ -894,14 +1159,15 @@ console.log("id =", id);
                             key={genre._id}
                             type="button"
                             onClick={() => handleToggleGenre(genre._id)}
-                            className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left transition ${
-                              checked
+                            className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left transition ${checked
                                 ? "border-primary bg-primary/5"
                                 : "border-border/70 hover:bg-muted/30"
-                            }`}
+                              }`}
                           >
                             <span className="text-sm">{genre.name}</span>
-                            {checked ? <Check className="h-4 w-4 text-primary" /> : null}
+                            {checked ? (
+                              <Check className="h-4 w-4 text-primary" />
+                            ) : null}
                           </button>
                         );
                       })}
@@ -920,12 +1186,6 @@ console.log("id =", id);
                   </div>
                 </CardContent>
               </Card>
-
-              <StoryRightsSection
-                value={storyRights}
-                onChange={handleRightsChange}
-                publishError={rightsError}
-              />
 
               <div className="flex flex-wrap justify-end gap-3">
                 <Button
@@ -1049,47 +1309,144 @@ console.log("id =", id);
                       /story/{slugPreview}
                     </p>
                   </div>
+                </CardContent>
+              </Card>
 
-                  <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                    <p className="text-sm font-medium">Rights preview</p>
-                    <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-                      <div>Origin: {storyRights.originType}</div>
-                      <div>Monetization: {storyRights.monetizationType}</div>
-                      <div>Basis: {storyRights.basis}</div>
-                      <div>
-                        Declaration:{" "}
-                        {storyRights.declarationAccepted ? "Accepted" : "Not accepted"}
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardHeader className="border-b border-border/60">
+                  <SectionHeader
+                    title="License / Story Rights Summary"
+                    description="This page shows the current rights state only. Open the dedicated page to update declarations, proof files, and review items."
+                  />
+                </CardHeader>
+
+                <CardContent className="space-y-5 pt-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-2">
+                      <div
+                        className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${licenseStatusMeta.badgeClass}`}
+                      >
+                        {licenseStatusMeta.label}
                       </div>
+                      <p className="max-w-sm text-sm text-muted-foreground">
+                        {licenseStatusMeta.helper}
+                      </p>
+                    </div>
+
+                    {rightsMeta.verifiedBadge ? (
+                      <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Verified
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="grid gap-3 rounded-2xl border border-border/70 bg-background p-4">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Origin</span>
+                      <span className="font-medium">
+                        {sentenceCase(storyRights.originType)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Basis</span>
+                      <span className="font-medium">
+                        {sentenceCase(storyRights.basis)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Monetization</span>
+                      <span className="font-medium">
+                        {sentenceCase(storyRights.monetizationType)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Review status</span>
+                      <span className="font-medium">
+                        {sentenceCase(storyRights.reviewStatus)}
+                      </span>
                     </div>
                   </div>
 
+                  {rightsMeta.submittedAt || rightsMeta.reviewedAt ? (
+                    <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4 text-sm">
+                      {rightsMeta.submittedAt ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-muted-foreground">Submitted</span>
+                          <span className="font-medium">
+                            {formatDate(rightsMeta.submittedAt)}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {rightsMeta.reviewedAt ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-muted-foreground">Reviewed</span>
+                          <span className="font-medium">
+                            {formatDate(rightsMeta.reviewedAt)}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {!publishEligibility.canPublish ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <div className="space-y-1">
+                          <p className="font-medium">Publishing note</p>
+                          <p>
+                            {rightsError ||
+                              publishEligibility.reason ||
+                              rightsMeta.publishReason ||
+                              "Complete the Story Rights page before publishing."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100">
+                      <div className="flex items-start gap-3">
+                        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                        <div className="space-y-1">
+                          <p className="font-medium">Publishing ready</p>
+                          <p>
+                            Story rights currently satisfy the client-side publish
+                            checks.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {reviewerFeedback ? (
+                    <div className="rounded-2xl border border-red-200 bg-red-50/70 p-4 text-sm text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <div className="space-y-1">
+                          <p className="font-medium">Reviewer feedback preview</p>
+                          <p>{reviewerFeedback}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="flex flex-col gap-3">
-                    <Button asChild variant="outline" className="rounded-xl">
+                    <Button asChild className="rounded-xl">
                       <Link href={`/author/manga/${id}/license`}>
-                        Manage proof documents
+                        Manage Story Rights
+                        <ExternalLink className="ml-2 h-4 w-4" />
                       </Link>
                     </Button>
 
                     <Button
                       variant="ghost"
                       className="rounded-xl"
-                      onClick={() => {
-                        setStoryTitle("");
-                        setStorySummary("");
-                        setSelectedGenreIds([]);
-                        setSelectedStyleId("");
-                        setStoryRights(getDefaultRights());
-                        setRightsError(null);
-
-                        if (coverPreview.startsWith("blob:")) {
-                          URL.revokeObjectURL(coverPreview);
-                        }
-                        setCoverFile(null);
-                        setCoverPreview(toCoverUrl(apiBase, existingCoverImage));
-                        if (fileInputRef.current) {
-                          fileInputRef.current.value = "";
-                        }
-                      }}
+                      onClick={resetMetadataChanges}
                     >
                       <X className="mr-2 h-4 w-4" />
                       Reset unsaved changes
