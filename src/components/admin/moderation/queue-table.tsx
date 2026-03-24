@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -8,40 +9,37 @@ import { RiskMeter } from "./risk-meter";
 import { StatusBadge } from "./status-badge";
 import type { QueueItem } from "@/lib/typesLogs";
 import { Eye, Mail } from "lucide-react";
-import Link from "next/link";
 
 interface QueueTableProps {
   items: QueueItem[];
-  onSelect: (id: string) => void;
-  onAction: (id: string, action: string) => void;
+  selectedIds: Set<string>;
+  allVisibleSelected: boolean;
+  onToggleSelect: (id: string) => void;
+  onToggleSelectAll: (checked: boolean) => void;
   loading?: boolean;
 }
 
-export function QueueTable({ items, onSelect, onAction, loading }: QueueTableProps) {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  const toggleSelect = (id: string) => {
-    const next = new Set(selectedIds);
-    next.has(id) ? next.delete(id) : next.add(id);
-    setSelectedIds(next);
-    onSelect(id);
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.size === items.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(items.map((i) => i.chapterId)));
-  };
+export function QueueTable({
+  items,
+  selectedIds,
+  allVisibleSelected,
+  onToggleSelect,
+  onToggleSelectAll,
+  loading,
+}: QueueTableProps) {
+  const router = useRouter();
 
   return (
-    <div className="border border-border rounded-lg overflow-x-auto">
+    <div className="overflow-hidden rounded-xl border bg-background">
       <Table>
         <TableHeader>
-          <TableRow className="bg-muted">
+          <TableRow className="bg-muted/60">
             <TableHead className="w-12">
               <Checkbox
-                checked={items.length > 0 && selectedIds.size === items.length}
-                onCheckedChange={toggleSelectAll}
-                disabled={loading}
+                checked={allVisibleSelected}
+                onCheckedChange={(checked) => onToggleSelectAll(Boolean(checked))}
+                disabled={loading || items.length === 0}
+                aria-label="Select all visible chapters"
               />
             </TableHead>
             <TableHead>Chapter</TableHead>
@@ -56,22 +54,81 @@ export function QueueTable({ items, onSelect, onAction, loading }: QueueTablePro
         </TableHeader>
 
         <TableBody>
+          {loading &&
+            Array.from({ length: 5 }).map((_, index) => (
+              <TableRow key={`loading-${index}`}>
+                <TableCell>
+                  <div className="h-4 w-4 rounded bg-muted animate-pulse" />
+                </TableCell>
+                <TableCell>
+                  <div className="h-4 w-40 rounded bg-muted animate-pulse" />
+                </TableCell>
+                <TableCell>
+                  <div className="h-4 w-28 rounded bg-muted animate-pulse" />
+                </TableCell>
+                <TableCell>
+                  <div className="h-4 w-24 rounded bg-muted animate-pulse" />
+                </TableCell>
+                <TableCell>
+                  <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+                </TableCell>
+                <TableCell>
+                  <div className="h-6 w-20 rounded-full bg-muted animate-pulse" />
+                </TableCell>
+                <TableCell>
+                  <div className="h-5 w-24 rounded bg-muted animate-pulse" />
+                </TableCell>
+                <TableCell>
+                  <div className="h-4 w-24 rounded bg-muted animate-pulse" />
+                </TableCell>
+                <TableCell>
+                  <div className="ml-auto h-8 w-20 rounded bg-muted animate-pulse" />
+                </TableCell>
+              </TableRow>
+            ))}
+
           {!loading &&
             items.map((item, index) => (
-              <TableRow key={`${item.chapterId || "row"}-${index}`} className="hover:bg-muted/50">
-                <TableCell>
+              <TableRow
+                key={`${item.chapterId || "row"}-${index}`}
+                className="cursor-pointer hover:bg-muted/40"
+                onClick={() =>
+                  router.push(`/admin/moderation/workspace?chapterId=${item.chapterId}`)
+                }
+              >
+                <TableCell
+                  onClick={(e) => e.stopPropagation()}
+                  className="align-middle"
+                >
                   <Checkbox
                     checked={selectedIds.has(item.chapterId)}
-                    onCheckedChange={() => toggleSelect(item.chapterId)}
-                    disabled={loading}
+                    onCheckedChange={() => onToggleSelect(item.chapterId)}
+                    aria-label={`Select chapter ${item.title}`}
                   />
                 </TableCell>
 
-                <TableCell className="font-medium">{item.title}</TableCell>
-                <TableCell>{item.mangaTitle}</TableCell>
-                <TableCell>{item.author}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="space-y-1">
+                    <p className="line-clamp-1">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      ID: {item.chapterId}
+                    </p>
+                  </div>
+                </TableCell>
 
+                <TableCell>{item.mangaTitle}</TableCell>
                 <TableCell>
+                  <div className="space-y-1">
+                    <p>{item.author}</p>
+                    {item.authorEmail && (
+                      <p className="text-xs text-muted-foreground line-clamp-1">
+                        {item.authorEmail}
+                      </p>
+                    )}
+                  </div>
+                </TableCell>
+
+                <TableCell className="min-w-[180px]">
                   <RiskMeter score={item.risk_score} />
                 </TableCell>
 
@@ -82,42 +139,58 @@ export function QueueTable({ items, onSelect, onAction, loading }: QueueTablePro
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {item.labels.slice(0, 2).map((label) => (
-                      <span key={`${item.chapterId}-${label}`} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                      <span
+                        key={`${item.chapterId}-${label}`}
+                        className="rounded-full bg-muted px-2 py-1 text-xs"
+                      >
                         {label}
                       </span>
                     ))}
                     {item.labels.length > 2 && (
-                      <span className="text-xs text-muted-foreground">+{item.labels.length - 2}</span>
+                      <span className="text-xs text-muted-foreground">
+                        +{item.labels.length - 2}
+                      </span>
+                    )}
+                    {item.labels.length === 0 && (
+                      <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </div>
                 </TableCell>
 
-                <TableCell className="text-sm text-muted-foreground">
-                  {new Date(item.updatedAt).toLocaleDateString()}
+                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                  {new Date(item.updatedAt).toLocaleString()}
                 </TableCell>
 
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
+                <TableCell
+                  className="text-right"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-end gap-1">
                     <Link href={`/admin/moderation/workspace?chapterId=${item.chapterId}`}>
-                      <Button size="sm" variant="ghost" title="Open Workspace">
-                        <Eye className="w-4 h-4" />
+                      <Button size="sm" variant="ghost" title="Open workspace">
+                        <Eye className="h-4 w-4" />
                       </Button>
                     </Link>
 
                     <Link href={`/admin/notifications/send-policy?chapterId=${item.chapterId}`}>
-  <Button size="sm" variant="ghost" title="Send Policy Notification">
-    <Mail className="w-4 h-4" />
-  </Button>
-</Link>
+                      <Button size="sm" variant="ghost" title="Send policy notification">
+                        <Mail className="h-4 w-4" />
+                      </Button>
+                    </Link>
                   </div>
                 </TableCell>
               </TableRow>
             ))}
 
-          {items.length === 0 && !loading && (
+          {!loading && items.length === 0 && (
             <TableRow>
-              <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
-                No items
+              <TableCell colSpan={9} className="py-12 text-center">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">No chapters match the current filters</p>
+                  <p className="text-sm text-muted-foreground">
+                    Try widening the risk range or clearing the search and status filters.
+                  </p>
+                </div>
               </TableCell>
             </TableRow>
           )}

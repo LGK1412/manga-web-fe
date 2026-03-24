@@ -140,12 +140,12 @@ const menuItems: MenuItem[] = [
     icon: Megaphone,
     submenu: [
       {
-        label: "List Sent Noti",
+        label: "List Sent Notification",
         href: "/admin/notifications",
         icon: Bell,
       },
       {
-        label: "Send Noti",
+        label: "Send Notification",
         href: "/admin/notifications/send-general",
         icon: Send,
         matchPrefixes: [

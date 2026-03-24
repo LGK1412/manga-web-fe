@@ -639,14 +639,7 @@ export default function CreateChapterPage({
                     <div className="text-[11px] text-slate-500">
                       {liveWordCount} words
                     </div>
-                    {/* AI check button (Create) */}
-                    <button
-                      onClick={handleAiCheckForCreate}
-                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs hover:bg-slate-50"
-                      title="Run Policy (AI) check"
-                    >
-                      Check Policy (AI)
-                    </button>
+                    
                   </div>
                 </div>
                 <div className="p-5 text-black">

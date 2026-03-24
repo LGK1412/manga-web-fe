@@ -51,7 +51,7 @@ export function CommentTable({
               <TableHead>Username</TableHead>
               <TableHead>Manga</TableHead>
               <TableHead>Chapter</TableHead>
-              <TableHead className="max-w-xs">Content</TableHead>
+              
               <TableHead>Date</TableHead>
               <TableHead className="w-24">Status</TableHead>
               <TableHead className="w-32">Actions</TableHead>
@@ -66,11 +66,7 @@ export function CommentTable({
                   <TableCell className="font-medium">{comment.username}</TableCell>
                   <TableCell className="text-sm">{comment.storyTitle}</TableCell>
                   <TableCell className="text-sm">{comment.chapter || "—"}</TableCell>
-                  <TableCell className="text-sm text-gray-600">
-                    <span title={comment.content} className="cursor-help">
-                      {truncateText(comment.content, 60)}
-                    </span>
-                  </TableCell>
+                  
                   <TableCell className="text-sm text-gray-500">{comment.date}</TableCell>
                   <TableCell>
                     <Badge

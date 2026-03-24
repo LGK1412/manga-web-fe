@@ -1,12 +1,29 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import axios, { AxiosInstance } from "axios";
+import Cookies from "js-cookie";
+import {
+  Check,
+  ChevronRight,
+  Image as ImageIcon,
+  Loader2,
+  UploadCloud,
+  X,
+} from "lucide-react";
+
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -15,399 +32,996 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { BookOpen, ImageIcon, CopySlash as Publish, Plus } from "lucide-react";
-import axios from "axios";
-import { availableStatuses } from "@/lib/data";
-import Cookies from "js-cookie";
 
-interface StyleDoc {
+import { StoryRightsSection } from "@/components/story-rights/story-rights-section";
+import {
+  buildRightsPayload,
+  evaluateClientPublishReadiness,
+  getDefaultRights,
+  type StoryRights,
+} from "@/lib/story-rights";
+
+type JwtPayload = {
+  user_id?: string;
+  userId?: string;
+  role?: string;
+  email?: string;
+};
+
+type OptionItem = {
   _id: string;
   name: string;
+};
+
+type CreateMode = "draft" | "publish";
+
+type PublishErrors = {
+  title?: string;
+  summary?: string;
+  cover?: string;
+  genres?: string;
+  style?: string;
+  visibility?: string;
+};
+
+const statusOptions = [
+  { value: "ongoing", label: "Ongoing" },
+  { value: "completed", label: "Completed" },
+  { value: "hiatus", label: "Hiatus" },
+] as const;
+
+function RequiredMark() {
+  return <span className="ml-1 text-red-500">*</span>;
+}
+
+function SectionHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <CardTitle className="text-lg">{title}</CardTitle>
+      <CardDescription>{description}</CardDescription>
+    </div>
+  );
+}
+
+function FieldHint({ children }: { children: React.ReactNode }) {
+  return <p className="text-xs text-muted-foreground">{children}</p>;
+}
+
+function FieldError({ children }: { children?: React.ReactNode }) {
+  if (!children) return null;
+  return <p className="text-xs text-red-500">{children}</p>;
+}
+
+function slugify(input: string) {
+  return input
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+function decodeUserFromCookie(): JwtPayload | null {
+  const raw = Cookies.get("user_normal_info");
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(decodeURIComponent(raw));
+  } catch {
+    return null;
+  }
+}
+
+function firstNonEmptyArray(value: any): any[] {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value?.items)) return value.items;
+  if (Array.isArray(value?.results)) return value.results;
+  if (Array.isArray(value?.genres)) return value.genres;
+  if (Array.isArray(value?.styles)) return value.styles;
+  return [];
+}
+
+function mapOptions(raw: any): OptionItem[] {
+  const arr = firstNonEmptyArray(raw);
+
+  return arr
+    .map((item: any) => ({
+      _id: String(item?._id || item?.id || ""),
+      name: String(item?.name || item?.title || "").trim(),
+    }))
+    .filter((item: OptionItem) => item._id && item.name);
+}
+
+async function requestFirstSuccessful<T = any>(
+  api: AxiosInstance,
+  candidates: Array<{
+    method?: "get" | "post" | "patch";
+    url: string;
+    data?: any;
+    config?: any;
+  }>,
+): Promise<T> {
+  let lastError: any = null;
+
+  for (const candidate of candidates) {
+    try {
+      const method = candidate.method || "get";
+      const res =
+        method === "get"
+          ? await api.get(candidate.url, candidate.config)
+          : method === "post"
+            ? await api.post(candidate.url, candidate.data, candidate.config)
+            : await api.patch(candidate.url, candidate.data, candidate.config);
+
+      return res.data as T;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError;
 }
 
 export default function CreateStoryPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [availableGenres, setAvailableGenres] = useState<
-    Array<{ _id: string; name: string }>
-  >([]);
-  const [availableStyles, setAvailableStyles] = useState<StyleDoc[]>([]);
-  const [storyStyle, setStoryStyle] = useState<string>("");
+  const apiBase = useMemo(
+    () => (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, ""),
+    [],
+  );
 
-  // Form state dùng chung
+  const api = useMemo(() => {
+    return axios.create({
+      baseURL: `${apiBase}/api`,
+      withCredentials: true,
+    });
+  }, [apiBase]);
+
+  const [availableStyles, setAvailableStyles] = useState<OptionItem[]>([]);
+  const [availableGenres, setAvailableGenres] = useState<OptionItem[]>([]);
+
   const [storyTitle, setStoryTitle] = useState("");
   const [storySummary, setStorySummary] = useState("");
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
-  const [storyStatus, setStoryStatus] = useState("ongoing");
+  const [storyStatus, setStoryStatus] = useState<
+    "ongoing" | "completed" | "hiatus"
+  >("ongoing");
+  const [selectedStyleId, setSelectedStyleId] = useState("");
+  const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>([]);
+  const [genreSearch, setGenreSearch] = useState("");
   const [isPublish, setIsPublish] = useState(true);
-  const [isPublishing, setIsPublishing] = useState(false);
 
   const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const decodeToken = () => {
-    const raw = Cookies.get("user_normal_info");
-    if (!raw) return null;
-    try {
-      return JSON.parse(decodeURIComponent(raw));
-    } catch {
-      return null;
-    }
+  const [storyRights, setStoryRights] = useState<StoryRights>(getDefaultRights());
+
+  const [publishErrors, setPublishErrors] = useState<PublishErrors>({});
+  const [rightsError, setRightsError] = useState<string | null>(null);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const [loadingPage, setLoadingPage] = useState(true);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+
+  const selectedStyleDoc =
+    availableStyles.find((item) => item._id === selectedStyleId) || null;
+
+  const selectedGenreDocs = availableGenres.filter((genre) =>
+    selectedGenreIds.includes(genre._id),
+  );
+
+  const filteredGenres = availableGenres.filter((genre) =>
+    genre.name.toLowerCase().includes(genreSearch.trim().toLowerCase()),
+  );
+
+  const selectedStatusLabel =
+    statusOptions.find((item) => item.value === storyStatus)?.label || "Ongoing";
+
+  const slugPreview = slugify(storyTitle || "untitled-story");
+
+  const markTouched = (field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
+  const shouldShowError = (field: keyof PublishErrors) => {
+    return Boolean(touched[field] && publishErrors[field]);
+  };
+
+  const validateForm = (mode: CreateMode) => {
+    const nextErrors: PublishErrors = {};
+
+    if (!storyTitle.trim()) nextErrors.title = "Story title is required.";
+    else if (storyTitle.trim().length > 100)
+      nextErrors.title = "Story title must be 100 characters or fewer.";
+
+    if (!storySummary.trim()) nextErrors.summary = "Description is required.";
+    else if (storySummary.trim().length < 10)
+      nextErrors.summary = "Description should be at least 10 characters.";
+    else if (storySummary.trim().length > 1000)
+      nextErrors.summary = "Description must be 1000 characters or fewer.";
+
+    if (!coverFile) nextErrors.cover = "Please upload a cover image.";
+
+    if (!selectedStyleId) nextErrors.style = "Please choose a story type.";
+    if (selectedGenreIds.length === 0)
+      nextErrors.genres = "Please select at least one genre.";
+
+    if (mode === "publish" && !isPublish) {
+      nextErrors.visibility =
+        "Enable Public visibility if you want to publish immediately.";
+    }
+
+    setPublishErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const formReady =
+    storyTitle.trim().length > 0 &&
+    storySummary.trim().length >= 10 &&
+    !!coverFile &&
+    !!selectedStyleId &&
+    selectedGenreIds.length > 0;
+
+  const remainingRequiredCount = [
+    !storyTitle.trim(),
+    storySummary.trim().length < 10,
+    !coverFile,
+    !selectedStyleId,
+    selectedGenreIds.length === 0,
+  ].filter(Boolean).length;
+
   useEffect(() => {
-    let mounted = true;
-    (async () => {
+    const loadOptions = async () => {
       try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/genre/`,
-          { withCredentials: true }
-        );
-        if (mounted)
-          setAvailableGenres(Array.isArray(res.data) ? res.data : []);
+        setLoadingPage(true);
 
-        const st = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/styles/active`,
-          { withCredentials: true }
-        );
-        const stylesList: StyleDoc[] = Array.isArray(st.data) ? st.data : [];
-        if (mounted) {
-          setAvailableStyles(stylesList);
-          if (stylesList.length > 0) {
-            setStoryStyle(stylesList[0].name);
-            setSelectedStyles([stylesList[0]._id]);
-          }
-        }
+        const [stylesData, genresData] = await Promise.all([
+          requestFirstSuccessful(api, [
+            { url: "/styles" },
+            { url: "/styles/view" },
+            { url: "/style" },
+            { url: "/style/view" },
+            { url: "/styles/all" },
+          ]),
+          requestFirstSuccessful(api, [
+            { url: "/genre" },
+            { url: "/genre/view" },
+            { url: "/genres" },
+            { url: "/genres/view" },
+            { url: "/genre/all" },
+          ]),
+        ]);
+
+        setAvailableStyles(mapOptions(stylesData));
+        setAvailableGenres(mapOptions(genresData));
       } catch {
-        if (mounted) {
-          setAvailableGenres([]);
-          setAvailableStyles([]);
-        }
+        toast({
+          title: "Failed to load form options",
+          description:
+            "Please check your genres/styles endpoints and try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingPage(false);
       }
-    })();
-    return () => {
-      mounted = false;
     };
-  }, []);
 
-  // Khi đổi style → chọn lại selectedStyles
+    loadOptions();
+  }, [api, toast]);
+
   useEffect(() => {
-    const s = availableStyles.find((st) => st.name === storyStyle);
-    if (s) setSelectedStyles([s._id]);
-  }, [storyStyle, availableStyles]);
+    return () => {
+      if (coverPreview) URL.revokeObjectURL(coverPreview);
+    };
+  }, [coverPreview]);
 
-  const handlePublish = async () => {
-    console.log("Publish clicked");
+  const handleSelectCover = (file?: File | null) => {
+    if (!file) return;
 
-    // validate trước
-    if (!storyTitle.trim())
-      return toast({
-        title: "Error",
-        description: "Please enter story title.",
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file",
+        description: "Please choose an image file.",
         variant: "destructive",
       });
+      return;
+    }
 
-    if (storyTitle.trim().length < 3)
-      return toast({
-        title: "Error",
-        description: "Story title must be at least 3 characters.",
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+
+    setCoverFile(file);
+    setCoverPreview(URL.createObjectURL(file));
+    markTouched("cover");
+  };
+
+  const handleToggleGenre = (genreId: string) => {
+    setSelectedGenreIds((prev) =>
+      prev.includes(genreId)
+        ? prev.filter((id) => id !== genreId)
+        : [...prev, genreId],
+    );
+    markTouched("genres");
+  };
+
+  const handleRightsChange = (next: StoryRights) => {
+    setStoryRights(next);
+    if (rightsError) setRightsError(null);
+  };
+
+  const submitStory = async (mode: CreateMode) => {
+    const payload = decodeUserFromCookie();
+    const authorId = payload?.user_id || payload?.userId;
+
+    if (!authorId) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in again before creating a story.",
         variant: "destructive",
       });
+      return;
+    }
 
-    if (storyTitle.trim().length > 100)
-      return toast({
-        title: "Error",
-        description: "Story title must not exceed 100 characters.",
-        variant: "destructive",
-      });
+    setTouched({
+      title: true,
+      summary: true,
+      cover: true,
+      genres: true,
+      style: true,
+      visibility: true,
+    });
 
-    if (!storySummary.trim())
-      return toast({
-        title: "Error",
-        description: "Please enter description.",
-        variant: "destructive",
-      });
+    const formOk = validateForm(mode);
+    if (!formOk) return;
 
-    if (storySummary.trim().length < 10)
-      return toast({
-        title: "Error",
-        description: "Description must be at least 10 characters.",
-        variant: "destructive",
-      });
+    if (mode === "publish") {
+      const rightsCheck = evaluateClientPublishReadiness(storyRights);
+      if (!rightsCheck.canPublish) {
+        setRightsError(rightsCheck.reason);
+        toast({
+          title: "Cannot publish yet",
+          description: rightsCheck.reason || "Story rights are incomplete.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setRightsError(null);
+    }
 
-    if (storySummary.trim().length > 1000)
-      return toast({
-        title: "Error",
-        description: "Description must not exceed 1000 characters.",
-        variant: "destructive",
-      });
-
-    if (!selectedGenres.length)
-      return toast({
-        title: "Error",
-        description: "Please select at least 1 genre.",
-        variant: "destructive",
-      });
-
-    if (!coverFile)
-      return toast({
-        title: "Error",
-        description: "Please select a cover image for the story.",
-        variant: "destructive",
-      });
-
-    const tokenPayload = decodeToken();
-    const authorId = tokenPayload?.user_id;
-    if (!authorId)
-      return toast({
-        title: "Not logged in",
-        description: "Please log in again.",
-        variant: "destructive",
-      });
-
-    // ----> CHỈ BẬT LOADING SAU KHI VALIDATE XONG <----
-    setIsPublishing(true);
-
-    const fd = new FormData();
-    fd.append("title", storyTitle);
-    fd.append("summary", storySummary);
-    selectedGenres.forEach((g) => fd.append("genres", g));
-    selectedStyles.forEach((s) => fd.append("styles", s));
-    fd.append("status", storyStatus);
-    fd.append("isPublish", String(isPublish));
-    fd.append("isDraft", String(false));
-    fd.append("coverImage", coverFile);
+    if (mode === "publish") setIsPublishing(true);
+    else setIsSavingDraft(true);
 
     try {
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/manga/author/${authorId}`,
-        fd,
+      const formData = new FormData();
+      formData.append("title", storyTitle.trim());
+      formData.append("summary", storySummary.trim());
+      formData.append("status", storyStatus);
+      formData.append("isPublish", "false");
+      formData.append("styles", selectedStyleId);
+      selectedGenreIds.forEach((genreId) => formData.append("genres", genreId));
+      if (coverFile) formData.append("coverImage", coverFile);
+
+      const created = await requestFirstSuccessful<any>(api, [
         {
-          withCredentials: true,
+          method: "post",
+          url: `/manga/author/${authorId}`,
+          data: formData,
+          config: { headers: { "Content-Type": "multipart/form-data" } },
+        },
+      ]);
+
+      const storyId = String(created?._id || created?.id || "");
+      if (!storyId) {
+        throw new Error("Story created but no story id returned.");
+      }
+
+      await api.patch(`/license/${storyId}/rights`, buildRightsPayload(storyRights));
+
+      if (storyRights.declarationAccepted) {
+        await api.patch(`/license/${storyId}/rights/declaration`, {
+          accepted: true,
+          declarationVersion: storyRights.declarationVersion || "v1",
+        });
+      }
+
+      if (mode === "publish") {
+        const updateForm = new FormData();
+        updateForm.append("title", storyTitle.trim());
+        updateForm.append("summary", storySummary.trim());
+        updateForm.append("status", storyStatus);
+        updateForm.append("isPublish", String(Boolean(isPublish)));
+        updateForm.append("styles", selectedStyleId);
+        selectedGenreIds.forEach((genreId) => updateForm.append("genres", genreId));
+
+        await api.patch(`/manga/update/${storyId}`, updateForm, {
           headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
+        });
+      }
+
       toast({
-        title: "Story created successfully!",
-        description: "Story has been created successfully",
+        title: mode === "publish" ? "Story created" : "Draft saved",
+        description:
+          mode === "publish"
+            ? "Your story has been created and the publish state was updated."
+            : "Your story draft has been created.",
         variant: "success",
       });
+
       router.push("/author/dashboard");
-    } catch {
+    } catch (err: any) {
+      const rawMessage =
+        err?.response?.data?.message || err?.message || "Unknown error";
+      const serverMessage = Array.isArray(rawMessage)
+        ? rawMessage.join(", ")
+        : String(rawMessage);
+
       toast({
-        title: "Failed to create story",
-        description: "Please check your data/login again.",
+        title:
+          mode === "publish"
+            ? "Failed to create story"
+            : "Failed to save draft",
+        description: serverMessage,
         variant: "destructive",
       });
     } finally {
-      setTimeout(() => setIsPublishing(false), 2000);
+      setIsPublishing(false);
+      setIsSavingDraft(false);
     }
   };
 
+  if (loadingPage) {
+    return (
+      <div className="min-h-screen bg-muted/30">
+        <Navbar />
+        <div className="container mx-auto max-w-7xl px-4 pb-10 pt-24">
+          <div className="flex h-[50vh] items-center justify-center text-muted-foreground">
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            Loading create form...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-muted/30">
       <Navbar />
-      <div className="container mx-auto px-4 py-8 pt-20">
-        <h1 className="text-3xl font-bold mb-6">Create New Story</h1>
+
+      <div className="container mx-auto max-w-7xl px-4 pb-10 pt-20">
+        <div className="mb-8 space-y-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Dashboard</span>
+            <ChevronRight className="h-4 w-4" />
+            <span>Stories</span>
+            <ChevronRight className="h-4 w-4" />
+            <span className="font-medium text-foreground">Create</span>
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
+              Create New Story
+            </h1>
+            <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
+              Set up your story details, cover, categories, and publishing
+              options in a clean author workspace.
+            </p>
+          </div>
+        </div>
 
         {availableStyles.length > 0 ? (
-          <div className="space-y-6 max-w-4xl mx-auto">
-            {/* Tabs cho styles */}
-            <div className="flex justify-center">
-              <Tabs value={storyStyle} onValueChange={setStoryStyle}>
-                <TabsList
-                  className={`grid w-full max-w-md grid-cols-${availableStyles.length}`}
-                >
-                  {availableStyles.map((s) => (
-                    <TabsTrigger
-                      key={s._id}
-                      value={s.name}
-                      className="flex items-center gap-2"
-                    >
-                      {s.name === "Manga" ? (
-                        <ImageIcon className="w-4 h-4" />
-                      ) : (
-                        <BookOpen className="w-4 h-4" />
-                      )}
-                      {s.name === "Light Novel"
-                        ? "Light Novel"
-                        : s.name === "Manga"
-                          ? "Manga"
-                          : s.name}
-                    </TabsTrigger>
-                  ))}
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="space-y-6">
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardHeader className="border-b border-border/60 pb-5">
+                  <SectionHeader
+                    title="Basic Information"
+                    description="Add the core details readers will see first."
+                  />
+                </CardHeader>
 
-                </TabsList>
-              </Tabs>
-            </div>
-
-            {/* Form tạo truyện */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  {storyStyle === "Manga" ? (
-                    <ImageIcon className="w-5 h-5" />
-                  ) : (
-                    <BookOpen className="w-5 h-5" />
-                  )}
-                  {storyStyle === "Light Novel"
-                    ? "Light Novel"
-                    : storyStyle === "Manga"
-                      ? "Manga"
-                      : storyStyle}
-                </CardTitle>
-
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Title & Summary */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <Label htmlFor="story-title">Story Title *</Label>
-                    <Input
-                      id="story-title"
-                      value={storyTitle}
-                      onChange={(e) => setStoryTitle(e.target.value)}
-                      placeholder="Enter story title"
-                    />
-                    <Label htmlFor="story-description">Description *</Label>
-                    <Textarea
-                      id="story-description"
-                      className="h-43"
-                      rows={6}
-                      value={storySummary}
-                      onChange={(e) => setStorySummary(e.target.value)}
-                      placeholder="Write a short description"
-                    />
-                  </div>
-
-                  {/* Cover */}
-                  <div className="flex flex-col items-center -mt-6">
-                    <Label>Cover Image *</Label>
-                    <div
-                      className="w-50 h-70 border rounded-md flex items-center justify-center cursor-pointer relative group mt-2"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {coverPreview ? (
-                        <img
-                          src={coverPreview}
-                          alt="cover preview"
-                          className="w-full h-full object-cover rounded-md"
-                        />
-                      ) : (
-                        <div className="text-gray-400 flex flex-col items-center">
-                          <ImageIcon className="w-8 h-8 mb-2" />
-                          <span>Select image</span>
+                <CardContent className="pt-6">
+                  <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <Label htmlFor="story-title" className="text-sm font-medium">
+                            Story Title
+                            <RequiredMark />
+                          </Label>
+                          <span className="text-xs text-muted-foreground">
+                            {storyTitle.trim().length}/100
+                          </span>
                         </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                        <Plus className="w-6 h-6 text-white" />
+
+                        <Input
+                          id="story-title"
+                          value={storyTitle}
+                          onChange={(e) => setStoryTitle(e.target.value)}
+                          onBlur={() => markTouched("title")}
+                          placeholder="Enter story title"
+                          className={`h-11 rounded-xl border-border/70 bg-background shadow-sm ${
+                            shouldShowError("title") && publishErrors.title
+                              ? "border-red-500 focus-visible:ring-red-500"
+                              : ""
+                          }`}
+                        />
+
+                        <FieldHint>
+                          Use a clear, memorable title for your story.
+                        </FieldHint>
+                        <FieldError>
+                          {shouldShowError("title") ? publishErrors.title : ""}
+                        </FieldError>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <Label
+                            htmlFor="story-description"
+                            className="text-sm font-medium"
+                          >
+                            Description
+                            <RequiredMark />
+                          </Label>
+                          <span className="text-xs text-muted-foreground">
+                            {storySummary.trim().length}/1000
+                          </span>
+                        </div>
+
+                        <Textarea
+                          id="story-description"
+                          rows={8}
+                          value={storySummary}
+                          onChange={(e) => setStorySummary(e.target.value)}
+                          onBlur={() => markTouched("summary")}
+                          placeholder="Write a short description that helps readers understand the story."
+                          className={`min-h-[210px] rounded-xl border-border/70 bg-background shadow-sm ${
+                            shouldShowError("summary") && publishErrors.summary
+                              ? "border-red-500 focus-visible:ring-red-500"
+                              : ""
+                          }`}
+                        />
+
+                        <FieldHint>
+                          Recommended length: 10–1000 characters.
+                        </FieldHint>
+                        <FieldError>
+                          {shouldShowError("summary") ? publishErrors.summary : ""}
+                        </FieldError>
                       </div>
                     </div>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      className="hidden"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setCoverFile(file);
-                          setCoverPreview(URL.createObjectURL(file));
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
 
-                {/* Genres */}
-                <div className="space-y-2">
-                  <Label>Genres *</Label>
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    {availableGenres.map((g) => (
-                      <div key={g._id} className="flex items-center space-x-2">
-                        <Checkbox
-                          checked={selectedGenres.includes(g._id)}
-                          onCheckedChange={(c) =>
-                            setSelectedGenres(
-                              c
-                                ? [...selectedGenres, g._id]
-                                : selectedGenres.filter((x) => x !== g._id)
-                            )
-                          }
-                        />
-                        <Label>{g.name}</Label>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label className="text-sm font-medium">
+                          Cover Image
+                          <RequiredMark />
+                        </Label>
+                        {coverFile ? (
+                          <span className="text-xs text-muted-foreground">
+                            {(coverFile.size / (1024 * 1024)).toFixed(2)} MB
+                          </span>
+                        ) : null}
                       </div>
-                    ))}
+
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`group relative flex aspect-[2/3] w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed bg-background transition-all hover:border-primary/50 hover:bg-muted/40 ${
+                          shouldShowError("cover") && publishErrors.cover
+                            ? "border-red-500"
+                            : "border-border/70"
+                        }`}
+                      >
+                        {coverPreview ? (
+                          <>
+                            <img
+                              src={coverPreview}
+                              alt="cover preview"
+                              className="h-full w-full object-cover"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                              <div className="rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-black shadow-sm">
+                                Change Cover
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center px-6 text-center">
+                            <UploadCloud className="mb-3 h-8 w-8 text-muted-foreground" />
+                            <p className="text-sm font-medium">Upload cover</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Click to choose an image
+                            </p>
+                          </div>
+                        )}
+                      </button>
+
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleSelectCover(e.target.files?.[0] || null)}
+                      />
+
+                      <FieldHint>Recommended portrait cover image.</FieldHint>
+                      <FieldError>
+                        {shouldShowError("cover") ? publishErrors.cover : ""}
+                      </FieldError>
+
+                      {coverFile ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 rounded-lg px-2 text-muted-foreground"
+                          onClick={() => {
+                            if (coverPreview) URL.revokeObjectURL(coverPreview);
+                            setCoverFile(null);
+                            setCoverPreview("");
+                          }}
+                        >
+                          <X className="mr-1 h-4 w-4" />
+                          Remove cover
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
 
-                {/* Status */}
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select value={storyStatus} onValueChange={setStoryStatus}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableStatuses.map((s: any) => {
-                        const value = (
-                          typeof s === "string" ? s : s.value
-                        ).toLowerCase();
-                        const label = typeof s === "string" ? s : s.label;
-                        return (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div className="mt-8 grid gap-6">
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium">
+                        Story Type
+                        <RequiredMark />
+                      </Label>
 
-                {/* Publish */}
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is-public"
-                    checked={isPublish}
-                    onCheckedChange={(v) => setIsPublish(!!v)}
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {availableStyles.map((style) => {
+                          const isSelected = style._id === selectedStyleId;
+
+                          return (
+                            <button
+                              key={style._id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedStyleId(style._id);
+                                markTouched("style");
+                              }}
+                              className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${
+                                isSelected
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/40"
+                              }`}
+                            >
+                              <span>{style.name}</span>
+                              {isSelected ? <Check className="h-4 w-4" /> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <FieldHint>Choose the primary format of your story.</FieldHint>
+                      <FieldError>
+                        {shouldShowError("style") ? publishErrors.style : ""}
+                      </FieldError>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label className="text-sm font-medium">
+                          Genres
+                          <RequiredMark />
+                        </Label>
+
+                        <Input
+                          value={genreSearch}
+                          onChange={(e) => setGenreSearch(e.target.value)}
+                          placeholder="Search genres..."
+                          className="h-9 max-w-[220px] rounded-xl"
+                        />
+                      </div>
+
+                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                        {filteredGenres.length > 0 ? (
+                          <div className="flex flex-wrap gap-3">
+                            {filteredGenres.map((genre) => {
+                              const isSelected = selectedGenreIds.includes(genre._id);
+
+                              return (
+                                <button
+                                  key={genre._id}
+                                  type="button"
+                                  onClick={() => handleToggleGenre(genre._id)}
+                                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
+                                    isSelected
+                                      ? "border-primary bg-primary/10 text-primary"
+                                      : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/40"
+                                  }`}
+                                >
+                                  {isSelected ? <Check className="h-4 w-4" /> : null}
+                                  <span>{genre.name}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-dashed border-border/70 py-8 text-center text-sm text-muted-foreground">
+                            No genres found for “{genreSearch}”.
+                          </div>
+                        )}
+                      </div>
+
+                      <FieldHint>
+                        Choose one or more genres to improve discoverability.
+                      </FieldHint>
+                      <FieldError>
+                        {shouldShowError("genres") ? publishErrors.genres : ""}
+                      </FieldError>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Status</Label>
+                        <Select
+                          value={storyStatus}
+                          onValueChange={(value) =>
+                            setStoryStatus(value as "ongoing" | "completed" | "hiatus")
+                          }
+                        >
+                          <SelectTrigger className="h-11 rounded-xl border-border/70 bg-background shadow-sm">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            {statusOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <FieldHint>Set the current release status.</FieldHint>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Visibility</Label>
+
+                        <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              id="is-public"
+                              checked={isPublish}
+                              onCheckedChange={(value) => {
+                                setIsPublish(!!value);
+                                markTouched("visibility");
+                              }}
+                              className="mt-0.5"
+                            />
+
+                            <div className="space-y-1">
+                              <Label
+                                htmlFor="is-public"
+                                className="cursor-pointer text-sm font-medium"
+                              >
+                                Public visibility
+                              </Label>
+                              <p className="text-sm text-muted-foreground">
+                                Readers can discover and access this story after
+                                publishing.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <FieldError>
+                          {shouldShowError("visibility")
+                            ? publishErrors.visibility
+                            : ""}
+                        </FieldError>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <StoryRightsSection
+                value={storyRights}
+                onChange={handleRightsChange}
+                publishError={rightsError}
+              />
+
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardHeader className="border-b border-border/60 pb-5">
+                  <SectionHeader
+                    title="Publishing"
+                    description="Review your setup and choose what to do next."
                   />
-                  <Label htmlFor="is-public">Public</Label>
-                </div>
+                </CardHeader>
 
-                {/* Buttons */}
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    onClick={handlePublish}
-                    className="flex-1"
-                    variant="secondary"
-                    disabled={isPublishing}
-                  >
-                    <Publish className="w-4 h-4 mr-2" />
-                    {isPublishing ? "Processing..." : "Publish"}
-                  </Button>
+                <CardContent className="pt-6">
+                  <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="space-y-1">
+                        <div className="text-sm font-semibold">
+                          {formReady
+                            ? "Ready to publish"
+                            : `Complete ${remainingRequiredCount} more required ${
+                                remainingRequiredCount === 1 ? "field" : "fields"
+                              }`}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          You can edit these settings later from your author
+                          dashboard.
+                        </p>
+                      </div>
 
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => router.push("/author/dashboard")}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                      <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-xl"
+                          onClick={() => router.push("/author/dashboard")}
+                          disabled={isPublishing || isSavingDraft}
+                        >
+                          Cancel
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="rounded-xl"
+                          onClick={() => submitStory("draft")}
+                          disabled={isPublishing || isSavingDraft}
+                        >
+                          {isSavingDraft ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : null}
+                          Save Draft
+                        </Button>
+
+                        <Button
+                          type="button"
+                          className="rounded-xl px-6 shadow-sm"
+                          onClick={() => submitStory("publish")}
+                          disabled={isPublishing || isSavingDraft}
+                        >
+                          {isPublishing ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : null}
+                          {isPublishing ? "Publishing..." : "Publish Story"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardHeader className="pb-4">
+                  <SectionHeader
+                    title="Live Preview"
+                    description="A quick overview of how your story setup looks."
+                  />
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  <div className="mx-auto aspect-[2/3] w-full max-w-[220px] overflow-hidden rounded-2xl border border-border/70 bg-muted/30">
+                    {coverPreview ? (
+                      <img
+                        src={coverPreview}
+                        alt="Story cover preview"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+                        <ImageIcon className="mb-3 h-8 w-8 text-muted-foreground" />
+                        <p className="text-sm font-medium">No cover yet</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Your uploaded cover will appear here.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold leading-snug text-foreground">
+                      {storyTitle.trim() || "Untitled Story"}
+                    </h3>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {storySummary.trim() ||
+                        "Your story description will appear here once you start typing."}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                      {selectedStyleDoc?.name || "Story type"}
+                    </span>
+                    <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                      {selectedStatusLabel}
+                    </span>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        isPublish
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {isPublish ? "Public" : "Private"}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Selected genres
+                    </p>
+
+                    {selectedGenreDocs.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedGenreDocs.slice(0, 8).map((genre) => (
+                          <span
+                            key={genre._id}
+                            className="rounded-full border border-border/70 px-3 py-1 text-xs font-medium"
+                          >
+                            {genre.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No genres selected yet.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-3 py-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Story URL
+                    </p>
+                    <p className="mt-1 break-all text-sm text-foreground">
+                      /story/{slugPreview}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                    <p className="text-sm font-medium">Rights preview</p>
+                    <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                      <div>Origin: {storyRights.originType}</div>
+                      <div>Monetization: {storyRights.monetizationType}</div>
+                      <div>Basis: {storyRights.basis}</div>
+                      <div>
+                        Declaration:{" "}
+                        {storyRights.declarationAccepted ? "Accepted" : "Not accepted"}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         ) : (
-          <Card>
-            <CardContent className="text-center py-8">
-              Currently no story types are available to create.
+          <Card className="rounded-2xl border-border/70 shadow-sm">
+            <CardContent className="py-12 text-center">
+              <p className="text-sm text-muted-foreground">
+                No styles available. Please create at least one style before creating
+                a story.
+              </p>
             </CardContent>
           </Card>
         )}
