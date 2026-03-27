@@ -1,5 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
-import { Ban, CheckCircle2, Edit, Users } from "lucide-react";
+import { Edit, Shield, Users } from "lucide-react";
 
 import {
   Card,
@@ -9,7 +11,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-import type { UserRow } from "./user-management.types";
+import type {
+  UserListPreset,
+  UserManagementSummary,
+} from "./user-management.types";
 
 function StatCard({
   title,
@@ -30,11 +35,11 @@ function StatCard({
     <button type="button" onClick={onClick} className="w-full text-left">
       <Card
         className={[
-          "h-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
-          active ? "ring-2 ring-blue-500 border-blue-300 shadow-sm" : "",
+          "h-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm",
+          active ? "border-blue-300 ring-2 ring-blue-500 shadow-sm" : "",
         ].join(" ")}
       >
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
           <div className="space-y-1">
             <CardTitle className="text-sm font-medium">{title}</CardTitle>
             <CardDescription className="text-xs">{description}</CardDescription>
@@ -42,7 +47,7 @@ function StatCard({
           <div className="text-muted-foreground">{icon}</div>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="px-4 pb-4 pt-0">
           <div className="text-2xl font-bold">{value}</div>
         </CardContent>
       </Card>
@@ -52,14 +57,14 @@ function StatCard({
 
 function StatsSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, idx) => (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      {Array.from({ length: 3 }).map((_, idx) => (
         <Card key={idx}>
-          <CardHeader className="space-y-2">
+          <CardHeader className="space-y-2 px-4 pb-2 pt-4">
             <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
             <div className="h-3 w-32 animate-pulse rounded bg-slate-100" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-4 pt-0">
             <div className="h-8 w-16 animate-pulse rounded bg-slate-200" />
           </CardContent>
         </Card>
@@ -69,20 +74,24 @@ function StatsSkeleton() {
 }
 
 type UserManagementStatsProps = {
-  users: UserRow[];
+  summary: UserManagementSummary;
   filterRole: string;
   filterStatus: string;
+  filterPreset: UserListPreset;
   isLoading: boolean;
+  onApplyPreset: (preset: UserListPreset) => void;
   onSetRoleFilter: (value: string) => void;
   onSetStatusFilter: (value: string) => void;
   onResetFilters: () => void;
 };
 
 export function UserManagementStats({
-  users,
+  summary,
   filterRole,
   filterStatus,
+  filterPreset,
   isLoading,
+  onApplyPreset,
   onSetRoleFilter,
   onSetStatusFilter,
   onResetFilters,
@@ -91,19 +100,22 @@ export function UserManagementStats({
     return <StatsSkeleton />;
   }
 
-  const totalUsers = users.length;
-  const authors = users.filter((user) => user.role === "author").length;
-  const activeUsers = users.filter((user) => user.status === "Normal").length;
-  const bannedUsers = users.filter((user) => user.status === "Banned").length;
+  const totalUsers = summary.totalUsers;
+  const authors = summary.authors;
+  const staffUsers = summary.staffUsers;
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
       <StatCard
         title="Total Users"
         value={totalUsers}
-        description="Reset role and status filters"
+        description="Reset all filters"
         icon={<Users className="h-4 w-4" />}
-        active={filterRole === "all" && filterStatus === "all"}
+        active={
+          filterRole === "all" &&
+          filterStatus === "all" &&
+          filterPreset === "all"
+        }
         onClick={onResetFilters}
       />
 
@@ -112,26 +124,33 @@ export function UserManagementStats({
         value={authors}
         description="Filter by author role"
         icon={<Edit className="h-4 w-4" />}
-        active={filterRole === "author"}
-        onClick={() => onSetRoleFilter("author")}
+        active={
+          filterRole === "author" &&
+          filterStatus === "all" &&
+          filterPreset === "all"
+        }
+        onClick={() => {
+          onApplyPreset("all");
+          onSetRoleFilter("author");
+          onSetStatusFilter("all");
+        }}
       />
 
       <StatCard
-        title="Active Users"
-        value={activeUsers}
-        description="Filter by Normal status"
-        icon={<CheckCircle2 className="h-4 w-4 text-green-600" />}
-        active={filterStatus === "Normal"}
-        onClick={() => onSetStatusFilter("Normal")}
-      />
-
-      <StatCard
-        title="Banned Users"
-        value={bannedUsers}
-        description="Filter by Banned status"
-        icon={<Ban className="h-4 w-4 text-red-600" />}
-        active={filterStatus === "Banned"}
-        onClick={() => onSetStatusFilter("Banned")}
+        title="Staff"
+        value={staffUsers}
+        description="Moderators and managers"
+        icon={<Shield className="h-4 w-4" />}
+        active={
+          filterPreset === "staff" &&
+          filterRole === "all" &&
+          filterStatus === "all"
+        }
+        onClick={() => {
+          onSetRoleFilter("all");
+          onSetStatusFilter("all");
+          onApplyPreset("staff");
+        }}
       />
     </div>
   );

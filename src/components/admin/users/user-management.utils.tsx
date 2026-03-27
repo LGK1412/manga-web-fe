@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Ban,
   CheckCircle2,
@@ -8,8 +10,17 @@ import {
   VolumeX,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import type { SortingState } from "@tanstack/react-table";
 
-import { ROLE_OPTIONS, type UserStatus } from "./user-management.types";
+import {
+  ROLE_OPTIONS,
+  STAFF_ROLE_VALUES,
+  type UserListPreset,
+  type UserProvider,
+  type UserRow,
+  type UserSortColumn,
+  type UserStatus,
+} from "./user-management.types";
 
 export const ROLE_LABEL: Record<string, string> = Object.fromEntries(
   ROLE_OPTIONS.map((role) => [role.value, role.label])
@@ -22,6 +33,12 @@ export const rolePriority: Record<string, number> = {
   content_moderator: 3,
   author: 4,
   user: 5,
+};
+
+const statusPriority: Record<UserStatus, number> = {
+  Banned: 0,
+  Muted: 1,
+  Normal: 2,
 };
 
 export function formatRoleLabel(role: string) {
@@ -42,10 +59,12 @@ export function formatDisplayDate(dateStr: string) {
 }
 
 export function toUiStatus(rawStatus: string): UserStatus {
-  switch (rawStatus) {
+  switch (String(rawStatus || "").toLowerCase()) {
     case "ban":
+    case "banned":
       return "Banned";
     case "mute":
+    case "muted":
       return "Muted";
     case "normal":
     default:
@@ -63,6 +82,92 @@ export function toBackendStatus(status: UserStatus) {
     default:
       return "normal";
   }
+}
+
+export function isStaffRole(role: string) {
+  return STAFF_ROLE_VALUES.includes(role as (typeof STAFF_ROLE_VALUES)[number]);
+}
+
+export function matchesUserPreset(user: UserRow, preset: UserListPreset) {
+  switch (preset) {
+    case "staff":
+      return isStaffRole(user.role);
+    case "new-7d": {
+      if (!user.joinDate) return false;
+      const joinedAt = new Date(user.joinDate).getTime();
+      if (Number.isNaN(joinedAt)) return false;
+      const now = Date.now();
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      return now - joinedAt <= sevenDays;
+    }
+    case "all":
+    default:
+      return true;
+  }
+}
+
+export function getProviderMeta(provider: UserProvider) {
+  switch (provider) {
+    case "google":
+      return {
+        label: "Google",
+        className: "border-blue-200 bg-blue-50 text-blue-700",
+      };
+    case "local":
+      return {
+        label: "Local",
+        className: "border-slate-200 bg-slate-50 text-slate-700",
+      };
+    default:
+      return {
+        label: "Unknown provider",
+        className: "border-slate-200 bg-slate-50 text-slate-600",
+      };
+  }
+}
+
+export function getVerificationMeta(isVerified: boolean) {
+  return isVerified
+    ? {
+        label: "Email verified",
+        className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+      }
+    : {
+        label: "Email not verified",
+        className: "border-amber-200 bg-amber-50 text-amber-700",
+      };
+}
+
+export function getRiskMeta(reportCount?: number | null) {
+  if (reportCount == null) {
+    return {
+      label: "Risk unavailable",
+      className: "border-slate-200 bg-slate-50 text-slate-600",
+    };
+  }
+
+  if (reportCount >= 5) {
+    return {
+      label: "High risk",
+      className: "border-red-200 bg-red-50 text-red-700",
+    };
+  }
+
+  if (reportCount > 0) {
+    return {
+      label: "Needs review",
+      className: "border-amber-200 bg-amber-50 text-amber-700",
+    };
+  }
+
+  return {
+    label: "No risk signals",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  };
+}
+
+export function formatMetricValue(value?: number | null) {
+  return value == null ? "No data" : String(value);
 }
 
 export function getRoleColor(role: string) {
@@ -95,34 +200,6 @@ export function getStatusColor(status: UserStatus) {
   }
 }
 
-export function getStatusRowTone(status: UserStatus) {
-  switch (status) {
-    case "Banned":
-      return "bg-red-50/40";
-    case "Muted":
-      return "bg-yellow-50/40";
-    default:
-      return "";
-  }
-}
-
-export function getRoleAccentHover(role: string) {
-  switch (role) {
-    case "admin":
-      return "hover:border-l-red-500";
-    case "author":
-      return "hover:border-l-blue-500";
-    case "content_moderator":
-      return "hover:border-l-purple-500";
-    case "financial_manager":
-      return "hover:border-l-emerald-500";
-    case "community_manager":
-      return "hover:border-l-amber-500";
-    default:
-      return "hover:border-l-slate-400";
-  }
-}
-
 export function getRoleIcon(role: string): ReactNode {
   switch (role) {
     case "admin":
@@ -149,6 +226,57 @@ export function getStatusIcon(status: UserStatus): ReactNode {
     default:
       return null;
   }
+}
+
+function compareStrings(a?: string | null, b?: string | null) {
+  return String(a || "").localeCompare(String(b || ""));
+}
+
+function compareDates(a?: string | null, b?: string | null) {
+  const first = a ? new Date(a).getTime() : 0;
+  const second = b ? new Date(b).getTime() : 0;
+  return first - second;
+}
+
+export function sortUsers(users: UserRow[], sorting: SortingState) {
+  const activeSort = sorting[0];
+  if (!activeSort) return users;
+
+  const sorted = [...users];
+  const { id, desc } = activeSort;
+
+  sorted.sort((a, b) => {
+    let result = 0;
+
+    switch (id as UserSortColumn) {
+      case "name":
+        result = compareStrings(a.name, b.name);
+        break;
+      case "email":
+        result = compareStrings(a.email, b.email);
+        break;
+      case "role":
+        result = (rolePriority[a.role] ?? 999) - (rolePriority[b.role] ?? 999);
+        break;
+      case "status":
+        result =
+          (statusPriority[a.status] ?? 999) - (statusPriority[b.status] ?? 999);
+        break;
+      case "joinDate":
+        result = compareDates(a.joinDate, b.joinDate);
+        break;
+      case "lastActivityAt":
+        result = compareDates(a.lastActivityAt, b.lastActivityAt);
+        break;
+      default:
+        result = 0;
+        break;
+    }
+
+    return desc ? -result : result;
+  });
+
+  return sorted;
 }
 
 export function logAxiosError(
