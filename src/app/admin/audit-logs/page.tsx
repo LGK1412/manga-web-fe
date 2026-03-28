@@ -26,7 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 import {
   AuditApproval,
@@ -34,6 +34,7 @@ import {
   buildHumanMessage,
   prettyAction,
   prettyRole,
+  resolveAuditActorAvatar,
 } from "@/lib/audit-ui"
 
 type Me = {
@@ -45,12 +46,12 @@ type Me = {
 type AuditLogUI = {
   id: string
   time: string
-  reportCode?: string
 
   actor: {
     name: string
     email: string
     role: string
+    avatar?: string
   }
 
   action: string
@@ -94,12 +95,11 @@ function mapAuditRowToUI(row: any): AuditLogUI {
     id: String(row?._id ?? row?.id ?? ""),
     time: formatTime(row?.createdAt),
 
-    reportCode: row?.reportCode,
-
     actor: {
       name: actorUsername,
       email: actorEmail,
       role: String(actorRole),
+      avatar: row?.actor_id?.avatar || row?.actor_avatar || row?.actorAvatar,
     },
 
     action: String(row?.action ?? "unknown"),
@@ -264,7 +264,6 @@ export default function AuditLogsPage() {
   const handleExportCSV = () => {
     const headers = [
       "Time",
-      "ReportCode",
       "Actor",
       "Email",
       "Role",
@@ -277,7 +276,6 @@ export default function AuditLogsPage() {
 
     const rows = logs.map((log) => [
       log.time,
-      safeStr(log.reportCode),
       log.actor.name,
       log.actor.email,
       prettyRole(log.actor.role),
@@ -304,15 +302,15 @@ export default function AuditLogsPage() {
   const getRoleColor = (role: string) => {
     switch (String(role || "").toLowerCase()) {
       case "system":
-        return "bg-gray-100 text-gray-800"
+        return "border-slate-200 bg-slate-100 text-slate-700"
       case "content_moderator":
-        return "bg-blue-100 text-blue-800"
+        return "border-blue-200 bg-blue-100 text-blue-800"
       case "community_manager":
-        return "bg-purple-100 text-purple-800"
+        return "border-purple-200 bg-purple-100 text-purple-800"
       case "admin":
-        return "bg-emerald-100 text-emerald-800"
+        return "border-emerald-200 bg-emerald-100 text-emerald-800"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "border-slate-200 bg-slate-100 text-slate-700"
     }
   }
 
@@ -465,7 +463,7 @@ export default function AuditLogsPage() {
             <div className="flex gap-4 flex-col lg:flex-row">
               <div className="flex-1">
                 <Input
-                  placeholder="Search by actor, email, report code, message…"
+                  placeholder="Search by actor, email, message…"
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value)
@@ -559,7 +557,6 @@ export default function AuditLogsPage() {
                 <TableHeader>
                   <TableRow className="bg-gray-50">
                     <TableHead className="text-xs font-semibold">Time</TableHead>
-                    <TableHead className="text-xs font-semibold">Report Code</TableHead>
                     <TableHead className="text-xs font-semibold">Actor</TableHead>
                     <TableHead className="text-xs font-semibold">Action</TableHead>
                     <TableHead className="text-xs font-semibold">Message</TableHead>
@@ -573,13 +570,13 @@ export default function AuditLogsPage() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-sm text-gray-500">
+                      <TableCell colSpan={8} className="text-center py-8 text-sm text-gray-500">
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : logs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-sm text-gray-500">
+                      <TableCell colSpan={8} className="text-center py-8 text-sm text-gray-500">
                         No logs found.
                       </TableCell>
                     </TableRow>
@@ -593,12 +590,15 @@ export default function AuditLogsPage() {
                       >
                         <TableCell className="text-xs whitespace-nowrap">{log.time}</TableCell>
 
-                        <TableCell className="text-xs font-mono">{log.reportCode ?? "—"}</TableCell>
-
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-6 w-6">
-                              <AvatarFallback className="text-xs">
+                        <TableCell className="min-w-[280px]">
+                          <div className="flex items-start gap-3">
+                            <Avatar className="h-10 w-10 border border-slate-200">
+                              <AvatarImage
+                                src={resolveAuditActorAvatar(log.actor.avatar, API)}
+                                alt={log.actor.name}
+                                referrerPolicy="no-referrer"
+                              />
+                              <AvatarFallback className="bg-slate-100 text-[11px] font-semibold text-slate-700">
                                 {log.actor.name
                                   .split(" ")
                                   .filter(Boolean)
@@ -607,12 +607,16 @@ export default function AuditLogsPage() {
                               </AvatarFallback>
                             </Avatar>
 
-                            <div className="text-xs">
-                              <p className="font-medium">{log.actor.name}</p>
-                              <p className="text-gray-500">{log.actor.email}</p>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-slate-900">
+                                {log.actor.name}
+                              </p>
+                              <p className="truncate text-sm text-slate-500">
+                                {log.actor.email}
+                              </p>
                               <Badge
-                                variant="outline"
-                                className={`text-xs mt-1 ${getRoleColor(log.actor.role)}`}
+                                variant="secondary"
+                                className={`mt-1.5 border ${getRoleColor(log.actor.role)}`}
                               >
                                 {prettyRole(log.actor.role)}
                               </Badge>

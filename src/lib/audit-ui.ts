@@ -74,28 +74,47 @@ export function prettyFieldValue(key: string, value: any) {
   return value
 }
 
-/** ========= UI-friendly message (không show code) ========= */
+export function resolveAuditActorAvatar(avatar?: string, apiUrl?: string) {
+  const value = String(avatar || "").trim()
+  if (!value) return undefined
+  if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value
+  if (value.startsWith("/")) return apiUrl ? `${apiUrl}${value}` : value
+  return apiUrl ? `${apiUrl}/assets/avatars/${value}` : undefined
+}
+
+/** ========= UI-friendly message (khong show technical id) ========= */
 export function buildHumanMessage(log: any) {
+  const action = String(log?.action || "").trim().toLowerCase()
   const b = log?.before?.status
   const a = log?.after?.status
 
   if (b !== undefined || a !== undefined) {
-    const left = b ? prettyStatus(b) : "—"
-    const right = a ? prettyStatus(a) : "—"
-    return `Updated status: ${left} → ${right}`
+    const left = b ? prettyStatus(b) : "-"
+    const right = a ? prettyStatus(a) : "-"
+    return `Updated status: ${left} -> ${right}`
+  }
+
+  switch (action) {
+    case "comment_hidden":
+      return "Comment hidden"
+    case "comment_restored":
+      return "Comment restored"
+    case "reply_hidden":
+      return "Reply hidden"
+    case "reply_restored":
+      return "Reply restored"
   }
 
   const raw = String(log?.summary || "")
-  if (!raw) return "—"
+  if (!raw) return "-"
 
-  // làm sạch thô (fallback)
   return raw
     .replaceAll("report_status_", "")
     .replaceAll("_", " ")
     .trim()
 }
 
-/** ========= allowlist fields for diff (ẩn technical keys) ========= */
+/** ========= allowlist fields for diff (an technical keys) ========= */
 export function normalizeDiff(log: any, obj?: Record<string, any>) {
   const action = String(log?.action || "")
   const targetType = String(log?.target_type || log?.targetType || "").toLowerCase()

@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -35,6 +35,7 @@ import {
   prettyFieldLabel,
   prettyFieldValue,
   prettyRole,
+  resolveAuditActorAvatar,
 } from "@/lib/audit-ui"
 
 type Me = {
@@ -106,6 +107,7 @@ export default function AuditLogDetailsPage() {
   const actorName = log?.actor_id?.username || log?.actor_name || "System"
   const actorEmail = log?.actor_id?.email || log?.actor_email || "—"
   const actorRole = log?.actor_role || log?.actor_id?.role || "system"
+  const actorAvatar = log?.actor_id?.avatar || log?.actor_avatar || log?.actorAvatar
 
   const timeText = log?.createdAt
     ? new Date(log.createdAt).toLocaleString("vi-VN", { hour12: false })
@@ -494,6 +496,11 @@ export default function AuditLogDetailsPage() {
               </CardHeader>
               <CardContent className="flex items-center gap-3">
                 <Avatar className="h-10 w-10">
+                  <AvatarImage
+                    src={resolveAuditActorAvatar(actorAvatar, API)}
+                    alt={actorName}
+                    referrerPolicy="no-referrer"
+                  />
                   <AvatarFallback>
                     {String(actorName)
                       .split(" ")
