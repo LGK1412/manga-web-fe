@@ -1,72 +1,71 @@
 "use client";
 
-import { useState } from "react";
+import { RotateCcw, Search } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, RotateCcw } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export interface FilterState {
-  manga: string;   // "" = All
-  chapter: string; // "" = All
-  status: string;  // "" = All
+  manga: string;
+  chapter: string;
+  status: string;
   user: string;
   search: string;
 }
 
 interface CommentFiltersProps {
-  onFilter: (filters: FilterState) => void;
+  filters: FilterState;
+  onChange: (filters: FilterState) => void;
+  onReset: () => void;
   mangas: Array<{ id: string; title: string }>;
   chapters: Array<{ id: string; title: string }>;
 }
 
-// ✅ Sentinel values cho Radix (SelectItem KHÔNG được để value = "")
 const SENTINEL = {
   MANGA: "__ALL_MANGA__",
   CHAPTER: "__ALL_CHAPTER__",
   STATUS: "__ALL_STATUS__",
 } as const;
 
-export function CommentFilters({ onFilter, mangas, chapters }: CommentFiltersProps) {
-  const [filters, setFilters] = useState<FilterState>({
-    manga: "",
-    chapter: "",
-    status: "",
-    user: "",
-    search: "",
-  });
-
-  const handleApplyFilter = () => onFilter(filters);
-
-  const handleReset = () => {
-    const reset: FilterState = { manga: "", chapter: "", status: "", user: "", search: "" };
-    setFilters(reset);
-    onFilter(reset);
-  };
-
+export function CommentFilters({
+  filters,
+  onChange,
+  onReset,
+  mangas,
+  chapters,
+}: CommentFiltersProps) {
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4 mb-6 space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-        {/* Search by content or username */}
-        <div className="lg:col-span-2">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="xl:col-span-2">
           <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
             <Input
               placeholder="Search by content or username..."
               value={filters.search}
-              onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+              onChange={(event) =>
+                onChange({
+                  ...filters,
+                  search: event.target.value,
+                })
+              }
               className="pl-10"
             />
           </div>
         </div>
 
-        {/* Select Manga */}
         <Select
           value={filters.manga || SENTINEL.MANGA}
           onValueChange={(value) => {
-            // Map sentinel -> "" trong state
             const manga = value === SENTINEL.MANGA ? "" : value;
-            setFilters((prev) => ({ ...prev, manga, chapter: "" })); // đổi manga thì reset chapter
+            onChange({ ...filters, manga, chapter: "" });
           }}
         >
           <SelectTrigger>
@@ -74,20 +73,19 @@ export function CommentFilters({ onFilter, mangas, chapters }: CommentFiltersPro
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={SENTINEL.MANGA}>All Manga</SelectItem>
-            {mangas.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.title}
+            {mangas.map((manga) => (
+              <SelectItem key={manga.id} value={manga.id}>
+                {manga.title}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
-        {/* Select Chapter (bị disable nếu chưa chọn manga) */}
         <Select
           value={filters.chapter || SENTINEL.CHAPTER}
           onValueChange={(value) => {
             const chapter = value === SENTINEL.CHAPTER ? "" : value;
-            setFilters((prev) => ({ ...prev, chapter }));
+            onChange({ ...filters, chapter });
           }}
           disabled={!filters.manga}
         >
@@ -96,20 +94,19 @@ export function CommentFilters({ onFilter, mangas, chapters }: CommentFiltersPro
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={SENTINEL.CHAPTER}>All Chapters</SelectItem>
-            {chapters.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.title}
+            {chapters.map((chapter) => (
+              <SelectItem key={chapter.id} value={chapter.id}>
+                {chapter.title}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
-        {/* Select Status */}
         <Select
           value={filters.status || SENTINEL.STATUS}
           onValueChange={(value) => {
             const status = value === SENTINEL.STATUS ? "" : value;
-            setFilters((prev) => ({ ...prev, status }));
+            onChange({ ...filters, status });
           }}
         >
           <SelectTrigger>
@@ -123,14 +120,14 @@ export function CommentFilters({ onFilter, mangas, chapters }: CommentFiltersPro
         </Select>
       </div>
 
-      {/* Buttons */}
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={handleReset} className="gap-2 bg-transparent">
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <Button
+          variant="outline"
+          onClick={onReset}
+          className="gap-2 bg-transparent"
+        >
           <RotateCcw className="h-4 w-4" />
           Reset
-        </Button>
-        <Button onClick={handleApplyFilter} className="gap-2">
-          Apply Filter
         </Button>
       </div>
     </div>
