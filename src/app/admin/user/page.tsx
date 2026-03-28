@@ -1508,7 +1508,7 @@ Manga Platform Team`;
 
   return (
     <AdminLayout>
-      <div className="space-y-6 p-6">
+      <div className="space-y-6">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">

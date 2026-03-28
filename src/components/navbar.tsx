@@ -27,7 +27,6 @@ import {
   Sun,
   Moon,
   Gamepad2,
-  UserStar,
   Trophy,
   Shuffle,
   Loader2,
@@ -41,9 +40,9 @@ import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter } from "next/navigation";
 import { PointBadge } from "./PointBadge";
-import NotificationComponent from "./firebase/NotificationComponent";
 import DailyCheckinPanel from "./DailyCheckinPanel";
 import { useUserPoint } from "@/contexts/UserPointContext";
+import NotificationComponent from "./firebase/NotificationComponent";
 
 export function Navbar() {
   const { setLoginStatus } = useAuth();
@@ -68,6 +67,12 @@ export function Navbar() {
   const canSeeAdminDashboard = ADMIN_DASHBOARD_ROLES.includes(
     user?.role?.trim(),
   );
+  const canReceiveNotifications = Boolean(user) && normalizedRole !== "admin";
+  const notificationHref = canSeeAdminDashboard
+    ? "/admin/my-notifications"
+    : user?.user_id
+      ? `/notification/${user.user_id}`
+      : "/login";
 
   // Desktop search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -259,25 +264,12 @@ export function Navbar() {
 
             {user ? (
               <>
-                {canSeeAdminDashboard && (
-                  <div>
-                    <NotificationComponent />
-                  </div>
-                )}
+                {canReceiveNotifications && <NotificationComponent />}
 
                 {normalizedRole === "author" && (
                   <Button variant="ghost" size="icon" asChild>
                     <Link href="/author/dashboard">
                       <PenTool className="h-5 w-5" />
-                    </Link>
-                  </Button>
-                )}
-
-                {/* ✅ ADMIN DASHBOARD ICON: admin + mod + managers */}
-                {canSeeAdminDashboard && (
-                  <Button variant="ghost" size="icon" asChild>
-                    <Link href="/admin/dashboard">
-                      <UserStar className="h-5 w-5" />
                     </Link>
                   </Button>
                 )}
@@ -512,15 +504,16 @@ export function Navbar() {
                         </div>
                       </div>
 
-                      {canSeeAdminDashboard && (
+                      {canReceiveNotifications && (
                         <Link
-                          href="/notifications"
+                          href={notificationHref}
                           onClick={() => setIsMenuOpen(false)}
                           className="block py-2 text-sm"
                         >
                           Notifications
                         </Link>
                       )}
+
 
                       {normalizedRole === "author" && (
                         <Link
@@ -529,17 +522,6 @@ export function Navbar() {
                           className="block py-2 text-sm"
                         >
                           Write
-                        </Link>
-                      )}
-
-                      {/* ✅ Staff/admin show admin dashboard in mobile too */}
-                      {canSeeAdminDashboard && (
-                        <Link
-                          href="/admin/dashboard"
-                          onClick={() => setIsMenuOpen(false)}
-                          className="block py-2 text-sm"
-                        >
-                          Admin Dashboard
                         </Link>
                       )}
 

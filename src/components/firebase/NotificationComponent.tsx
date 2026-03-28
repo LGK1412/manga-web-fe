@@ -17,7 +17,13 @@ interface Notification {
   createdAt: string;
 }
 
-export default function NotificationComponent() {
+type NotificationComponentProps = {
+  hideViewAll?: boolean;
+};
+
+export default function NotificationComponent({
+  hideViewAll = false,
+}: NotificationComponentProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const [hasNew, setHasNew] = useState(false);
@@ -30,6 +36,13 @@ export default function NotificationComponent() {
     .trim()
     .toLowerCase();
   const isAdmin = normalizedRole === "admin";
+  const isStaff =
+    normalizedRole === "content_moderator" ||
+    normalizedRole === "community_manager" ||
+    normalizedRole === "financial_manager";
+  const inboxHref = isStaff
+    ? "/admin/my-notifications"
+    : `/notification/${user?.user_id}`;
 
   // 🔹 Lấy user từ cookie
   useEffect(() => {
@@ -153,12 +166,14 @@ export default function NotificationComponent() {
         <div className="absolute right-0 mt-2 w-72 rounded-md border border-gray-200 bg-white shadow-lg z-50">
           <h4 className="flex justify-between items-center px-4 py-2 text-sm font-semibold text-gray-800 border-b border-gray-300">
             Unread notifications
-            <Link
-              href={`/notification/${user?.user_id}`}
-              className="text-blue-500 hover:text-blue-600 transition-colors duration-200"
-            >
-              View all
-            </Link>
+            {!hideViewAll && (
+              <Link
+                href={inboxHref}
+                className="text-blue-500 hover:text-blue-600 transition-colors duration-200"
+              >
+                View all
+              </Link>
+            )}
           </h4>
 
           {loading ? (

@@ -202,7 +202,7 @@ export default function SendPolicyNotificationPage() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <div className="space-y-6">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>Admin</span>
           <span>/</span>

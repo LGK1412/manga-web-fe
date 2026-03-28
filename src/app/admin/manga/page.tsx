@@ -582,7 +582,7 @@ export default function MangaManagementPage() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">

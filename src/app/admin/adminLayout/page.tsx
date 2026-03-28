@@ -9,7 +9,6 @@ import {
   Megaphone,
   FileWarning,
   BarChart3,
-  X,
   Tags,
   Palette,
   Shield,
@@ -29,14 +28,22 @@ import {
   Shapes,
   ContactRound,
   ChevronLeft,
+  Loader2,
+  LogOut,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
-import { useTheme } from "next-themes";
+import { useAuth } from "@/lib/auth-context";
+import { removeCookie } from "@/lib/cookie-func";
+import { useToast } from "@/hooks/use-toast";
+import {
+  formatWorkspaceRole,
+  isStaffInboxRole,
+  resolveAdminWorkspaceMeta,
+} from "@/lib/admin-workspace";
+import { StaffNotificationBell } from "@/components/admin/staff-notification-bell";
 
 /** ===== Types ===== */
 type Role =
@@ -272,13 +279,14 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { theme } = useTheme();
+  const router = useRouter();
+  const { setLoginStatus } = useAuth();
+  const { toast } = useToast();
 
   const [open, setOpen] = useState(true);
-  const [mounted, setMounted] = useState(false);
-
   const [currentRole, setCurrentRole] = useState<Role | null>(null);
   const [loadingRole, setLoadingRole] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {
@@ -289,10 +297,6 @@ export default function AdminLayout({
   );
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     const fetchMe = async () => {
@@ -333,12 +337,19 @@ export default function AdminLayout({
   }, [currentRole]);
 
   const toolTitle = currentRole ? ROLE_TOOL_LABEL[currentRole] : "Staff Tool";
+  const roleLabel = formatWorkspaceRole(currentRole);
+  const workspaceMeta = useMemo(
+    () => resolveAdminWorkspaceMeta(pathname),
+    [pathname],
+  );
+  const canShowStaffInboxBell = isStaffInboxRole(currentRole);
 
-  const hoverClass = mounted
-    ? theme === "dark"
-      ? "hover:bg-gray-100 hover:text-black"
-      : "hover:bg-gray-300"
-    : "hover:bg-gray-300";
+  const itemIdleClass =
+    "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white";
+  const itemActiveClass =
+    "bg-slate-900 text-white shadow-sm shadow-slate-200 dark:bg-slate-100 dark:text-slate-950";
+  const subItemActiveClass =
+    "border border-blue-100 bg-blue-50 text-blue-700 shadow-sm dark:border-blue-900/60 dark:bg-blue-950/50 dark:text-blue-200";
 
   const isSubmenuActive = useMemo(() => {
     return (submenu: SubmenuItem) => {
@@ -385,49 +396,108 @@ export default function AdminLayout({
     }));
   };
 
-  return (
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
+  const handleLogout = async () => {
+    if (isLoggingOut || !API_URL) return;
 
-      <div className="flex flex-1 pt-16">
+    setIsLoggingOut(true);
+
+    try {
+      const res = await axios.post(
+        `${API_URL}/api/auth/logout`,
+        {},
+        { withCredentials: true },
+      );
+
+      if (!res.data?.success) {
+        throw new Error(res.data?.message || "Unexpected error");
+      }
+
+      await removeCookie();
+      setLoginStatus(false);
+      router.push("/login");
+    } catch (error: any) {
+      toast({
+        title: "Logout failed",
+        description:
+          error?.response?.data?.message || error?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
+      <div className="flex min-w-0 flex-1">
         <aside
-          className={`shadow-lg border-r transition-all duration-300 ${
-            open ? "w-64" : "w-16"
-          } flex flex-col`}
+          className={`flex shrink-0 flex-col border-r border-slate-200/80 bg-white/95 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur transition-all duration-300 dark:border-slate-800 dark:bg-slate-950/95 ${
+            open ? "w-72" : "w-20"
+          }`}
         >
-          <div className="flex items-center justify-between p-4 border-b">
+          <div className="border-b border-slate-200/80 px-4 py-4 dark:border-slate-800">
+            <div className="flex items-center justify-between gap-3">
+              {open && (
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 shadow-sm ring-1 ring-red-100 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-900/50">
+                    <Shield className="h-5 w-5" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {toolTitle}
+                    </p>
+                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                      Operations workspace
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {!open && (
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600 shadow-sm ring-1 ring-red-100 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-900/50">
+                  <Shield className="h-5 w-5" />
+                </div>
+              )}
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setOpen(!open)}
+                className="h-10 w-10 rounded-2xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
+              >
+                {open ? (
+                  <ChevronLeft className="h-4 w-4" />
+                ) : (
+                  <Menu className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+
             {open && (
-              <div className="flex items-center gap-2">
-                <Shield className="h-6 w-6 text-red-600" />
-                <span className="font-bold text-lg">{toolTitle}</span>
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  Signed in as
+                </p>
+                <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {roleLabel}
+                </p>
               </div>
             )}
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setOpen(!open)}
-              className="hover:bg-red-50 hover:text-red-600"
-            >
-              {open ? (
-                <ChevronLeft className="h-4 w-4" />
-              ) : (
-                <Menu className="h-4 w-4" />
-              )}
-            </Button>
           </div>
 
-          <nav className="flex-1 p-3 space-y-1">
+          <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
             {loadingRole ? (
-              <div className="px-3 py-2 text-sm text-muted-foreground">
+              <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">
                 Loading role...
               </div>
             ) : !currentRole ? (
-              <div className="px-3 py-2 text-sm text-muted-foreground">
+              <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">
                 No role found
               </div>
             ) : visibleMenuItems.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted-foreground">
+              <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">
                 No menu available for this role
               </div>
             ) : (
@@ -444,9 +514,9 @@ export default function AdminLayout({
                         type="button"
                         onClick={() => toggleGroup(item.id)}
                         className={`w-full flex items-center ${
-                          open ? "gap-3 px-3 justify-start" : "justify-center"
-                        } py-2 rounded-lg text-sm font-medium transition-colors ${
-                          active ? "bg-blue-100 text-blue-700" : hoverClass
+                          open ? "justify-start gap-3 px-3" : "justify-center"
+                        } rounded-2xl py-3 text-sm font-medium transition-all ${
+                          active ? itemActiveClass : itemIdleClass
                         }`}
                         title={!open ? item.label : ""}
                       >
@@ -469,7 +539,7 @@ export default function AdminLayout({
                       </button>
 
                       {open && expanded && (
-                        <div className="ml-8 space-y-1">
+                        <div className="ml-6 space-y-1 border-l border-slate-200/80 pl-4 dark:border-slate-800">
                           {item.submenu.map((sub) => {
                             const subActive = isSubmenuActive(sub);
                             const SubIcon = sub.icon;
@@ -478,10 +548,8 @@ export default function AdminLayout({
                               <Link
                                 key={sub.href}
                                 href={sub.href}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                                  subActive
-                                    ? "bg-blue-50 text-blue-700"
-                                    : hoverClass
+                                className={`flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm transition-colors ${
+                                  subActive ? subItemActiveClass : itemIdleClass
                                 }`}
                               >
                                 {SubIcon && (
@@ -504,9 +572,9 @@ export default function AdminLayout({
                     key={item.id}
                     href={item.href}
                     className={`flex items-center ${
-                      open ? "gap-3 px-3 justify-start" : "justify-center"
-                    } py-2 rounded-lg text-sm font-medium transition-colors ${
-                      active ? "bg-blue-100 text-blue-700" : hoverClass
+                      open ? "justify-start gap-3 px-3" : "justify-center"
+                    } rounded-2xl py-3 text-sm font-medium transition-all ${
+                      active ? itemActiveClass : itemIdleClass
                     }`}
                     title={!open ? item.label : ""}
                   >
@@ -519,12 +587,78 @@ export default function AdminLayout({
               })
             )}
           </nav>
+
+          <div className="border-t border-slate-200/80 px-3 py-3 dark:border-slate-800">
+            {open && (
+              <div className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Account
+              </div>
+            )}
+
+            <div className={open ? "flex" : "flex justify-center"}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className={`h-11 rounded-2xl border border-rose-200 bg-rose-50/80 text-rose-700 shadow-sm transition-colors hover:bg-rose-100 hover:text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/60 ${
+                  open ? "w-full justify-center gap-2 px-3" : "w-11 px-0"
+                }`}
+                title={!open ? "Logout" : ""}
+              >
+                {isLoggingOut ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LogOut className="h-4 w-4" />
+                )}
+                {open && <span>{isLoggingOut ? "Signing out..." : "Logout"}</span>}
+              </Button>
+            </div>
+          </div>
         </aside>
 
-        <main className="flex-1 p-6 overflow-y-auto">{children}</main>
-      </div>
+        <div className="min-w-0 flex-1 bg-[radial-gradient(circle_at_top,rgba(191,219,254,0.28),transparent_36%),linear-gradient(180deg,rgba(248,250,252,0.98),rgba(248,250,252,0.92))] dark:bg-[radial-gradient(circle_at_top,rgba(30,41,59,0.55),transparent_34%),linear-gradient(180deg,rgba(2,6,23,0.98),rgba(2,6,23,0.94))]">
+          <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/85 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
+            <div className="mx-auto flex w-full max-w-[1440px] items-start justify-between gap-4 px-6 py-4">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                    {toolTitle}
+                  </span>
+                  <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
+                  <span>{workspaceMeta.section}</span>
+                </div>
 
-      <Footer />
+                <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                  {workspaceMeta.title}
+                </h2>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  {workspaceMeta.description}
+                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-3">
+                {canShowStaffInboxBell && <StaffNotificationBell />}
+
+                <div className="hidden rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 md:flex">
+                  <span className="mr-2 text-xs uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                    Role
+                  </span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                    {roleLabel}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <main className="min-w-0">
+            <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-6 py-6">
+              {children}
+            </div>
+          </main>
+        </div>
+      </div>
     </div>
   );
 }

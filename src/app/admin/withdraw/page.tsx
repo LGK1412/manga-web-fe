@@ -8,7 +8,7 @@ import WithdrawCard from "@/components/admin/withdraw";
 export default function WithdrawManagementPage() {
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Withdraw Management</h1>
           <p className="text-gray-600">

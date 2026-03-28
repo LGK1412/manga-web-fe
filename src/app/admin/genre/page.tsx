@@ -182,7 +182,7 @@ export default function GenreManagement() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
@@ -206,7 +206,7 @@ export default function GenreManagement() {
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Genre's Name</Label>
+                  <Label htmlFor="name">Genre&apos;s Name</Label>
                   <Input
                     id="name"
                     value={newGenre.name}
@@ -282,7 +282,7 @@ export default function GenreManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Genre's Name</TableHead>
+                  <TableHead>Genre&apos;s Name</TableHead>
                   <TableHead>Short Description</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Quantity of stories</TableHead>
@@ -351,7 +351,7 @@ export default function GenreManagement() {
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="edit-name">Genre's Name</Label>
+                  <Label htmlFor="edit-name">Genre&apos;s Name</Label>
                   <Input
                     id="edit-name"
                     value={editGenre.name}
