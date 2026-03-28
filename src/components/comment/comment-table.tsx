@@ -59,8 +59,7 @@ export type CommentSortColumn =
   | "user"
   | "manga"
   | "chapter"
-  | "date"
-  | "status";
+  | "date";
 
 export type SortDirection = "asc" | "desc";
 
@@ -120,16 +119,21 @@ function SortableHeader({
 function PreviewCell({ comment }: { comment: Comment }) {
   const preview =
     comment.plainContent || "This comment contains media or formatting only.";
+  const previewLimit = 64;
+  const compactPreview =
+    preview.length <= previewLimit
+      ? preview
+      : `${preview.slice(0, previewLimit).trimEnd()}...`;
 
   return (
     <HoverCard openDelay={150} closeDelay={100}>
       <HoverCardTrigger asChild>
         <button
           type="button"
-          className="w-full rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-left transition-colors hover:border-slate-300 hover:bg-slate-50"
+          className="w-full rounded-lg border border-slate-200/90 bg-slate-50 px-3 py-2 text-left transition-colors hover:border-slate-300 hover:bg-white"
         >
-          <p className="text-sm text-slate-700 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
-            {preview}
+          <p className="truncate text-[13px] text-slate-700">
+            {compactPreview}
           </p>
         </button>
       </HoverCardTrigger>
@@ -205,16 +209,7 @@ export function CommentTable({
                     onSort={onSort}
                   />
                 </TableHead>
-                <TableHead className="min-w-[280px]">Preview</TableHead>
-                <TableHead className="w-28">
-                  <SortableHeader
-                    column="status"
-                    label="Status"
-                    activeColumn={sortColumn}
-                    direction={sortDirection}
-                    onSort={onSort}
-                  />
-                </TableHead>
+                <TableHead className="min-w-[220px]">Preview</TableHead>
                 <TableHead className="min-w-[180px]">
                   <SortableHeader
                     column="date"
@@ -231,7 +226,7 @@ export function CommentTable({
             <TableBody>
               {comments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-slate-500">
+                  <TableCell colSpan={7} className="py-10 text-center text-slate-500">
                     No comments match the current filters.
                   </TableCell>
                 </TableRow>
@@ -314,9 +309,6 @@ export function CommentTable({
                             <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                           </Link>
 
-                          <p className="text-xs text-slate-500">
-                            Open the story page for broader conversation context.
-                          </p>
                         </div>
                       </TableCell>
 
@@ -353,19 +345,6 @@ export function CommentTable({
 
                       <TableCell>
                         <PreviewCell comment={comment} />
-                      </TableCell>
-
-                      <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className={
-                            isVisible
-                              ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                              : "border border-amber-200 bg-amber-50 text-amber-700"
-                          }
-                        >
-                          {isVisible ? "Visible" : "Hidden"}
-                        </Badge>
                       </TableCell>
 
                       <TableCell className="text-sm text-slate-500">

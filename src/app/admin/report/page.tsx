@@ -8,6 +8,7 @@ import {
   ArrowUpDown,
   BellRing,
   BookOpen,
+  CheckCircle,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -72,7 +73,7 @@ interface Report {
   };
   target_detail?: {
     title?: string;
-    target_human?: { username?: string; email?: string };
+    target_human?: { username?: string; email?: string; avatar?: string };
   };
   reason: string;
   description?: string;
@@ -93,6 +94,13 @@ type ReportSortColumn =
   | "createdAt";
 
 type SortDirection = "asc" | "desc";
+type QuickFilterKey =
+  | "all"
+  | "new"
+  | "in-progress"
+  | "resolved"
+  | "comment"
+  | "manga";
 
 function logAxiosError(tag: string, endpoint: string, err: any, extra?: any) {
   const status = err?.response?.status;
@@ -159,6 +167,40 @@ function compareDates(a?: string | null, b?: string | null) {
   const first = a ? new Date(a).getTime() : 0;
   const second = b ? new Date(b).getTime() : 0;
   return first - second;
+}
+
+function getReasonMeta(reason: string) {
+  const normalized = String(reason || "").toLowerCase();
+
+  if (normalized === "harassment" || normalized === "inappropriate") {
+    return {
+      priority: "High priority",
+      className: "border-red-200 bg-red-50 text-red-700",
+      icon: AlertTriangle,
+    };
+  }
+
+  if (normalized === "copyright" || normalized === "offense") {
+    return {
+      priority: "Needs review",
+      className: "border-amber-200 bg-amber-50 text-amber-700",
+      icon: FileText,
+    };
+  }
+
+  if (normalized === "spam") {
+    return {
+      priority: "Queue check",
+      className: "border-sky-200 bg-sky-50 text-sky-700",
+      icon: MessageSquare,
+    };
+  }
+
+  return {
+    priority: "General review",
+    className: "border-slate-200 bg-slate-100 text-slate-700",
+    icon: FileText,
+  };
 }
 
 function nextSortDirection(
@@ -291,6 +333,8 @@ export default function ReportsPage() {
 
       console.log("[Admin Update Report] SUCCESS");
 
+      const nextStatus = newStatus ?? selectedReport?.status;
+
       setReports((prev) =>
         prev.map((report) =>
           report._id === id
@@ -302,9 +346,21 @@ export default function ReportsPage() {
             : report
         )
       );
+      setSelectedReport((prev) =>
+        prev && prev._id === id
+          ? {
+              ...prev,
+              status: newStatus ?? prev.status,
+              resolution_note: note ?? prev.resolution_note,
+            }
+          : prev
+      );
 
-      setIsModalOpen(false);
-      toast.success("Report updated!");
+      toast.success(
+        newStatus
+          ? `Report marked ${nextStatus?.replace("-", " ")}`
+          : "Resolution note saved"
+      );
     } catch (err: any) {
       logAxiosError("[Admin Update Report]", endpoint, err, {
         id,
@@ -342,7 +398,11 @@ export default function ReportsPage() {
       const matchStatus =
         statusFilter === "all" || report.status === statusFilter;
       const matchType =
-        typeFilter === "all" || report.target_type === typeFilter;
+        typeFilter === "all"
+          ? true
+          : typeFilter === "conversation"
+          ? report.target_type === "Comment" || report.target_type === "Reply"
+          : report.target_type === typeFilter;
 
       return matchSearch && matchStatus && matchType;
     });
@@ -433,7 +493,7 @@ export default function ReportsPage() {
     switch (type) {
       case "Manga":
         return (
-          <Badge className="flex items-center gap-1 bg-purple-100 text-purple-800">
+          <Badge className="flex items-center gap-1 bg-violet-100 text-violet-800">
             <BookOpen className="h-3.5 w-3.5" />
             Manga
           </Badge>
@@ -450,6 +510,13 @@ export default function ReportsPage() {
           <Badge className="flex items-center gap-1 bg-green-100 text-green-800">
             <MessageSquare className="h-3.5 w-3.5" />
             Comment
+          </Badge>
+        );
+      case "Reply":
+        return (
+          <Badge className="flex items-center gap-1 bg-emerald-100 text-emerald-800">
+            <MessageSquare className="h-3.5 w-3.5" />
+            Reply
           </Badge>
         );
       default:
@@ -497,6 +564,123 @@ export default function ReportsPage() {
       nextSortDirection(column, sortColumn, currentDirection)
     );
     setSortColumn(column);
+  };
+
+  const activeQuickFilter = useMemo<QuickFilterKey | null>(() => {
+    if (statusFilter === "all" && typeFilter === "all") return "all";
+    if (statusFilter === "new" && typeFilter === "all") return "new";
+    if (statusFilter === "in-progress" && typeFilter === "all") {
+      return "in-progress";
+    }
+    if (statusFilter === "resolved" && typeFilter === "all") return "resolved";
+    if (statusFilter === "all" && typeFilter === "conversation") {
+      return "comment";
+    }
+    if (statusFilter === "all" && typeFilter === "Manga") return "manga";
+    return null;
+  }, [statusFilter, typeFilter]);
+
+  const quickFilters = useMemo(
+    () => [
+      {
+        key: "all" as const,
+        label: "All reports",
+        count: reports.length,
+        icon: AlertTriangle,
+      },
+      {
+        key: "new" as const,
+        label: "New",
+        count: reports.filter((report) => report.status === "new").length,
+        icon: Clock,
+      },
+      {
+        key: "in-progress" as const,
+        label: "In Progress",
+        count: reports.filter((report) => report.status === "in-progress")
+          .length,
+        icon: Eye,
+      },
+      {
+        key: "resolved" as const,
+        label: "Resolved",
+        count: reports.filter((report) => report.status === "resolved").length,
+        icon: CheckCircle,
+      },
+      {
+        key: "comment" as const,
+        label: "Comments only",
+        count: reports.filter(
+          (report) =>
+            report.target_type === "Comment" || report.target_type === "Reply"
+        ).length,
+        icon: MessageSquare,
+      },
+      {
+        key: "manga" as const,
+        label: "Manga only",
+        count: reports.filter((report) => report.target_type === "Manga").length,
+        icon: BookOpen,
+      },
+    ],
+    [reports]
+  );
+
+  const applyQuickFilter = (filter: QuickFilterKey) => {
+    setCurrentPage(1);
+
+    switch (filter) {
+      case "new":
+        setStatusFilter("new");
+        setTypeFilter("all");
+        break;
+      case "in-progress":
+        setStatusFilter("in-progress");
+        setTypeFilter("all");
+        break;
+      case "resolved":
+        setStatusFilter("resolved");
+        setTypeFilter("all");
+        break;
+      case "comment":
+        setStatusFilter("all");
+        setTypeFilter("conversation");
+        break;
+      case "manga":
+        setStatusFilter("all");
+        setTypeFilter("Manga");
+        break;
+      default:
+        setStatusFilter("all");
+        setTypeFilter("all");
+        break;
+    }
+  };
+
+  const selectedReportIndex = useMemo(() => {
+    if (!selectedReport) return -1;
+    return sortedReports.findIndex((report) => report._id === selectedReport._id);
+  }, [selectedReport, sortedReports]);
+
+  const openModalByIndex = (index: number) => {
+    const report = sortedReports[index];
+    if (!report) return;
+
+    setSelectedReport(report);
+    setIsModalOpen(true);
+    setCurrentPage(Math.floor(index / reportsPerPage) + 1);
+  };
+
+  const handlePreviousReport = () => {
+    if (selectedReportIndex <= 0) return;
+    openModalByIndex(selectedReportIndex - 1);
+  };
+
+  const handleNextReport = () => {
+    if (selectedReportIndex < 0 || selectedReportIndex >= sortedReports.length - 1) {
+      return;
+    }
+    openModalByIndex(selectedReportIndex + 1);
   };
 
   const totalReports = reports.length;
@@ -564,18 +748,56 @@ export default function ReportsPage() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-gray-900">
-              Reports List
-            </CardTitle>
-            <CardDescription>
-              Manage and resolve story violation reports
-            </CardDescription>
+        <Card className="rounded-3xl border-slate-200/80 shadow-sm">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+              <div className="space-y-1">
+                <CardTitle className="text-lg font-semibold text-slate-900">
+                  Reports Queue
+                </CardTitle>
+                <CardDescription className="max-w-2xl text-sm leading-6">
+                  Triage incoming reports, review the target account quickly,
+                  and move each case through moderation without leaving the
+                  queue.
+                </CardDescription>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-2">
+              {quickFilters.map((filter) => {
+                const Icon = filter.icon;
+                const isActive = activeQuickFilter === filter.key;
+
+                return (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    onClick={() => applyQuickFilter(filter.key)}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition ${
+                      isActive
+                        ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{filter.label}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs ${
+                        isActive
+                          ? "bg-white/15 text-white"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {filter.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </CardHeader>
 
           <CardContent>
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+            <div className="mb-5 flex flex-col gap-3 lg:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
                 <Input
@@ -591,7 +813,7 @@ export default function ReportsPage() {
                   Status
                 </label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-[168px]">
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
@@ -609,20 +831,24 @@ export default function ReportsPage() {
                   Target Type
                 </label>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-[178px]">
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="conversation">
+                      Comments & Replies
+                    </SelectItem>
                     <SelectItem value="Manga">Manga</SelectItem>
                     <SelectItem value="Chapter">Chapter</SelectItem>
                     <SelectItem value="Comment">Comment</SelectItem>
+                    <SelectItem value="Reply">Reply</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="rounded-md border">
+            <div className="rounded-2xl border border-slate-200/80">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -720,10 +946,16 @@ export default function ReportsPage() {
                         report.target_id?.authorId?.email ||
                         report.target_id?.user?.email ||
                         null;
+                      const reportedAgainstAvatar = resolveAvatarUrl(
+                        report.target_detail?.target_human?.avatar,
+                        API
+                      );
                       const reporterAvatar = resolveAvatarUrl(
                         report.reporter_id?.avatar,
                         API
                       );
+                      const reasonMeta = getReasonMeta(report.reason);
+                      const ReasonIcon = reasonMeta.icon;
                       const isHighlighted = highlightId === report._id;
 
                       const rowClass = [
@@ -786,15 +1018,32 @@ export default function ReportsPage() {
                           </TableCell>
 
                           <TableCell className="group-hover:text-slate-900">
-                            <div className="min-w-0">
-                              <div className="font-semibold">
-                                {reportedAgainst}
-                              </div>
-                              {reportedAgainstEmail ? (
-                                <div className="truncate text-xs text-gray-500">
-                                  {reportedAgainstEmail}
+                            <div className="flex items-start gap-3">
+                              <Avatar className="h-10 w-10 border">
+                                <AvatarImage
+                                  src={reportedAgainstAvatar}
+                                  alt={reportedAgainst || "Reported user"}
+                                  referrerPolicy="no-referrer"
+                                />
+                                <AvatarFallback>
+                                  {getInitial(reportedAgainst)}
+                                </AvatarFallback>
+                              </Avatar>
+
+                              <div className="min-w-0">
+                                <div className="font-semibold text-slate-900">
+                                  {reportedAgainst}
                                 </div>
-                              ) : null}
+                                {reportedAgainstEmail ? (
+                                  <div className="truncate text-xs text-gray-500">
+                                    {reportedAgainstEmail}
+                                  </div>
+                                ) : (
+                                  <div className="truncate text-xs text-gray-400">
+                                    No email
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </TableCell>
 
@@ -803,7 +1052,18 @@ export default function ReportsPage() {
                           </TableCell>
 
                           <TableCell className="group-hover:text-slate-900">
-                            {report.reason}
+                            <div className="space-y-1">
+                              <Badge
+                                variant="secondary"
+                                className={`inline-flex items-center gap-1 border ${reasonMeta.className}`}
+                              >
+                                <ReasonIcon className="h-3.5 w-3.5" />
+                                {report.reason}
+                              </Badge>
+                              <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                                {reasonMeta.priority}
+                              </div>
+                            </div>
                           </TableCell>
 
                           <TableCell>
@@ -890,6 +1150,13 @@ export default function ReportsPage() {
           onClose={closeModal}
           onUpdateStatus={handleUpdateStatus}
           statusColor={statusColor}
+          onPrevious={handlePreviousReport}
+          onNext={handleNextReport}
+          hasPrevious={selectedReportIndex > 0}
+          hasNext={
+            selectedReportIndex >= 0 &&
+            selectedReportIndex < sortedReports.length - 1
+          }
         />
       </div>
     </AdminLayout>

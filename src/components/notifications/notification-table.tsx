@@ -4,11 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   BellOff,
+  Check,
   Bookmark,
   BookmarkCheck,
   ChevronLeft,
   ChevronRight,
   Eye,
+  Loader2,
   RotateCcw,
   Trash2,
 } from "lucide-react";
@@ -39,7 +41,7 @@ function getStatusBadgeClass(status: "Read" | "Unread") {
 function getSavedBadgeClass(isSave: boolean) {
   return isSave
     ? "border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50"
-    : "border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-50";
+    : "border border-slate-200 bg-white text-slate-500 hover:bg-white";
 }
 
 function formatDateParts(date: string) {
@@ -78,80 +80,113 @@ export function NotificationTable({
   const from = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const to = Math.min(currentPage * pageSize, totalItems);
 
-  const renderActions = (n: NotificationVM) => {
+  const renderStatus = (n: NotificationVM, mobile = false) => {
     const isBusy = busyId === n._id;
+    const isUnread = n.status === "Unread";
 
     return (
-      <div className="flex flex-wrap items-center justify-end gap-1">
-        {n.status === "Unread" && (
+      <div
+        className={`flex ${
+          mobile ? "flex-wrap items-center gap-2" : "flex-col items-center gap-2"
+        }`}
+      >
+        <Badge className={getStatusBadgeClass(n.status)}>{n.status}</Badge>
+
+        {isUnread && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 rounded-lg px-2 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+            className={`rounded-lg px-2 text-blue-700 hover:bg-blue-50 hover:text-blue-800 ${
+              mobile ? "h-8" : "h-7"
+            }`}
             onClick={() => onMarkAsRead(n._id, n.receiver_id)}
             disabled={isBusy}
             title="Mark as read"
             aria-label="Mark as read"
           >
+            {isBusy ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="mr-1.5 h-3.5 w-3.5" />
+            )}
             Mark read
           </Button>
         )}
+      </div>
+    );
+  };
 
+  const renderActions = (n: NotificationVM, mobile = false) => {
+    const isBusy = busyId === n._id;
+    const iconButtonClass =
+      "h-8 w-8 rounded-lg text-slate-500 hover:bg-white hover:text-slate-900";
+
+    return (
+      <div
+        className={`flex items-center gap-2 ${
+          mobile
+            ? "flex-wrap"
+            : "w-full flex-nowrap justify-center"
+        }`}
+      >
         <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          variant="outline"
+          size="sm"
+          className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:bg-slate-50 hover:text-slate-900"
           onClick={() => onViewDetail(n)}
           disabled={isBusy}
           title="View details"
           aria-label="View details"
         >
-          <Eye className="h-4 w-4" />
+          <Eye className="mr-1.5 h-4 w-4" />
+          View
         </Button>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-          onClick={() => onResend(n)}
-          disabled={isBusy}
-          title="Resend notification"
-          aria-label="Resend notification"
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
+        <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1 shadow-sm">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={iconButtonClass}
+            onClick={() => onResend(n)}
+            disabled={isBusy}
+            title="Resend notification"
+            aria-label="Resend notification"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`h-8 w-8 rounded-lg ${
-            n.is_save
-              ? "text-amber-600 hover:bg-amber-50 hover:text-amber-700"
-              : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-          }`}
-          onClick={() => onToggleSave(n._id, n.receiver_id)}
-          disabled={isBusy}
-          title={n.is_save ? "Remove from saved" : "Save notification"}
-          aria-label={n.is_save ? "Remove from saved" : "Save notification"}
-        >
-          {n.is_save ? (
-            <BookmarkCheck className="h-4 w-4" />
-          ) : (
-            <Bookmark className="h-4 w-4" />
-          )}
-        </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-8 w-8 rounded-lg ${
+              n.is_save
+                ? "text-amber-600 hover:bg-white hover:text-amber-700"
+                : "text-slate-500 hover:bg-white hover:text-slate-900"
+            }`}
+            onClick={() => onToggleSave(n._id, n.receiver_id)}
+            disabled={isBusy}
+            title={n.is_save ? "Remove from saved" : "Save notification"}
+            aria-label={n.is_save ? "Remove from saved" : "Save notification"}
+          >
+            {n.is_save ? (
+              <BookmarkCheck className="h-4 w-4" />
+            ) : (
+              <Bookmark className="h-4 w-4" />
+            )}
+          </Button>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700"
-          onClick={() => onDeleteRequest(n)}
-          disabled={isBusy}
-          title="Delete notification"
-          aria-label="Delete notification"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-lg text-red-600 hover:bg-white hover:text-red-700"
+            onClick={() => onDeleteRequest(n)}
+            disabled={isBusy}
+            title="Delete notification"
+            aria-label="Delete notification"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     );
   };
@@ -216,16 +251,16 @@ export function NotificationTable({
 
       <div className="hidden lg:block">
         <div className="overflow-x-auto">
-          <table className="min-w-[1280px] w-full table-fixed">
+          <table className="min-w-[1440px] w-full table-fixed">
             <colgroup>
-              <col style={{ width: "22%" }} />
-              <col style={{ width: "24%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "20%" }} />
+              <col style={{ width: "240px" }} />
+              <col style={{ width: "280px" }} />
+              <col style={{ width: "170px" }} />
+              <col style={{ width: "170px" }} />
+              <col style={{ width: "140px" }} />
+              <col style={{ width: "150px" }} />
+              <col style={{ width: "140px" }} />
+              <col style={{ width: "220px" }} />
             </colgroup>
 
             <thead className="bg-slate-50">
@@ -251,7 +286,7 @@ export function NotificationTable({
                 <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Saved
                 </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Actions
                 </th>
               </tr>
@@ -343,18 +378,21 @@ export function NotificationTable({
                     </td>
 
                     <td className="px-6 py-4 align-top text-center">
-                      <Badge className={getStatusBadgeClass(n.status)}>
-                        {n.status}
-                      </Badge>
+                      {renderStatus(n)}
                     </td>
 
                     <td className="px-6 py-4 align-top text-center">
-                      <Badge className={getSavedBadgeClass(n.is_save)}>
-                        {n.is_save ? "Saved" : "—"}
+                      <Badge className={`inline-flex items-center gap-1 ${getSavedBadgeClass(n.is_save)}`}>
+                        {n.is_save ? (
+                          <BookmarkCheck className="h-3.5 w-3.5" />
+                        ) : (
+                          <Bookmark className="h-3.5 w-3.5" />
+                        )}
+                        {n.is_save ? "Saved" : "Not saved"}
                       </Badge>
                     </td>
 
-                    <td className="px-6 py-4 align-top">{renderActions(n)}</td>
+                    <td className="px-6 py-4 align-top overflow-hidden">{renderActions(n)}</td>
                   </tr>
                 );
               })}
@@ -404,10 +442,15 @@ export function NotificationTable({
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <Badge className={getStatusBadgeClass(n.status)}>{n.status}</Badge>
-                <Badge className={getSavedBadgeClass(n.is_save)}>
-                  {n.is_save ? "Saved" : "Unsaved"}
+                <Badge className={`inline-flex items-center gap-1 ${getSavedBadgeClass(n.is_save)}`}>
+                  {n.is_save ? (
+                    <BookmarkCheck className="h-3.5 w-3.5" />
+                  ) : (
+                    <Bookmark className="h-3.5 w-3.5" />
+                  )}
+                  {n.is_save ? "Saved" : "Not saved"}
                 </Badge>
+                {renderStatus(n, true)}
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-2">
@@ -439,7 +482,7 @@ export function NotificationTable({
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">{renderActions(n)}</div>
+              <div className="mt-4 flex flex-wrap gap-2">{renderActions(n, true)}</div>
             </div>
           );
         })}

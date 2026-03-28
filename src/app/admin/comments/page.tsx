@@ -397,11 +397,6 @@ export default function CommentsPage() {
   }, [comments, filters, onlyNewest24h]);
 
   const sortedComments = useMemo(() => {
-    const statusPriority: Record<Comment["status"], number> = {
-      visible: 0,
-      hidden: 1,
-    };
-
     const sorted = [...filteredComments];
 
     sorted.sort((first, second) => {
@@ -419,10 +414,6 @@ export default function CommentsPage() {
           break;
         case "chapter":
           result = compareStrings(first.chapter, second.chapter);
-          break;
-        case "status":
-          result =
-            statusPriority[first.status] - statusPriority[second.status];
           break;
         case "date":
           result = compareDates(first.createdAt, second.createdAt);

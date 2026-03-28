@@ -1,18 +1,38 @@
 "use client"
 
+import DOMPurify from "isomorphic-dompurify"
+import { useEffect, useMemo, useState } from "react"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  CheckCircle,
+  Clock3,
+  FileText,
+  MessageSquare,
+  Save,
+  ShieldAlert,
+  XCircle,
+} from "lucide-react"
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, FileText, Save } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import { useState, useEffect } from "react"
+import {
+  formatRoleLabel,
+  getRoleColor,
+  getRoleIcon,
+} from "@/components/admin/users/user-management.utils"
 
 interface Report {
   _id: string
@@ -21,6 +41,7 @@ interface Report {
     username: string
     email: string
     role?: string
+    avatar?: string
   }
   target_type: string
   target_id?: {
@@ -38,9 +59,11 @@ interface Report {
   }
   target_detail?: {
     title?: string
+    content?: string
     target_human?: {
       username?: string
       email?: string
+      avatar?: string
     }
   }
   reason: string
@@ -58,6 +81,131 @@ interface ReportModalProps {
   onClose: () => void
   onUpdateStatus: (id: string, newStatus?: string, note?: string) => void
   statusColor: (status: string) => string
+  onPrevious?: () => void
+  onNext?: () => void
+  hasPrevious?: boolean
+  hasNext?: boolean
+}
+
+function getInitial(value?: string) {
+  return value?.trim()?.charAt(0)?.toUpperCase() || "U"
+}
+
+function isAbsoluteUrl(value: string) {
+  return /^(?:[a-z]+:)?\/\//i.test(value) || value.startsWith("data:")
+}
+
+function resolveAvatarUrl(rawAvatar?: string, apiUrl?: string) {
+  if (!rawAvatar) return undefined
+  if (isAbsoluteUrl(rawAvatar)) return rawAvatar
+  if (!apiUrl) return undefined
+
+  const normalizedApi = apiUrl.replace(/\/+$/, "")
+  const normalizedAvatar = rawAvatar.replace(/^\/+/, "")
+  return `${normalizedApi}/assets/avatars/${normalizedAvatar}`
+}
+
+function escapePlainText(content: string) {
+  return content
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br />")
+}
+
+function normalizeReportHtml(content: string, apiUrl?: string) {
+  const normalizedApi = (apiUrl || "").replace(/\/+$/, "")
+  const hasHtml = /<\/?[a-z][\s\S]*>/i.test(content)
+
+  let html = hasHtml ? content : escapePlainText(content)
+
+  html = html.replace(/<div><br\s*\/?><\/div>/gi, "<br />")
+
+  if (normalizedApi) {
+    html = html.replace(/https?:\/\/localhost:\d+/gi, normalizedApi)
+    html = html.replace(
+      /src=(['"])\/(assets\/emoji\/[^'"]+)\1/gi,
+      `src=$1${normalizedApi}/$2$1`
+    )
+    html = html.replace(
+      /src=(['"])(assets\/emoji\/[^'"]+)\1/gi,
+      `src=$1${normalizedApi}/$2$1`
+    )
+  }
+
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    ADD_ATTR: ["class", "target", "rel", "referrerpolicy"],
+  })
+}
+
+function getReasonMeta(reason: string) {
+  const normalized = String(reason || "").toLowerCase()
+
+  if (normalized === "harassment" || normalized === "inappropriate") {
+    return {
+      summary: "High-priority safety review",
+      className: "border-red-200 bg-red-50 text-red-700",
+      icon: AlertTriangle,
+    }
+  }
+
+  if (normalized === "copyright" || normalized === "offense") {
+    return {
+      summary: "Needs policy validation",
+      className: "border-amber-200 bg-amber-50 text-amber-700",
+      icon: ShieldAlert,
+    }
+  }
+
+  if (normalized === "spam") {
+    return {
+      summary: "Queue quality review",
+      className: "border-sky-200 bg-sky-50 text-sky-700",
+      icon: MessageSquare,
+    }
+  }
+
+  return {
+    summary: "General moderation review",
+    className: "border-slate-200 bg-slate-100 text-slate-700",
+    icon: FileText,
+  }
+}
+
+function targetTypeBadge(type: string) {
+  switch (type) {
+    case "Manga":
+      return (
+        <Badge className="flex items-center gap-1 bg-violet-100 text-violet-800">
+          <BookOpen className="h-3.5 w-3.5" />
+          Manga
+        </Badge>
+      )
+    case "Chapter":
+      return (
+        <Badge className="flex items-center gap-1 bg-blue-100 text-blue-800">
+          <FileText className="h-3.5 w-3.5" />
+          Chapter
+        </Badge>
+      )
+    case "Comment":
+      return (
+        <Badge className="flex items-center gap-1 bg-green-100 text-green-800">
+          <MessageSquare className="h-3.5 w-3.5" />
+          Comment
+        </Badge>
+      )
+    case "Reply":
+      return (
+        <Badge className="flex items-center gap-1 bg-emerald-100 text-emerald-800">
+          <MessageSquare className="h-3.5 w-3.5" />
+          Reply
+        </Badge>
+      )
+    default:
+      return <Badge className="bg-slate-100 text-slate-700">{type}</Badge>
+  }
 }
 
 export default function ReportModal({
@@ -67,101 +215,315 @@ export default function ReportModal({
   onClose,
   onUpdateStatus,
   statusColor,
+  onPrevious,
+  onNext,
+  hasPrevious = false,
+  hasNext = false,
 }: ReportModalProps) {
+  const API = process.env.NEXT_PUBLIC_API_URL
   const [note, setNote] = useState("")
 
   useEffect(() => {
     setNote(report?.resolution_note ?? "")
   }, [report])
 
+  const renderedTargetContent = useMemo(() => {
+    const content = report?.target_detail?.content || report?.target_id?.content
+    if (!content) return ""
+    return normalizeReportHtml(content, API)
+  }, [API, report?.target_detail?.content, report?.target_id?.content])
+
+  if (!report) return null
+
+  const reporterAvatar = resolveAvatarUrl(report.reporter_id?.avatar, API)
+  const reportedAgainstName =
+    report.target_detail?.target_human?.username ||
+    report.target_id?.authorId?.username ||
+    report.target_id?.user?.username ||
+    "Unknown user"
+  const reportedAgainstEmail =
+    report.target_detail?.target_human?.email ||
+    report.target_id?.authorId?.email ||
+    report.target_id?.user?.email ||
+    "No email"
+  const reportedAgainstAvatar = resolveAvatarUrl(
+    report.target_detail?.target_human?.avatar,
+    API
+  )
+  const targetTitle = report.target_detail?.title || report.target_id?.title
+  const reasonMeta = getReasonMeta(report.reason)
+  const ReasonIcon = reasonMeta.icon
+
   const formatDate = (isoString?: string) => {
     if (!isoString) return "N/A"
-    const date = new Date(isoString)
-    return date.toLocaleString("vi-VN", {
+    return new Date(isoString).toLocaleString("vi-VN", {
       timeZone: "Asia/Ho_Chi_Minh",
       hour12: false,
     })
   }
 
   const handleUpdateStatus = (newStatus?: string) => {
-    if (!report) return
     onUpdateStatus(report._id, newStatus, note)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Report Details</DialogTitle>
-          <DialogDescription>
-            Review and manage this report. You can update progress or resolution notes.
-          </DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <SheetContent
+        side="right"
+        className="w-full gap-0 overflow-hidden border-l border-slate-200 bg-slate-50 p-0 shadow-2xl sm:max-w-xl sm:rounded-l-[28px] lg:max-w-[760px] xl:max-w-[860px]"
+      >
+        <SheetHeader className="border-b border-slate-200 bg-gradient-to-b from-white via-white to-slate-50/90 px-6 py-6 sm:rounded-tl-[28px]">
+          <div className="flex flex-col gap-4">
+            <div className="space-y-1">
+              <SheetTitle className="text-[1.15rem] tracking-tight text-slate-900">
+                Report Review Panel
+              </SheetTitle>
+              <SheetDescription className="max-w-2xl text-slate-500">
+                Review the report, check the target context, and update
+                moderation progress without leaving the queue.
+              </SheetDescription>
+            </div>
 
-        {report && (
-          <div className="space-y-3 text-sm">
-            <p><strong>Report Code:</strong> {report.reportCode}</p>
-            {report.target_id?.title && <p><strong>Title:</strong> {report.target_id.title}</p>}
-            {report.target_id?.content && (<div><strong>Content:</strong> <div dangerouslySetInnerHTML={{ __html: report.target_id.content }}/></div>)} 
-            <p><strong>Reason:</strong> {report.reason}</p>
-            <p><strong>Description:</strong> {report.description ?? "No description"}</p>
-            <p>     <strong>Status:</strong>{" "}       <Badge className={statusColor(report.status)}>{report.status}</Badge>       </p>
-            <p><strong>Last Updated:</strong> {formatDate(report.updatedAt)}</p>
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                variant="secondary"
+                className="border border-slate-200 bg-white text-slate-700"
+              >
+                {report.reportCode || "Report"}
+              </Badge>
+              <Badge className={statusColor(report.status)}>{report.status}</Badge>
+              {targetTypeBadge(report.target_type)}
+              <Badge
+                variant="secondary"
+                className={`inline-flex items-center gap-1 border ${reasonMeta.className}`}
+              >
+                <ReasonIcon className="h-3.5 w-3.5" />
+                {report.reason}
+              </Badge>
+            </div>
+          </div>
+        </SheetHeader>
 
-            {/* 📝 Note Section */}
-            <div className="pt-2">
-              <p className="flex items-center gap-1 font-semibold">
-                <FileText className="w-4 h-4" /> Admin Notes
-              </p>
-              <Textarea
-                placeholder="Note on processing progress or results..."
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={4}
-                className="mt-1"
+        <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50/80 px-6 py-5">
+          <div className="grid gap-4 xl:grid-cols-2">
+            <div className="rounded-[24px] border border-slate-200/90 bg-white p-5 shadow-sm">
+              <p className="text-sm text-slate-500">Reporter</p>
+              <div className="mt-3 flex items-start gap-3">
+                <Avatar className="h-12 w-12 border border-slate-200 shadow-sm">
+                  <AvatarImage
+                    src={reporterAvatar}
+                    alt={report.reporter_id?.username || "Reporter"}
+                    referrerPolicy="no-referrer"
+                  />
+                  <AvatarFallback>
+                    {getInitial(report.reporter_id?.username)}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="min-w-0">
+                  <div className="text-base font-semibold text-slate-900">
+                    {report.reporter_id?.username || "Unknown reporter"}
+                  </div>
+                  <div className="truncate text-sm text-slate-500">
+                    {report.reporter_id?.email || "No email"}
+                  </div>
+                  {report.reporter_id?.role ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Badge
+                        variant="secondary"
+                        className={`inline-flex items-center gap-1 border ${getRoleColor(
+                          report.reporter_id.role
+                        )}`}
+                      >
+                        {getRoleIcon(report.reporter_id.role)}
+                        {formatRoleLabel(report.reporter_id.role)}
+                      </Badge>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200/90 bg-white p-5 shadow-sm">
+              <p className="text-sm text-slate-500">Reported Against</p>
+              <div className="mt-3 flex items-start gap-3">
+                <Avatar className="h-12 w-12 border border-slate-200 shadow-sm">
+                  <AvatarImage
+                    src={reportedAgainstAvatar}
+                    alt={reportedAgainstName}
+                    referrerPolicy="no-referrer"
+                  />
+                  <AvatarFallback>{getInitial(reportedAgainstName)}</AvatarFallback>
+                </Avatar>
+
+                <div className="min-w-0">
+                  <div className="text-base font-semibold text-slate-900">
+                    {reportedAgainstName}
+                  </div>
+                  <div className="truncate text-sm text-slate-500">
+                    {reportedAgainstEmail}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-[22px] border border-slate-200/90 bg-white p-4 shadow-sm">
+              <p className="text-sm text-slate-500">Triage</p>
+              <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700">
+                <ReasonIcon className="h-4 w-4" />
+                {reasonMeta.summary}
+              </div>
+            </div>
+
+            <div className="rounded-[22px] border border-slate-200/90 bg-white p-4 shadow-sm">
+              <p className="text-sm text-slate-500">Created</p>
+              <div className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <Clock3 className="h-4 w-4 text-slate-500" />
+                {formatDate(report.createdAt)}
+              </div>
+            </div>
+
+            <div className="rounded-[22px] border border-slate-200/90 bg-white p-4 shadow-sm">
+              <p className="text-sm text-slate-500">Last Updated</p>
+              <div className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <Clock3 className="h-4 w-4 text-slate-500" />
+                {formatDate(report.updatedAt)}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[26px] border border-slate-200/90 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm text-slate-500">Target Preview</p>
+                <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                  {targetTitle || `${report.target_type} target`}
+                </h3>
+              </div>
+
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
+                {report.target_type === "Manga" ? (
+                  <BookOpen className="h-4 w-4" />
+                ) : report.target_type === "Comment" ||
+                  report.target_type === "Reply" ? (
+                  <MessageSquare className="h-4 w-4" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                {report.target_type}
+              </div>
+            </div>
+
+            {renderedTargetContent ? (
+              <div
+                className="prose prose-sm mt-4 max-w-none rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-slate-700 prose-p:leading-7 prose-img:inline-block prose-img:max-w-10 prose-img:align-middle"
+                dangerouslySetInnerHTML={{ __html: renderedTargetContent }}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                (Note will be saved and displayed when opening this report)
+            ) : (
+              <div className="mt-4 rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                No target content available for this report.
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
+            <div className="rounded-[24px] border border-slate-200/90 bg-white p-5 shadow-sm">
+              <p className="text-sm text-slate-500">Reporter Description</p>
+              <div className="mt-4 rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-700">
+                {report.description || "No additional description was provided."}
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200/90 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-slate-500" />
+                <p className="text-sm font-semibold text-slate-900">Admin Notes</p>
+              </div>
+              <Textarea
+                placeholder="Note the moderation progress, follow-up, or resolution details..."
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                rows={7}
+                className="mt-4 rounded-[18px] border-slate-200 bg-slate-50"
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                Save notes without closing the panel, or update the status when
+                the review decision is ready.
               </p>
             </div>
           </div>
-        )}
+        </div>
 
-        <DialogFooter className="gap-2 mt-4">
-          <Button
-            variant="outline"
-            onClick={() => handleUpdateStatus(undefined)} // chỉ lưu note
-            disabled={loading}
-          >
-            <Save className="h-4 w-4 mr-1" /> Save Note
-          </Button>
+        <SheetFooter className="border-t border-slate-200 bg-white/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/85 sm:rounded-bl-[28px]">
+          <div className="flex w-full flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl border-slate-200"
+                onClick={onPrevious}
+                disabled={!hasPrevious}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl border-slate-200"
+                onClick={onNext}
+                disabled={!hasNext}
+              >
+                Next
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
 
-          <Button
-            variant="outline"
-            className="text-blue-600 border-blue-600 hover:bg-blue-50"
-            onClick={() => handleUpdateStatus("in-progress")}
-            disabled={loading}
-          >
-            Mark In Progress
-          </Button>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                variant="outline"
+                className="rounded-xl border-slate-200"
+                onClick={() => handleUpdateStatus(undefined)}
+                disabled={loading}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save Note
+              </Button>
 
-          <Button
-            className="bg-green-600 hover:bg-green-700 text-white"
-            onClick={() => handleUpdateStatus("resolved")}
-            disabled={loading}
-          >
-            <CheckCircle className="h-4 w-4 mr-2" /> Resolve
-          </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:text-sky-800"
+                onClick={() => handleUpdateStatus("in-progress")}
+                disabled={loading || report.status === "in-progress"}
+              >
+                <Clock3 className="mr-2 h-4 w-4" />
+                Mark In Progress
+              </Button>
 
-          <Button
-            variant="destructive"
-            onClick={() => handleUpdateStatus("rejected")}
-            disabled={loading}
-          >
-            <XCircle className="h-4 w-4 mr-2" /> Reject
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+              <Button
+                className="rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={() => handleUpdateStatus("resolved")}
+                disabled={loading || report.status === "resolved"}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Resolve
+              </Button>
+
+              <Button
+                variant="outline"
+                className="rounded-xl border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
+                onClick={() => handleUpdateStatus("rejected")}
+                disabled={loading || report.status === "rejected"}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Reject
+              </Button>
+            </div>
+          </div>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }
