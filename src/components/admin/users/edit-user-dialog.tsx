@@ -37,7 +37,6 @@ import {
 } from "./user-management.types";
 import {
   formatDisplayDate,
-  formatMetricValue,
   formatRoleLabel,
   getProviderMeta,
   getRoleColor,
@@ -62,7 +61,6 @@ type EditUserDialogProps = {
   muteReason: string;
 
   isSubmitting: boolean;
-  isHistoryLoading: boolean;
   activeConfirmAction: ConfirmActionType | null;
 
   onDraftRoleChange: (value: string) => void;
@@ -92,33 +90,6 @@ function formatDateTime(value?: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
-}
-
-function humanizeHistoryAction(action?: string) {
-  const normalized = String(action || "").trim().toLowerCase();
-
-  switch (normalized) {
-    case "banned":
-    case "ban":
-    case "ban_user":
-      return "Banned user";
-    case "muted":
-    case "mute":
-    case "mute_user":
-      return "Muted user";
-    case "reset":
-    case "reset_to_normal":
-    case "admin_reset_user_status":
-      return "Reset to Normal";
-    case "role_changed":
-    case "admin_set_role":
-      return "Changed role";
-    case "staff_status_changed":
-    case "admin_update_staff_status":
-      return "Changed staff status";
-    default:
-      return action || "Recorded action";
-  }
 }
 
 function InfoTile({
@@ -167,6 +138,10 @@ function ReasonTextarea({
   );
 }
 
+function RoleName({ role }: { role: string }) {
+  return <span className="font-semibold text-slate-900">{formatRoleLabel(role)}</span>;
+}
+
 export function EditUserDialog({
   open,
   onOpenChange,
@@ -178,7 +153,6 @@ export function EditUserDialog({
   banReason,
   muteReason,
   isSubmitting,
-  isHistoryLoading,
   activeConfirmAction,
   onDraftRoleChange,
   onDraftStaffStatusChange,
@@ -232,21 +206,24 @@ export function EditUserDialog({
   const riskMeta = getRiskMeta(selectedUser.reportCount);
   const activityTimestamp =
     selectedUser.lastActivityAt || selectedUser.lastLoginAt;
-
-  const latestModerationAction = selectedUser.lastModerationAction
-    ? humanizeHistoryAction(selectedUser.lastModerationAction)
-    : "No recorded action";
-
-  const latestModerationReason =
-    selectedUser.lastModerationReason || "No moderation note recorded";
-
-  const moderationScopeCopy = isAdmin
-    ? "Admin can change roles, manage staff status, and reset moderated User/Author accounts."
-    : isContentMod
-      ? "Content Moderator can ban User/Author accounts that are currently Normal."
-      : isCommunityManager
-        ? "Community Manager can mute User/Author accounts that are currently Normal."
-        : "Only actions allowed for your role are enabled.";
+  const moderationScopeCopy = isAdmin ? (
+    <>
+      <RoleName role="admin" /> can change roles, manage staff status, and
+      reset moderated User/Author accounts.
+    </>
+  ) : isContentMod ? (
+    <>
+      <RoleName role="content_moderator" /> can ban User/Author accounts that
+      are currently Normal.
+    </>
+  ) : isCommunityManager ? (
+    <>
+      <RoleName role="community_manager" /> can mute User/Author accounts that
+      are currently Normal.
+    </>
+  ) : (
+    "Only actions allowed for your role are enabled."
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -254,8 +231,7 @@ export function EditUserDialog({
         <DialogHeader>
           <DialogTitle>User Details</DialogTitle>
           <DialogDescription>
-            Review account context, recent activity, and moderation history
-            before taking action.
+            Review account context and moderation history before taking action.
           </DialogDescription>
         </DialogHeader>
 
@@ -296,7 +272,9 @@ export function EditUserDialog({
                     )}`}
                   >
                     {getRoleIcon(selectedUser.role)}
-                    {formatRoleLabel(selectedUser.role)}
+                    <span className="font-bold">
+                      {formatRoleLabel(selectedUser.role)}
+                    </span>
                   </Badge>
 
                   <Badge
@@ -323,12 +301,14 @@ export function EditUserDialog({
                     {verificationMeta.label}
                   </Badge>
 
-                  <Badge
-                    variant="secondary"
-                    className={`inline-flex items-center border ${riskMeta.className}`}
-                  >
-                    {riskMeta.label}
-                  </Badge>
+                  {selectedUser.reportCount != null ? (
+                    <Badge
+                      variant="secondary"
+                      className={`inline-flex items-center border ${riskMeta.className}`}
+                    >
+                      {riskMeta.label}
+                    </Badge>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -341,11 +321,7 @@ export function EditUserDialog({
               <InfoTile
                 label="Last activity"
                 value={formatDateTime(activityTimestamp)}
-                hint={
-                  activityTimestamp
-                    ? "Most recent known account timestamp"
-                    : "No activity timestamp available"
-                }
+                hint={activityTimestamp ? undefined : "No activity timestamp available"}
               />
               <InfoTile
                 label="Email status"
@@ -361,53 +337,7 @@ export function EditUserDialog({
 
           <section className="rounded-xl border p-4">
             <div className="mb-4">
-              <h3 className="font-semibold text-slate-900">
-                2. Activity & Moderation Context
-              </h3>
-              <p className="text-sm text-slate-600">
-                Show only the signals currently supported by the API contract.
-              </p>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <InfoTile
-                label="Risk status"
-                value={riskMeta.label}
-                hint={
-                  selectedUser.reportCount == null
-                    ? "Risk data is not available from the current API payload."
-                    : `${selectedUser.reportCount} report signal(s) captured`
-                }
-              />
-              <InfoTile
-                label="Stories"
-                value={formatMetricValue(selectedUser.storyCount)}
-                hint={
-                  selectedUser.storyCount == null
-                    ? "No story count data available"
-                    : "Published or created stories"
-                }
-              />
-              <InfoTile
-                label="Chapters"
-                value={formatMetricValue(selectedUser.chapterCount)}
-                hint={
-                  selectedUser.chapterCount == null
-                    ? "No chapter count data available"
-                    : "Total content chapters"
-                }
-              />
-              <InfoTile
-                label="Latest moderation"
-                value={latestModerationAction}
-                hint={latestModerationReason}
-              />
-            </div>
-          </section>
-
-          <section className="rounded-xl border p-4">
-            <div className="mb-4">
-              <h3 className="font-semibold text-slate-900">3. Role & Access</h3>
+              <h3 className="font-semibold text-slate-900">2. Role & Access</h3>
               <p className="text-sm text-slate-600">
                 Update role or staff status only when it matches your permission.
               </p>
@@ -440,13 +370,13 @@ export function EditUserDialog({
                   </Select>
 
                   <p className="text-xs text-slate-500">
-                    Only Admin can change account role.
+                    Only <RoleName role="admin" /> can change account role.
                   </p>
                 </div>
 
                 <Button
                   variant="outline"
-                  className="mt-4"
+                  className="mt-4 border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-100 hover:text-indigo-800"
                   onClick={onRequestRoleUpdate}
                   disabled={
                     isSubmitting ||
@@ -488,13 +418,14 @@ export function EditUserDialog({
                   </Select>
 
                   <p className="text-xs text-slate-500">
-                    Admin can manage status for moderator and manager accounts.
+                    <RoleName role="admin" /> can manage status for moderator
+                    and manager accounts.
                   </p>
                 </div>
 
                 <Button
                   variant="outline"
-                  className="mt-4"
+                  className="mt-4 border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-300 hover:bg-amber-100 hover:text-amber-900"
                   onClick={onRequestStaffStatusUpdate}
                   disabled={
                     isSubmitting ||
@@ -519,7 +450,7 @@ export function EditUserDialog({
           <section className="rounded-xl border p-4">
             <div className="mb-4">
               <h3 className="font-semibold text-slate-900">
-                4. Moderation Controls
+                3. Moderation Controls
               </h3>
               <p className="text-sm text-slate-600">
                 High-impact actions require explicit intent and clear reasoning.
@@ -553,8 +484,8 @@ export function EditUserDialog({
                 </p>
 
                 <Button
-                  className="mt-4 w-full"
                   variant="outline"
+                  className="mt-4 w-full border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 hover:text-emerald-800"
                   onClick={onRequestResetToNormal}
                   disabled={!canAdminResetUserAuthor || isSubmitting}
                 >
@@ -570,8 +501,8 @@ export function EditUserDialog({
 
                 {!canAdminResetUserAuthor ? (
                   <p className="mt-2 text-xs text-slate-500">
-                    Only Admin can reset User/Author accounts that are not
-                    currently Normal.
+                    Only <RoleName role="admin" /> can reset User/Author
+                    accounts that are not currently Normal.
                   </p>
                 ) : null}
               </div>
@@ -598,13 +529,8 @@ export function EditUserDialog({
                   />
                 </div>
 
-                <p className="mt-2 text-xs text-slate-500">
-                  Required. Be specific and objective because this reason may be
-                  logged in moderation history.
-                </p>
-
                 <Button
-                  className="mt-4 w-full bg-red-600 text-white hover:bg-red-700"
+                  className="mt-4 w-full bg-red-600 text-white shadow-sm hover:bg-red-700"
                   onClick={onRequestBan}
                   disabled={!canContentBan || isSubmitting || !banReason.trim()}
                 >
@@ -623,8 +549,8 @@ export function EditUserDialog({
 
                 {!canContentBan ? (
                   <p className="mt-2 text-xs text-slate-500">
-                    Only Content Moderator can ban User/Author accounts that are
-                    currently Normal.
+                    Only <RoleName role="content_moderator" /> can ban
+                    User/Author accounts that are currently Normal.
                   </p>
                 ) : null}
               </div>
@@ -650,14 +576,8 @@ export function EditUserDialog({
                   />
                 </div>
 
-                <p className="mt-2 text-xs text-slate-500">
-                  Required. Keep the reason factual because it may appear in the
-                  moderation record.
-                </p>
-
                 <Button
-                  className="mt-4 w-full"
-                  variant="secondary"
+                  className="mt-4 w-full bg-amber-500 text-white shadow-sm hover:bg-amber-600"
                   onClick={onRequestMute}
                   disabled={
                     !canCommunityMute || isSubmitting || !muteReason.trim()
@@ -678,68 +598,14 @@ export function EditUserDialog({
 
                 {!canCommunityMute ? (
                   <p className="mt-2 text-xs text-slate-500">
-                    Only Community Manager can mute User/Author accounts that
-                    are currently Normal.
+                    Only <RoleName role="community_manager" /> can mute
+                    User/Author accounts that are currently Normal.
                   </p>
                 ) : null}
               </div>
             </div>
           </section>
 
-          <section className="rounded-xl border p-4">
-            <div className="mb-4">
-              <h3 className="font-semibold text-slate-900">
-                5. Moderation History
-              </h3>
-              <p className="text-sm text-slate-600">
-                Recent moderator and admin actions related to this account.
-              </p>
-            </div>
-
-            {isHistoryLoading ? (
-              <div className="rounded-xl border border-dashed bg-slate-50/60 p-6 text-sm text-slate-500">
-                Loading moderation history...
-              </div>
-            ) : selectedUser.moderationHistory?.length ? (
-              <div className="space-y-3">
-                {selectedUser.moderationHistory.map((entry) => (
-                  <div key={entry.id} className="rounded-xl border bg-white p-4">
-                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                      <div>
-                        <div className="font-medium text-slate-900">
-                          {humanizeHistoryAction(entry.action)}
-                        </div>
-
-                        <div className="mt-1 text-sm text-slate-600">
-                          {entry.reason || "No reason recorded"}
-                        </div>
-
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                          {entry.actorName ? <span>By: {entry.actorName}</span> : null}
-                          {entry.actorRole ? (
-                            <span>
-                              Role: {formatRoleLabel(entry.actorRole)}
-                            </span>
-                          ) : null}
-                          {entry.statusAfter ? (
-                            <span>Status after: {entry.statusAfter}</span>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="text-xs text-slate-500">
-                        {formatDateTime(entry.createdAt)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed bg-slate-50/60 p-6 text-sm text-slate-500">
-                No moderation history data available.
-              </div>
-            )}
-          </section>
         </div>
       </DialogContent>
     </Dialog>

@@ -126,10 +126,10 @@ function LoadingRows() {
             <div className="h-4 w-24 animate-pulse rounded bg-slate-100" />
           </td>
 
-          <td className="px-4 py-4">
-            <div className="flex justify-end gap-2">
-              <div className="h-9 w-16 animate-pulse rounded bg-slate-100" />
-              <div className="h-9 w-9 animate-pulse rounded bg-slate-100" />
+          <td className="px-4 py-4 align-middle">
+            <div className="mx-auto grid w-[164px] grid-cols-2 gap-2">
+              <div className="h-9 animate-pulse rounded-xl bg-slate-100" />
+              <div className="h-9 animate-pulse rounded-xl bg-slate-100" />
             </div>
           </td>
         </tr>
@@ -157,7 +157,7 @@ export function UserManagementTable({
   return (
     <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <table className="min-w-[1030px] w-full text-sm">
+        <table className="min-w-[1080px] w-full text-sm">
           <thead className="bg-slate-50">
             <tr className="border-b text-left">
               <th className="w-12 px-4 py-3">
@@ -224,7 +224,7 @@ export function UserManagementTable({
                 />
               </th>
 
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="w-[184px] px-4 py-3 text-center">Actions</th>
             </tr>
           </thead>
 
@@ -357,23 +357,25 @@ export function UserManagementTable({
                         : "No activity data"}
                     </td>
 
-                    <td className="px-4 py-4">
-                      <div className="flex justify-end gap-2">
+                    <td className="px-4 py-4 align-middle">
+                      <div className="mx-auto grid w-[164px] grid-cols-2 gap-2">
                         <Button
                           variant="outline"
                           size="sm"
+                          className="h-9 w-full rounded-xl border-sky-200 bg-sky-50 text-sky-700 shadow-none hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800"
                           onClick={(event) => {
                             event.stopPropagation();
                             onEditUser(user);
                           }}
                         >
-                          <Edit3 className="mr-2 h-4 w-4" />
+                          <Edit3 className="h-4 w-4" />
                           Edit
                         </Button>
 
                         <Button
-                          variant="secondary"
-                          size="icon"
+                          variant="outline"
+                          size="sm"
+                          className="h-9 w-full rounded-xl border-amber-200 bg-amber-50 text-amber-700 shadow-none hover:border-amber-300 hover:bg-amber-100 hover:text-amber-800 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                           onClick={(event) => {
                             event.stopPropagation();
                             onOpenNotifications(user);
@@ -390,6 +392,7 @@ export function UserManagementTable({
                           ) : (
                             <Mail className="h-4 w-4" />
                           )}
+                          Notify
                         </Button>
                       </div>
                     </td>

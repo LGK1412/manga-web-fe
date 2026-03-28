@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { RiskMeter } from "./risk-meter";
 import { StatusBadge } from "./status-badge";
+import { ResolutionBadge } from "./resolution-badge";
 import type { QueueItem } from "@/lib/typesLogs";
 import { Eye, Mail } from "lucide-react";
 
@@ -47,6 +48,7 @@ export function QueueTable({
             <TableHead>Author</TableHead>
             <TableHead>Risk Score</TableHead>
             <TableHead>AI Status</TableHead>
+            <TableHead>Resolution</TableHead>
             <TableHead>Labels</TableHead>
             <TableHead>Updated</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -74,6 +76,9 @@ export function QueueTable({
                 </TableCell>
                 <TableCell>
                   <div className="h-6 w-20 rounded-full bg-muted animate-pulse" />
+                </TableCell>
+                <TableCell>
+                  <div className="h-6 w-28 rounded-full bg-muted animate-pulse" />
                 </TableCell>
                 <TableCell>
                   <div className="h-5 w-24 rounded bg-muted animate-pulse" />
@@ -137,6 +142,10 @@ export function QueueTable({
                 </TableCell>
 
                 <TableCell>
+                  <ResolutionBadge status={item.resolution_status ?? "OPEN"} />
+                </TableCell>
+
+                <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {item.labels.slice(0, 2).map((label) => (
                       <span
@@ -184,7 +193,7 @@ export function QueueTable({
 
           {!loading && items.length === 0 && (
             <TableRow>
-              <TableCell colSpan={9} className="py-12 text-center">
+              <TableCell colSpan={10} className="py-12 text-center">
                 <div className="space-y-2">
                   <p className="text-sm font-medium">No chapters match the current filters</p>
                   <p className="text-sm text-muted-foreground">

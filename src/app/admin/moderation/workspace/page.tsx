@@ -182,7 +182,7 @@ export default function ModerationWorkspacePage() {
               <ContentViewer
                 title={record.chapterTitle ?? "Untitled"}
                 author={record.authorName ?? "-"}
-                html={record.contentHtml ?? "<p><i>(Không có nội dung hiển thị)</i></p>"}
+                html={record.contentHtml ?? "<p><i>(No content available)</i></p>"}
                 updatedAt={record.updatedAt}
                 activeFinding={activeFinding}
               />

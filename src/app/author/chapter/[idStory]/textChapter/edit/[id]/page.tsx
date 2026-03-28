@@ -275,15 +275,17 @@ export default function EditChapterPage({
           content,
           is_completed: isCompleted,
         };
-        await api.patch(`/text-chapter/${chapterId}`, payload);
+        const res = await api.patch(`/text-chapter/${chapterId}`, payload);
+        const nextPublished = Boolean(res.data?.chapter?.is_published);
 
         setChapters((prev) =>
           prev.map((c) =>
             c.id === chapterId
-              ? { ...c, title, number, price, isPublished }
+              ? { ...c, title, number, price, isPublished: nextPublished }
               : c,
           ),
         );
+        setIsPublished(nextPublished);
         setDirty(false);
       } catch (err: any) {
         console.error("Error updating chapter", err);
@@ -297,7 +299,14 @@ export default function EditChapterPage({
   }
 
   // --- Toggle Công khai/Nháp
-  async function handleTogglePublish() {
+async function handleTogglePublish() {
+    if (!isPublished) {
+      alert(
+        "Publishing is handled after moderation approval. Save your changes and wait for the moderation result.",
+      );
+      return;
+    }
+
     const nextPublished = !isPublished;
     try {
       setIsToggling(true);
@@ -475,8 +484,8 @@ export default function EditChapterPage({
                   <span className="font-medium">Quick tip</span>
                   <ChevronRight className="h-3 w-3" />
                   <span>
-                    Fill in the information on the right then click "Create
-                    chapter".
+                    Fill in the information on the right then click &quot;Create
+                    chapter&quot;.
                   </span>
                 </div>
               </div>
@@ -605,23 +614,27 @@ export default function EditChapterPage({
 
                 <button
                   onClick={handleTogglePublish}
-                  disabled={isPending || !chapterId || isToggling}
+                  disabled={isPending || !chapterId || isToggling || !isPublished}
                   className={clsx(
                     "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-white shadow-sm",
-                    isPending || isToggling
+                    isPending || isToggling || !isPublished
                       ? "bg-blue-400 cursor-not-allowed"
                       : isPublished
                         ? "bg-emerald-600 hover:bg-emerald-700"
                         : "bg-blue-600 hover:bg-blue-700",
                   )}
-                  title={isPublished ? "Unpublish" : "Publish"}
+                  title={
+                    isPublished
+                      ? "Unpublish"
+                      : "Publication happens after moderation approval"
+                  }
                 >
                   {isToggling ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Check className="h-4 w-4" />
                   )}
-                  {isPublished ? "Unpublish" : "Publish"}
+                  {isPublished ? "Unpublish" : "Await Moderation"}
                 </button>
               </div>
             </div>
@@ -825,8 +838,9 @@ export default function EditChapterPage({
 
                       <div className="mt-2 flex items-center justify-between">
                         <p className="text-[11px] text-slate-500">
-                          You can publish/unpublish using the button in the top
-                          bar.
+                          Publication is handled after moderation approval. Use
+                          the top bar only to unpublish an already published
+                          chapter.
                         </p>
                         {dirty && (
                           <span className="text-[11px] text-amber-600">

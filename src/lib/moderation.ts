@@ -1,14 +1,23 @@
 import axios from "axios";
-import type { AIStatus, Decision, ModerationRecord, QueueItem } from "@/lib/typesLogs";
+import type {
+  AIStatus,
+  Decision,
+  ModerationRecord,
+  ModerationResolutionStatus,
+  QueueItem,
+} from "@/lib/typesLogs";
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
   withCredentials: true,
 });
 
-type QueueApiRow = {
+export type QueueRowFromBE = {
   chapter_id: string;
   status: AIStatus;
+  resolution_status?: ModerationResolutionStatus;
+  resolution_note?: string | null;
+  resolved_at?: string | null;
   risk_score: number;
   labels: string[];
   updatedAt: string;
@@ -18,9 +27,12 @@ type QueueApiRow = {
   authorEmail?: string;
 };
 
-type RecordApiRow = {
+export type ModerationRecordFromBE = {
   chapter_id: string;
   status: AIStatus;
+  resolution_status?: ModerationResolutionStatus;
+  resolution_note?: string | null;
+  resolved_at?: string | null;
   risk_score: number;
   labels: string[];
   policy_version: string;
@@ -32,6 +44,7 @@ type RecordApiRow = {
   authorName?: string;
   authorEmail?: string;
   contentHtml?: string;
+  is_published?: boolean;
 };
 
 export async function fetchQueue(params?: { status?: AIStatus | null; limit?: number }): Promise<QueueItem[]> {
@@ -39,7 +52,7 @@ export async function fetchQueue(params?: { status?: AIStatus | null; limit?: nu
     params: params?.status ? { status: params.status } : {},
   });
 
-  const rows: QueueApiRow[] = Array.isArray(res.data) ? res.data : [];
+  const rows: QueueRowFromBE[] = Array.isArray(res.data) ? res.data : [];
 
   return rows.map((row) => ({
     chapterId: row.chapter_id,
@@ -49,6 +62,9 @@ export async function fetchQueue(params?: { status?: AIStatus | null; limit?: nu
     authorEmail: row.authorEmail || "",
     risk_score: Number(row.risk_score ?? 0),
     ai_status: row.status ?? "AI_PENDING",
+    resolution_status: row.resolution_status ?? "OPEN",
+    resolution_note: row.resolution_note ?? null,
+    resolved_at: row.resolved_at ?? null,
     labels: Array.isArray(row.labels) ? row.labels : [],
     updatedAt: row.updatedAt,
   }));
@@ -56,11 +72,14 @@ export async function fetchQueue(params?: { status?: AIStatus | null; limit?: nu
 
 export async function fetchModerationRecord(chapterId: string): Promise<ModerationRecord> {
   const res = await api.get(`/moderation/record/${chapterId}`);
-  const row: RecordApiRow = res.data;
+  const row: ModerationRecordFromBE = res.data;
 
   return {
     chapterId: row.chapter_id,
     ai_status: row.status ?? "AI_PENDING",
+    resolution_status: row.resolution_status ?? "OPEN",
+    resolution_note: row.resolution_note ?? null,
+    resolved_at: row.resolved_at ?? null,
     risk_score: Number(row.risk_score ?? 0),
     labels: Array.isArray(row.labels) ? row.labels : [],
     policy_version: row.policy_version ?? "",
@@ -72,6 +91,7 @@ export async function fetchModerationRecord(chapterId: string): Promise<Moderati
     authorName: row.authorName ?? "-",
     authorEmail: row.authorEmail ?? "",
     contentHtml: row.contentHtml ?? "",
+    is_published: Boolean(row.is_published),
   };
 }
 

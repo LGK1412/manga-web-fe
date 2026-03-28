@@ -308,7 +308,7 @@ function resolveLastLogin(rawUser: any) {
 }
 
 function resolveLastActivity(rawUser: any) {
-  return resolveDate(rawUser, "lastActivityAt", "lastSeenAt", "updatedAt");
+  return resolveDate(rawUser, "lastActivityAt", "lastSeenAt");
 }
 
 function resolveModerationHistory(rawUser: any): ModerationHistoryItem[] {
@@ -494,9 +494,6 @@ export default function UserManagementPage() {
 
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [historyLoadingUserId, setHistoryLoadingUserId] = useState<
-    string | null
-  >(null);
 
   const [draftRole, setDraftRole] = useState("");
   const [draftStaffStatus, setDraftStaffStatus] =
@@ -916,41 +913,6 @@ export default function UserManagementPage() {
     []
   );
 
-  const loadModerationHistory = useCallback(
-    async (userId: string) => {
-      if (!API_URL) return;
-
-      setHistoryLoadingUserId(userId);
-
-      const endpoint = `${API_URL}/api/user/${userId}/moderation-history`;
-
-      try {
-        const response = await axios.get(endpoint, { withCredentials: true });
-        const rawHistory = extractUserList(response.data);
-        const moderationHistory = resolveModerationHistory({
-          _id: userId,
-          moderationHistory: rawHistory,
-        });
-        const latestModeration = moderationHistory[0];
-
-        updateUserState(userId, {
-          moderationHistory,
-          lastModerationAction: latestModeration?.action || undefined,
-          lastModerationReason: latestModeration?.reason || undefined,
-        });
-      } catch (error: any) {
-        logAxiosError("[Fetch Moderation History]", endpoint, error, {
-          userId,
-        });
-      } finally {
-        setHistoryLoadingUserId((current) =>
-          current === userId ? null : current
-        );
-      }
-    },
-    [API_URL, updateUserState]
-  );
-
   const resetDialogDrafts = useCallback(() => {
     setResetReason("");
     setBanReason("");
@@ -965,9 +927,8 @@ export default function UserManagementPage() {
       setDraftStaffStatus(user.status);
       resetDialogDrafts();
       setIsEditDialogOpen(true);
-      void loadModerationHistory(user.id);
     },
-    [loadModerationHistory, resetDialogDrafts]
+    [resetDialogDrafts]
   );
 
   const handleOpenUser = useCallback(
@@ -984,7 +945,6 @@ export default function UserManagementPage() {
 
     if (!open) {
       setSelectedUser(null);
-      setHistoryLoadingUserId(null);
       resetDialogDrafts();
     }
   };
@@ -1275,7 +1235,7 @@ Manga Platform Team`;
     if (!selectedUser || !API_URL || !confirmAction) return;
 
     setIsSubmittingAction(true);
-    let shouldRefreshHistory = false;
+    let shouldReloadUsers = false;
 
     try {
       switch (confirmAction) {
@@ -1285,7 +1245,7 @@ Manga Platform Team`;
 
           await axios.patch(endpoint, payload, { withCredentials: true });
           updateUserState(selectedUser.id, { role: draftRole });
-          shouldRefreshHistory = true;
+          shouldReloadUsers = true;
           toast.success("Role updated successfully.");
           break;
         }
@@ -1299,7 +1259,7 @@ Manga Platform Team`;
 
           await axios.post(endpoint, payload, { withCredentials: true });
           updateUserState(selectedUser.id, { status: draftStaffStatus });
-          shouldRefreshHistory = true;
+          shouldReloadUsers = true;
           toast.success("Staff status updated successfully.");
           break;
         }
@@ -1324,7 +1284,7 @@ Manga Platform Team`;
           );
           setDraftStaffStatus("Normal");
           setResetReason("");
-          shouldRefreshHistory = true;
+          shouldReloadUsers = true;
           toast.success("User restored to Normal.");
           break;
         }
@@ -1349,7 +1309,7 @@ Manga Platform Team`;
           );
           setDraftStaffStatus("Banned");
           setBanReason("");
-          shouldRefreshHistory = true;
+          shouldReloadUsers = true;
           toast.success("User banned successfully.");
           break;
         }
@@ -1374,7 +1334,7 @@ Manga Platform Team`;
           );
           setDraftStaffStatus("Muted");
           setMuteReason("");
-          shouldRefreshHistory = true;
+          shouldReloadUsers = true;
           toast.success("User muted successfully.");
           break;
         }
@@ -1384,8 +1344,7 @@ Manga Platform Team`;
       }
 
       setConfirmAction(null);
-      if (shouldRefreshHistory) {
-        void loadModerationHistory(selectedUser.id);
+      if (shouldReloadUsers) {
         void loadUsers();
       }
     } catch (error: any) {
@@ -1509,10 +1468,6 @@ Manga Platform Team`;
       clearSelection();
 
       await loadUsers();
-
-      if (selectedUser && succeededIds.includes(selectedUser.id)) {
-        await loadModerationHistory(selectedUser.id);
-      }
 
       if (succeededIds.length > 0) {
         toast.success(
@@ -1786,7 +1741,6 @@ Manga Platform Team`;
           banReason={banReason}
           muteReason={muteReason}
           isSubmitting={isSubmittingAction}
-          isHistoryLoading={historyLoadingUserId === selectedUser?.id}
           activeConfirmAction={confirmAction}
           onDraftRoleChange={setDraftRole}
           onDraftStaffStatusChange={setDraftStaffStatus}

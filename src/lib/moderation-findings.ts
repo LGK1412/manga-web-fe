@@ -1,6 +1,11 @@
-import type { Finding } from "@/lib/typesLogs";
+import type {
+  Finding,
+  FindingAdvice,
+  ModeratorNextStep,
+} from "@/lib/typesLogs";
 
 export type FindingMatchStrategy = "span" | "excerpt" | "fragment" | "general";
+export type GuidanceSource = "ai" | "fallback";
 
 export interface FindingActionItem {
   tone: "required" | "rewrite" | "next";
@@ -14,11 +19,37 @@ export interface ProcessedFinding extends Finding {
   parsedReason: string;
   evidenceText: string;
   primaryAction: string;
+  moderatorGuidance: ModeratorGuidance;
+  authorGuidance: AuthorGuidance;
+  moderatorActions: FindingActionItem[];
   fixActions: FindingActionItem[];
   locationLabel: string;
   matchStrategy: FindingMatchStrategy;
   severityRank: number;
   originalIndex: number;
+}
+
+export interface ModeratorGuidance {
+  source: GuidanceSource;
+  tone: FindingActionItem["tone"];
+  nextStep: ModeratorNextStep;
+  actionLabel: string;
+  summary: string;
+  reviewCheckpoints: string[];
+}
+
+export interface AuthorGuidance {
+  source: GuidanceSource;
+  objective: string;
+  revisionSteps: string[];
+  noteDraft?: string;
+}
+
+export interface AuthorRevisionDraft {
+  focusTitle: string;
+  body: string;
+  includedFindingCount: number;
+  remainingFindingCount: number;
 }
 
 type TextRange = {
@@ -192,6 +223,90 @@ function containsAny(text: string, keywords: string[]) {
   return keywords.some((keyword) => lower.includes(keyword));
 }
 
+function buildFindingHaystack(
+  finding: Pick<Finding, "sectionId" | "policySlug" | "policyTitle">,
+  reason?: string,
+  evidenceText?: string
+) {
+  return [
+    finding.sectionId,
+    finding.policySlug,
+    finding.policyTitle,
+    reason,
+    evidenceText,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function resolveProcessedFindingTitle(
+  finding: Pick<Finding, "sectionId" | "policySlug" | "policyTitle">,
+  policyIndex?: Record<string, string>
+) {
+  const keyedTitle = String(
+    finding.policySlug || finding.sectionId || ""
+  ).trim()
+    ? resolveFindingTitle(finding.policySlug || finding.sectionId, policyIndex)
+    : "";
+
+  return keyedTitle || String(finding.policyTitle || "").trim() || "General Review";
+}
+
+function normalizeTextList(value: unknown) {
+  return Array.isArray(value)
+    ? value
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    : [];
+}
+
+function hasAiAdvice(advice?: FindingAdvice): advice is FindingAdvice {
+  if (!advice) return false;
+
+  const nextStep = advice.moderator?.nextStep;
+  const moderatorReason = String(advice.moderator?.reason || "").trim();
+  const revisionGoal = String(advice.author?.revisionGoal || "").trim();
+
+  return (
+    (nextStep === "approve" ||
+      nextStep === "request_changes" ||
+      nextStep === "reject" ||
+      nextStep === "escalate") &&
+    Boolean(moderatorReason) &&
+    Boolean(revisionGoal)
+  );
+}
+
+function mapNextStepToTone(
+  nextStep: ModeratorNextStep
+): FindingActionItem["tone"] {
+  if (nextStep === "request_changes" || nextStep === "reject") {
+    return "required";
+  }
+
+  if (nextStep === "approve" || nextStep === "escalate") {
+    return "next";
+  }
+
+  return "rewrite";
+}
+
+function mapNextStepToLabel(nextStep: ModeratorNextStep) {
+  switch (nextStep) {
+    case "approve":
+      return "Approve if safe in context";
+    case "request_changes":
+      return "Request changes";
+    case "reject":
+      return "Reject chapter";
+    case "escalate":
+      return "Escalate for review";
+    default:
+      return "Review";
+  }
+}
+
 function dedupeActions(actions: FindingActionItem[]) {
   const seen = new Set<string>();
   const result: FindingActionItem[] = [];
@@ -214,26 +329,273 @@ function makeAction(
   return { tone, label, detail };
 }
 
-export function getSuggestedActions(
-  sectionId: string,
-  verdict: Finding["verdict"],
+function dedupeLines(lines: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const line of lines) {
+    const normalized = String(line || "").trim();
+    if (!normalized) continue;
+
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    result.push(normalized);
+  }
+
+  return result;
+}
+
+function buildModeratorGuidance(
+  finding: Finding,
+  parsedReason: string,
+  actions: FindingActionItem[]
+): ModeratorGuidance {
+  if (hasAiAdvice(finding.advice)) {
+    return {
+      source: "ai",
+      tone: mapNextStepToTone(finding.advice.moderator.nextStep),
+      nextStep: finding.advice.moderator.nextStep,
+      actionLabel: mapNextStepToLabel(finding.advice.moderator.nextStep),
+      summary: String(finding.advice.moderator.reason || "").trim(),
+      reviewCheckpoints: normalizeTextList(finding.advice.moderator.checks).slice(0, 4),
+    };
+  }
+
+  const primaryAction = actions[0];
+  const reviewCheckpoints = dedupeLines(
+    actions.slice(1).map((action) => action.detail)
+  );
+
+  return {
+    source: "fallback",
+    tone: primaryAction?.tone || "next",
+    nextStep: "request_changes",
+    actionLabel: primaryAction?.label || "Review",
+    summary: primaryAction?.detail || parsedReason,
+    reviewCheckpoints:
+      reviewCheckpoints.length > 0
+        ? reviewCheckpoints.slice(0, 3)
+        : [parsedReason],
+  };
+}
+
+function buildAuthorGuidance(
+  finding: Finding,
+  parsedReason: string,
+  actions: FindingActionItem[]
+): AuthorGuidance {
+  if (hasAiAdvice(finding.advice)) {
+    return {
+      source: "ai",
+      objective: String(finding.advice.author.revisionGoal || "").trim(),
+      revisionSteps: normalizeTextList(finding.advice.author.revisionSteps).slice(0, 4),
+      noteDraft: String(finding.advice.author.noteDraft || "").trim() || undefined,
+    };
+  }
+
+  const directRevisionActions = actions.filter((action) => action.tone !== "next");
+  const objective = directRevisionActions[0]?.detail || parsedReason;
+  const revisionSteps = dedupeLines(
+    directRevisionActions.slice(1).map((action) => action.detail)
+  );
+
+  return {
+    source: "fallback",
+    objective,
+    revisionSteps: revisionSteps.slice(0, 3),
+    noteDraft: undefined,
+  };
+}
+
+function summarizeFindingForAuthor(finding: ProcessedFinding) {
+  const actionDetails = [
+    finding.authorGuidance.objective,
+    ...finding.authorGuidance.revisionSteps,
+  ]
+    .map((detail) => detail.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (actionDetails.length > 0) {
+    return actionDetails.join(" ");
+  }
+
+  return finding.parsedReason;
+}
+
+export function buildAuthorRevisionDraft(
+  findings: ProcessedFinding[],
+  activeFindingId?: string | null
+): AuthorRevisionDraft | null {
+  const actionableFindings = findings.filter((finding) => finding.verdict !== "pass");
+  if (!actionableFindings.length) return null;
+
+  const focusedFinding =
+    actionableFindings.find((finding) => finding.highlightId === activeFindingId) ||
+    actionableFindings[0];
+
+  if (actionableFindings.length === 1 && focusedFinding.authorGuidance.noteDraft) {
+    return {
+      focusTitle: focusedFinding.displayTitle,
+      body: focusedFinding.authorGuidance.noteDraft,
+      includedFindingCount: 1,
+      remainingFindingCount: 0,
+    };
+  }
+
+  const orderedFindings = [
+    focusedFinding,
+    ...actionableFindings.filter(
+      (finding) => finding.highlightId !== focusedFinding.highlightId
+    ),
+  ];
+
+  const includedFindings = orderedFindings.slice(0, 3);
+  const intro =
+    focusedFinding.verdict === "block"
+      ? "Please revise the highlighted high-risk content before resubmitting this chapter."
+      : "Please review the highlighted sections and revise the risky wording before resubmitting this chapter.";
+
+  const checklistLines = includedFindings.map((finding) => {
+    return `- ${finding.displayTitle}: ${summarizeFindingForAuthor(finding)}`;
+  });
+
+  const remainingFindingCount = Math.max(
+    0,
+    actionableFindings.length - includedFindings.length
+  );
+
+  const closing =
+    remainingFindingCount > 0
+      ? `Please also review the remaining ${remainingFindingCount} highlighted finding${remainingFindingCount > 1 ? "s" : ""} in the workspace before resubmitting.`
+      : "After editing, please resubmit the chapter for moderation review.";
+
+  return {
+    focusTitle: focusedFinding.displayTitle,
+    body: [intro, "", ...checklistLines, "", closing].join("\n"),
+    includedFindingCount: includedFindings.length,
+    remainingFindingCount,
+  };
+}
+
+export function getModeratorActions(
+  finding: Finding,
   evidenceText?: string,
   reason?: string
 ) {
-  const key = String(sectionId || "").toLowerCase();
-  const haystack = `${key} ${reason || ""} ${evidenceText || ""}`.toLowerCase();
+  const haystack = buildFindingHaystack(finding, reason, evidenceText);
+  const hasMinorContext = containsAny(haystack, MINOR_TERMS);
+  const hasSexualContext = containsAny(haystack, SEXUAL_TERMS);
+  const hasAlcoholContext = containsAny(haystack, ALCOHOL_TERMS);
+
+  if (hasMinorContext && (hasSexualContext || hasAlcoholContext)) {
+    return dedupeActions([
+      makeAction(
+        "required",
+        "Request changes before approval",
+        "Do not approve this chapter until the risky age-related context is revised or clarified."
+      ),
+      makeAction(
+        "next",
+        "Escalate if age is unclear",
+        "Escalate to a senior moderator if the character age, consent, or school-age context is ambiguous."
+      ),
+      makeAction(
+        "next",
+        "Reject if explicit",
+        "Reject if the scene clearly depicts underage sexual or substance-use content in a disallowed way."
+      ),
+    ]);
+  }
+
+  if (finding.verdict === "block") {
+    return dedupeActions([
+      makeAction(
+        "required",
+        "Request changes before approval",
+        "Keep the chapter unpublished until the flagged content is rewritten or removed."
+      ),
+      makeAction(
+        "next",
+        "Reject if the violation is clear",
+        "Use reject when the chapter is clearly incompatible with posting policy and cannot be resolved by a small edit."
+      ),
+      makeAction(
+        "next",
+        "Escalate if context is unclear",
+        "Escalate when intent, age, or protected-category context is still uncertain after review."
+      ),
+    ]);
+  }
+
+  if (
+    finding.sectionId.toLowerCase().includes("harassment") ||
+    containsAny(haystack, HARASSMENT_TERMS)
+  ) {
+    return dedupeActions([
+      makeAction(
+        "required",
+        "Review the target and context",
+        "Confirm whether the abusive wording is directed at a protected group or repeated across the scene."
+      ),
+      makeAction(
+        "next",
+        "Request changes if it is direct abuse",
+        "Use request changes when the attack is explicit but the chapter may still be salvageable."
+      ),
+      makeAction(
+        "next",
+        "Escalate if protected-group risk appears",
+        "Escalate when the language may cross into hate, slurs, or targeted harassment."
+      ),
+    ]);
+  }
+
+  if (finding.verdict === "warn") {
+    return dedupeActions([
+      makeAction(
+        "required",
+        "Review nearby context first",
+        "Check the surrounding lines before deciding whether this needs revision or is acceptable in context."
+      ),
+      makeAction(
+        "next",
+        "Request changes if the wording can be softened",
+        "Use request changes when a rewrite can lower the risk without changing the story beat."
+      ),
+      makeAction(
+        "next",
+        "Approve only if policy context is clearly safe",
+        "Approve only when the surrounding context clearly keeps the content within posting policy."
+      ),
+    ]);
+  }
+
+  return dedupeActions([
+    makeAction(
+      "next",
+      "No urgent moderator action",
+      "No immediate intervention is suggested, but keep the policy context in mind before publishing."
+    ),
+  ]);
+}
+
+export function getSuggestedActions(
+  finding: Finding,
+  evidenceText?: string,
+  reason?: string
+) {
+  const key = String(finding.sectionId || "").toLowerCase();
+  const haystack = buildFindingHaystack(finding, reason, evidenceText);
 
   if (containsAny(haystack, ALCOHOL_TERMS) && containsAny(haystack, MINOR_TERMS)) {
     return dedupeActions([
       makeAction(
-        "required",
-        "Add warning",
-        "Add an age/substance-use warning if your posting policy requires it."
-      ),
-      makeAction(
         "rewrite",
-        "Rewrite risky lines",
-        "Soften casual or celebratory wording around students or underage drinking."
+        "Revise age-related substance references",
+        "Remove casual, celebratory, or normalizing wording around students or underage drinking."
       ),
       makeAction(
         "rewrite",
@@ -241,20 +603,20 @@ export function getSuggestedActions(
         "Retain only the story context needed for the scene and avoid glamorizing the behavior."
       ),
       makeAction(
+        "required",
+        "Add a warning only if policy requires it",
+        "Use a substance-use or age warning label only when the posting policy explicitly requires one."
+      ),
+      makeAction(
         "next",
-        "Run recheck",
-        "Re-run AI moderation after editing, or escalate to manual review if the age context is unclear."
+        "Resubmit for recheck",
+        "After editing, ask for another moderation pass. Escalate if the age context is still ambiguous."
       ),
     ]);
   }
 
   if (containsAny(haystack, ALCOHOL_TERMS)) {
     return dedupeActions([
-      makeAction(
-        "required",
-        "Check warning label",
-        "Add a substance-use warning if the platform requires one for this type of scene."
-      ),
       makeAction(
         "rewrite",
         "Reduce glamorization",
@@ -266,9 +628,14 @@ export function getSuggestedActions(
         "Keep only the narrative detail needed instead of highlighting the act itself."
       ),
       makeAction(
+        "required",
+        "Check whether a warning is required",
+        "If posting policy requires a substance-use warning for this scene, add it before resubmission."
+      ),
+      makeAction(
         "next",
-        "Run recheck",
-        "Run AI moderation again after the wording is revised."
+        "Resubmit for recheck",
+        "Ask for another moderation pass after the wording is revised."
       ),
     ]);
   }
@@ -327,8 +694,8 @@ export function getSuggestedActions(
       ),
       makeAction(
         "next",
-        "Re-run moderation",
-        "Run the AI check again after revising the violent description."
+        "Resubmit for recheck",
+        "Ask for another moderation pass after revising the violent description."
       ),
     ]);
   }
@@ -387,18 +754,18 @@ export function getSuggestedActions(
       ),
       makeAction(
         "next",
-        "Run recheck",
-        "Run AI moderation again after revising the wording."
+        "Resubmit for recheck",
+        "Ask for another moderation pass after revising the wording."
       ),
     ]);
   }
 
-  if (verdict === "block") {
+  if (finding.verdict === "block") {
     return dedupeActions([
       makeAction(
         "required",
-        "Edit before publish",
-        "This finding is severe enough that the flagged content should be removed or rewritten before approval."
+        "Edit before resubmission",
+        "This finding is severe enough that the flagged content should be removed or rewritten before the chapter is reviewed again."
       ),
       makeAction(
         "rewrite",
@@ -407,13 +774,13 @@ export function getSuggestedActions(
       ),
       makeAction(
         "next",
-        "Recheck or escalate",
-        "Re-run AI moderation after editing. Escalate if the intent or category is still unclear."
+        "Resubmit or escalate",
+        "Ask for another moderation pass after editing. Escalate if the intent or category is still unclear."
       ),
     ]);
   }
 
-  if (verdict === "warn") {
+  if (finding.verdict === "warn") {
     return dedupeActions([
       makeAction(
         "required",
@@ -427,8 +794,8 @@ export function getSuggestedActions(
       ),
       makeAction(
         "next",
-        "Review after edit",
-        "Run AI moderation again after editing or send back for manual review."
+        "Resubmit after edit",
+        "Ask for another moderation pass after editing or request manual review."
       ),
     ]);
   }
@@ -436,8 +803,8 @@ export function getSuggestedActions(
   return dedupeActions([
     makeAction(
       "next",
-      "No urgent edit",
-      "No immediate edit is required, but keep this rule in mind if the chapter is revised again."
+      "No urgent author edit",
+      "No immediate revision is required, but keep this rule in mind if the chapter is updated again."
     ),
   ]);
 }
@@ -465,12 +832,14 @@ export function deriveFindings(
   return sortFindingsBySeverity(
     (findings || []).map((finding, index) => {
       const { reason, evidenceText } = parseFindingRationale(finding.rationale);
-      const fixActions = getSuggestedActions(
-        finding.sectionId,
-        finding.verdict,
-        evidenceText,
-        reason
+      const moderatorActions = getModeratorActions(finding, evidenceText, reason);
+      const fixActions = getSuggestedActions(finding, evidenceText, reason);
+      const moderatorGuidance = buildModeratorGuidance(
+        finding,
+        reason,
+        moderatorActions
       );
+      const authorGuidance = buildAuthorGuidance(finding, reason, fixActions);
 
       const matchStrategy: FindingMatchStrategy =
         Array.isArray(finding.spans) && finding.spans.length > 0
@@ -496,10 +865,13 @@ export function deriveFindings(
       return {
         ...finding,
         highlightId: `finding-${index}`,
-        displayTitle: resolveFindingTitle(finding.sectionId, policyIndex),
+        displayTitle: resolveProcessedFindingTitle(finding, policyIndex),
         parsedReason: reason,
         evidenceText,
-        primaryAction: fixActions[0]?.label || "Review",
+        primaryAction: moderatorGuidance.actionLabel,
+        moderatorGuidance,
+        authorGuidance,
+        moderatorActions,
         fixActions,
         locationLabel,
         matchStrategy,

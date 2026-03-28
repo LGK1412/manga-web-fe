@@ -244,7 +244,7 @@ export default function CreateChapterPage({
     });
   }
 
-  // Create chapter (POST with isPublished: true)
+  // Create chapter inside the moderation flow
   async function handleCreate() {
     if (!validate()) return;
     startTransition(async () => {
@@ -257,6 +257,7 @@ export default function CreateChapterPage({
           content,
           manga_id: mangaId,
         };
+        payload.isPublished = false;
         const res = await api.post(`/text-chapter`, payload);
 
         const newChapter = res.data?.chapter;
@@ -392,8 +393,8 @@ export default function CreateChapterPage({
                   <span className="font-medium">Quick tip</span>
                   <ChevronRight className="h-3 w-3" />
                   <span>
-                    Fill in the information on the right then click "Create
-                    chapter".
+                    Fill in the information on the right then click &quot;Create
+                    chapter&quot;.
                   </span>
                 </div>
               </div>
@@ -656,7 +657,7 @@ export default function CreateChapterPage({
 
                   <div className="mt-2 flex items-center justify-between">
                     <p className="text-[11px] text-slate-500">
-                      You can edit or publish later on the edit page.
+                      You can edit later, then wait for moderation approval before publication.
                     </p>
                     {dirty && (
                       <span className="text-[11px] text-amber-600">

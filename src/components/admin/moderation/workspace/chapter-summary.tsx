@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RiskMeter } from "../risk-meter";
 import { StatusBadge } from "../status-badge";
+import { ResolutionBadge } from "../resolution-badge";
 import type { ModerationRecord, Decision } from "@/lib/typesLogs";
 import {
   AlertDialog,
@@ -164,6 +165,7 @@ export function ChapterSummary({
 
             <div className="flex items-center gap-2">
               <StatusBadge status={record.ai_status ?? "AI_PENDING"} />
+              <ResolutionBadge status={record.resolution_status ?? "OPEN"} />
               <Button
                 variant="outline"
                 size="sm"
@@ -194,6 +196,28 @@ export function ChapterSummary({
             </div>
             <p className="text-sm text-muted-foreground">{moderationHint.description}</p>
           </div>
+
+          {record.resolution_status !== "OPEN" && (
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <p className="text-sm font-medium">Current Moderator Resolution</p>
+                <ResolutionBadge status={record.resolution_status} />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {record.resolution_status === "APPROVED" &&
+                  "This chapter was approved by a moderator and can remain published until the content changes again."}
+                {record.resolution_status === "CHANGES_REQUESTED" &&
+                  "A moderator requested revisions. The chapter should stay unpublished until the author updates it and moderation runs again."}
+                {record.resolution_status === "REJECTED" &&
+                  "A moderator rejected the chapter for publication under the current content."}
+              </p>
+              {record.resolution_note && (
+                <p className="mt-3 rounded-lg border bg-background/80 p-3 text-sm text-foreground/85">
+                  {record.resolution_note}
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <p className="mb-2 text-sm text-muted-foreground">Risk Score</p>
