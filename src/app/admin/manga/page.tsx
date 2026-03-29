@@ -74,6 +74,10 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  getLatestRejectReason,
+  normalizeRejectReasonHistory,
+} from "@/lib/story-rights";
 
 type LicenseStatus = "none" | "pending" | "approved" | "rejected";
 type PublicationStatus = "draft" | "published" | "unpublished";
@@ -174,6 +178,7 @@ interface MangaDetail {
   licenseReviewedAt?: string | null;
   licenseReviewedBy?: UserMini | null;
   licenseRejectReason: string;
+  licenseRejectReasons?: string[];
 
   isPublish: boolean;
   publicationStatus: PublicationStatus;
@@ -389,8 +394,9 @@ export default function MangaManagementPage() {
     }
 
     if (manga.licenseStatus === "rejected") {
-      return manga.licenseRejectReason
-        ? truncateText(manga.licenseRejectReason, 180)
+      const latestRejectReason = getLatestRejectReason(manga);
+      return latestRejectReason
+        ? truncateText(latestRejectReason, 180)
         : "The last license review was rejected. Check the supporting note and files before proceeding.";
     }
 
@@ -904,6 +910,23 @@ export default function MangaManagementPage() {
   const canPublish =
     selectedManga?.licenseStatus === "approved" &&
     selectedManga?.enforcementStatus === "normal";
+  const selectedRejectReasonHistory = useMemo(
+    () => normalizeRejectReasonHistory(selectedManga),
+    [selectedManga],
+  );
+  const selectedLatestRejectReason = useMemo(
+    () => getLatestRejectReason(selectedManga),
+    [selectedManga],
+  );
+  const previousSelectedRejectReasons = useMemo(
+    () =>
+      selectedRejectReasonHistory.length > 1
+        ? selectedRejectReasonHistory
+            .slice(0, selectedRejectReasonHistory.length - 1)
+            .reverse()
+        : [],
+    [selectedRejectReasonHistory],
+  );
 
   const dialogStoryTitle = truncateText(selectedManga?.title, 55);
 
@@ -2004,21 +2027,45 @@ export default function MangaManagementPage() {
                             </CardContent>
                           </Card>
 
-                          {selectedManga.licenseRejectReason && (
+                          {selectedLatestRejectReason ||
+                          selectedRejectReasonHistory.length > 0 ? (
                             <Card className="rounded-[24px] border-red-200 bg-red-50 shadow-sm">
                               <CardHeader className="pb-4">
                                 <CardTitle className="flex items-center gap-2 text-lg text-red-700">
                                   <AlertTriangle className="h-5 w-5" />
-                                  Review Note
+                                  {selectedManga.licenseStatus === "rejected"
+                                    ? "Latest Review Note"
+                                    : "Review History"}
                                 </CardTitle>
                               </CardHeader>
-                              <CardContent className="p-6 pt-0">
-                                <p className="text-sm leading-7 text-red-700 break-words">
-                                  {selectedManga.licenseRejectReason}
-                                </p>
+                              <CardContent className="space-y-3 p-6 pt-0">
+                                {selectedLatestRejectReason ? (
+                                  <p className="text-sm leading-7 text-red-700 break-words">
+                                    {selectedLatestRejectReason}
+                                  </p>
+                                ) : null}
+                                {previousSelectedRejectReasons.length > 0 ? (
+                                  <div className="space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-red-700/80">
+                                      Earlier review notes
+                                    </p>
+                                    <div className="space-y-2">
+                                      {previousSelectedRejectReasons.map((reason, index) => (
+                                        <div
+                                          key={`${reason}-${index}`}
+                                          className="rounded-xl border border-red-200/80 bg-white/70 px-3 py-2"
+                                        >
+                                          <p className="text-sm leading-7 text-red-700 break-words">
+                                            {reason}
+                                          </p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
                               </CardContent>
                             </Card>
-                          )}
+                          ) : null}
 
                           {selectedManga.licenseStatus === "pending" && (
                             <Card className="rounded-[24px] border-slate-200 shadow-sm">
@@ -2205,21 +2252,45 @@ export default function MangaManagementPage() {
                             </CardContent>
                           </Card>
 
-                          {selectedManga.licenseRejectReason && (
+                          {selectedLatestRejectReason ||
+                          selectedRejectReasonHistory.length > 0 ? (
                             <Card className="rounded-2xl border-red-200 bg-red-50 shadow-sm">
                               <CardHeader className="pb-4">
                                 <CardTitle className="flex items-center gap-2 text-lg text-red-700">
                                   <AlertTriangle className="h-5 w-5" />
-                                  Reject Reason
+                                  {selectedManga.licenseStatus === "rejected"
+                                    ? "Latest Reject Reason"
+                                    : "Reject History"}
                                 </CardTitle>
                               </CardHeader>
-                              <CardContent className="p-6 pt-0">
-                                <p className="text-sm leading-7 text-red-700 break-words">
-                                  {selectedManga.licenseRejectReason}
-                                </p>
+                              <CardContent className="space-y-3 p-6 pt-0">
+                                {selectedLatestRejectReason ? (
+                                  <p className="text-sm leading-7 text-red-700 break-words">
+                                    {selectedLatestRejectReason}
+                                  </p>
+                                ) : null}
+                                {previousSelectedRejectReasons.length > 0 ? (
+                                  <div className="space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-red-700/80">
+                                      Earlier review notes
+                                    </p>
+                                    <div className="space-y-2">
+                                      {previousSelectedRejectReasons.map((reason, index) => (
+                                        <div
+                                          key={`${reason}-${index}`}
+                                          className="rounded-xl border border-red-200/80 bg-white/70 px-3 py-2"
+                                        >
+                                          <p className="text-sm leading-7 text-red-700 break-words">
+                                            {reason}
+                                          </p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
                               </CardContent>
                             </Card>
-                          )}
+                          ) : null}
 
                           {selectedManga.licenseStatus === "pending" && (
                             <Card className="rounded-2xl border-slate-200 shadow-sm">

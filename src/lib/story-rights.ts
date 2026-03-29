@@ -79,7 +79,57 @@ export type StoryRightsResponse = {
   licenseSubmittedAt?: string | null;
   licenseReviewedAt?: string | null;
   licenseRejectReason?: string | null;
+  licenseRejectReasons?: string[] | null;
 };
+
+type RejectReasonPayload = {
+  licenseRejectReason?: string | null;
+  licenseRejectReasons?: unknown;
+  rights?: Record<string, unknown> | null;
+};
+
+function normalizeRejectReasonValue(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export function normalizeRejectReasonHistory(
+  input: RejectReasonPayload | null | undefined,
+) {
+  const history = Array.isArray(input?.licenseRejectReasons)
+    ? input.licenseRejectReasons
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+
+  const latestReason = normalizeRejectReasonValue(input?.licenseRejectReason);
+  const rightsReason = normalizeRejectReasonValue(
+    input?.rights ? input.rights["rejectReason"] : undefined,
+  );
+
+  if (latestReason && !history.includes(latestReason)) {
+    history.push(latestReason);
+  }
+
+  if (rightsReason && !history.includes(rightsReason)) {
+    history.push(rightsReason);
+  }
+
+  return history;
+}
+
+export function getLatestRejectReason(
+  input: RejectReasonPayload | null | undefined,
+) {
+  const latestReason = normalizeRejectReasonValue(input?.licenseRejectReason);
+
+  if (latestReason) {
+    return latestReason;
+  }
+
+  const history = normalizeRejectReasonHistory(input);
+  return history.length > 0 ? history[history.length - 1] : "";
+}
 
 export const ORIGIN_OPTIONS: Array<{
   value: StoryOriginType;

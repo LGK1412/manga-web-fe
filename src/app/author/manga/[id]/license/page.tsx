@@ -23,6 +23,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -35,8 +41,10 @@ import { StoryRightsSection } from "@/components/story-rights/story-rights-secti
 import {
   buildRightsPayload,
   evaluateClientPublishReadiness,
+  getLatestRejectReason,
   getDefaultRights,
   LICENSE_STATUS_META,
+  normalizeRejectReasonHistory,
   RIGHTS_STATUS_META,
   type StoryRights,
   type StoryRightsResponse,
@@ -313,8 +321,10 @@ export default function AuthorStoryLicensePage() {
   const [isSavingRights, setIsSavingRights] = useState(false);
   const [isSavingDeclaration, setIsSavingDeclaration] = useState(false);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [referenceSections, setReferenceSections] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const hasAppliedReferenceDefaults = useRef(false);
 
   const coverUrl = (coverImage?: string) => {
     if (!coverImage) return "";
@@ -351,6 +361,11 @@ export default function AuthorStoryLicensePage() {
   useEffect(() => {
     if (!id) return;
     loadAll();
+  }, [id]);
+
+  useEffect(() => {
+    hasAppliedReferenceDefaults.current = false;
+    setReferenceSections([]);
   }, [id]);
 
   const handleSaveRights = async () => {
@@ -432,6 +447,17 @@ export default function AuthorStoryLicensePage() {
     }
   };
 
+  const normalizedLicense = normalizeLicenseStatus(rightsPayload?.licenseStatus);
+
+  useEffect(() => {
+    if (isInitialLoading || hasAppliedReferenceDefaults.current) return;
+
+    setReferenceSections(
+      normalizedLicense === "none" ? ["submission-guide"] : [],
+    );
+    hasAppliedReferenceDefaults.current = true;
+  }, [isInitialLoading, normalizedLicense]);
+
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -450,7 +476,6 @@ export default function AuthorStoryLicensePage() {
 
   const safeRights = rights;
   const rightsMeta = RIGHTS_STATUS_META[safeRights.reviewStatus || "not_required"];
-  const normalizedLicense = normalizeLicenseStatus(rightsPayload?.licenseStatus);
   const licenseMeta =
     LICENSE_STATUS_META[
       normalizedLicense as keyof typeof LICENSE_STATUS_META
@@ -464,7 +489,21 @@ export default function AuthorStoryLicensePage() {
     files.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024;
   const submittedAt = formatDateTime(rightsPayload?.licenseSubmittedAt);
   const reviewedAt = formatDateTime(rightsPayload?.licenseReviewedAt);
-  const reviewerFeedback = rightsPayload?.licenseRejectReason || "";
+  const rejectReasonSource = {
+    licenseRejectReason: rightsPayload?.licenseRejectReason,
+    licenseRejectReasons: rightsPayload?.licenseRejectReasons,
+    rights: {
+      rejectReason: safeRights.rejectReason,
+    },
+  };
+  const rejectReasonHistory = normalizeRejectReasonHistory(rejectReasonSource);
+  const reviewerFeedback =
+    getLatestRejectReason(rejectReasonSource) || safeRights.rejectReason || "";
+  const previousRejectReasons =
+    rejectReasonHistory.length > 1
+      ? rejectReasonHistory.slice(0, rejectReasonHistory.length - 1).reverse()
+      : [];
+  const hasReviewDetails = Boolean(submittedAt || reviewedAt || reviewerFeedback);
 
   return (
     <div className="min-h-screen bg-background">
@@ -528,120 +567,205 @@ export default function AuthorStoryLicensePage() {
               </Alert>
             ) : null}
 
-            {normalizedLicense === "rejected" && reviewerFeedback ? (
+            {reviewerFeedback || rejectReasonHistory.length > 0 ? (
               <Alert
                 variant="destructive"
                 className="border-red-200 bg-red-50 text-red-900 dark:text-red-100"
               >
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Reviewer feedback requires action</AlertTitle>
-                <AlertDescription>{reviewerFeedback}</AlertDescription>
+                <AlertTitle>
+                  {normalizedLicense === "rejected"
+                    ? "Reviewer feedback requires action"
+                    : "Previous reviewer feedback"}
+                </AlertTitle>
+                <AlertDescription className="space-y-3">
+                  {reviewerFeedback ? <p>{reviewerFeedback}</p> : null}
+                  {previousRejectReasons.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-red-700/80 dark:text-red-200">
+                        Earlier review notes
+                      </p>
+                      <div className="space-y-2">
+                        {previousRejectReasons.map((reason, index) => (
+                          <div
+                            key={`${reason}-${index}`}
+                            className="rounded-xl border border-red-200/80 bg-white/50 px-3 py-2 dark:border-red-900/50 dark:bg-black/10"
+                          >
+                            {reason}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </AlertDescription>
               </Alert>
             ) : null}
 
             <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="border-b border-border/60 pb-5">
-                <CardTitle>Submission Guide</CardTitle>
+                <CardTitle>Reference Library</CardTitle>
                 <CardDescription>
-                  Follow these steps to prepare a clean, review-ready rights
-                  submission.
+                  Open these sections only when you need examples, reminders, or
+                  document ideas.
                 </CardDescription>
               </CardHeader>
 
-              <CardContent className="space-y-5 pt-6">
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {submissionSteps.map((step, index) => (
-                    <StepCard
-                      key={step.title}
-                      index={index + 1}
-                      title={step.title}
-                      description={step.description}
-                    />
-                  ))}
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <InfoChip>Save metadata before upload</InfoChip>
-                  <InfoChip>Add a short proof note</InfoChip>
-                  <InfoChip>Re-upload if reviewer requests changes</InfoChip>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardHeader className="border-b border-border/60 pb-5">
-                <CardTitle>What documents should I upload?</CardTitle>
-                <CardDescription>
-                  Choose examples that match your story origin and rights basis.
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-3">
-                {documentCases.map((item) => (
-                  <div
-                    key={item.title}
-                    className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm"
-                  >
-                    <div className="space-y-1">
-                      <p className="font-medium text-foreground">{item.title}</p>
-                      <p className="text-sm leading-6 text-muted-foreground">
-                        {item.hint}
-                      </p>
-                    </div>
-
-                    <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                      {item.examples.map((example) => (
-                        <li key={example} className="flex items-start gap-2">
-                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                          <span>{example}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardHeader className="border-b border-border/60 pb-5">
-                <CardTitle>Templates</CardTitle>
-                <CardDescription>
-                  Sample templates help authors prepare a more consistent
-                  submission.
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="grid gap-4 pt-6 md:grid-cols-3">
-                {templateCards.map((template) => (
-                  <div
-                    key={template.title}
-                    className="flex h-full flex-col justify-between rounded-2xl border border-border/70 bg-background p-4 shadow-sm"
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="rounded-xl bg-muted p-2">
-                          <FileText className="h-4 w-4" />
+              <CardContent className="pt-3">
+                <Accordion
+                  type="multiple"
+                  className="w-full"
+                  value={referenceSections}
+                  onValueChange={setReferenceSections}
+                >
+                  <AccordionItem value="submission-guide" className="border-border/60">
+                    <AccordionTrigger className="py-4 hover:no-underline">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-foreground">
+                            Submission Guide
+                          </span>
+                          <Badge className="border border-border/70 bg-background text-muted-foreground">
+                            {submissionSteps.length} steps
+                          </Badge>
                         </div>
-                        <Badge className="border border-dashed bg-background text-muted-foreground">
-                          Coming soon
-                        </Badge>
-                      </div>
-
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {template.title}
-                        </p>
-                        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                          {template.description}
+                        <p className="text-sm font-normal leading-6 text-muted-foreground">
+                          Follow a cleaner flow from declaration to upload and
+                          review.
                         </p>
                       </div>
-                    </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-1">
+                      <div className="space-y-5 pt-1">
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                          {submissionSteps.map((step, index) => (
+                            <StepCard
+                              key={step.title}
+                              index={index + 1}
+                              title={step.title}
+                              description={step.description}
+                            />
+                          ))}
+                        </div>
 
-                    <Button variant="outline" className="mt-5 rounded-xl" disabled>
-                      Download template
-                    </Button>
-                  </div>
-                ))}
+                        <div className="flex flex-wrap gap-2">
+                          <InfoChip>Save metadata before upload</InfoChip>
+                          <InfoChip>Add a short proof note</InfoChip>
+                          <InfoChip>Re-upload if reviewer requests changes</InfoChip>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem
+                    value="document-ideas"
+                    className="border-border/60"
+                  >
+                    <AccordionTrigger className="py-4 hover:no-underline">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-foreground">
+                            What documents should I upload?
+                          </span>
+                          <Badge className="border border-border/70 bg-background text-muted-foreground">
+                            {documentCases.length} cases
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-normal leading-6 text-muted-foreground">
+                          See proof examples that match original, translated,
+                          adapted, licensed, or public-domain stories.
+                        </p>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-1">
+                      <div className="grid gap-4 pt-1 md:grid-cols-2 xl:grid-cols-3">
+                        {documentCases.map((item) => (
+                          <div
+                            key={item.title}
+                            className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm"
+                          >
+                            <div className="space-y-1">
+                              <p className="font-medium text-foreground">
+                                {item.title}
+                              </p>
+                              <p className="text-sm leading-6 text-muted-foreground">
+                                {item.hint}
+                              </p>
+                            </div>
+
+                            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                              {item.examples.map((example) => (
+                                <li
+                                  key={example}
+                                  className="flex items-start gap-2"
+                                >
+                                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                  <span>{example}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="templates" className="border-border/60">
+                    <AccordionTrigger className="py-4 hover:no-underline">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-foreground">
+                            Templates
+                          </span>
+                          <Badge className="border border-border/70 bg-background text-muted-foreground">
+                            {templateCards.length} items
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-normal leading-6 text-muted-foreground">
+                          Quick references for declarations, permissions, and a
+                          last-minute checklist.
+                        </p>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-1">
+                      <div className="grid gap-4 pt-1 md:grid-cols-3">
+                        {templateCards.map((template) => (
+                          <div
+                            key={template.title}
+                            className="flex h-full flex-col justify-between rounded-2xl border border-border/70 bg-background p-4 shadow-sm"
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="rounded-xl bg-muted p-2">
+                                  <FileText className="h-4 w-4" />
+                                </div>
+                                <Badge className="border border-dashed bg-background text-muted-foreground">
+                                  Coming soon
+                                </Badge>
+                              </div>
+
+                              <div>
+                                <p className="font-medium text-foreground">
+                                  {template.title}
+                                </p>
+                                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                                  {template.description}
+                                </p>
+                              </div>
+                            </div>
+
+                            <Button
+                              variant="outline"
+                              className="mt-5 rounded-xl"
+                              disabled
+                            >
+                              Download template
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </CardContent>
             </Card>
 
@@ -698,33 +822,60 @@ export default function AuthorStoryLicensePage() {
               </CardHeader>
 
               <CardContent className="space-y-5 pt-6">
-                <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4 md:grid-cols-3">
-                  <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Accepted types
-                    </p>
-                    <p className="mt-1 text-sm text-foreground">
-                      PDF, PNG, JPG, WEBP
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Good examples
-                    </p>
-                    <p className="mt-1 text-sm text-foreground">
-                      Contracts, permission chats, source pages, declarations
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Best practice
-                    </p>
-                    <p className="mt-1 text-sm text-foreground">
-                      Upload multiple files when one screenshot alone is not
-                      enough
-                    </p>
-                  </div>
-                </div>
+                <Accordion
+                  type="multiple"
+                  defaultValue={proofFiles.length === 0 ? ["upload-checklist"] : []}
+                  className="rounded-2xl border border-border/70 bg-muted/10 px-4"
+                >
+                  <AccordionItem value="upload-checklist" className="border-none">
+                    <AccordionTrigger className="py-4 hover:no-underline">
+                      <div className="space-y-1 text-left">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-foreground">
+                            Upload checklist
+                          </span>
+                          <Badge className="border border-border/70 bg-background text-muted-foreground">
+                            3 reminders
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-normal leading-6 text-muted-foreground">
+                          Accepted file types, examples, and a quick reminder
+                          before submission.
+                        </p>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4">
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Accepted types
+                          </p>
+                          <p className="mt-1 text-sm text-foreground">
+                            PDF, PNG, JPG, WEBP
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Good examples
+                          </p>
+                          <p className="mt-1 text-sm text-foreground">
+                            Contracts, permission chats, source pages,
+                            declarations
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Best practice
+                          </p>
+                          <p className="mt-1 text-sm text-foreground">
+                            Upload multiple files when one screenshot alone is
+                            not enough
+                          </p>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
 
                 <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-5">
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -837,52 +988,68 @@ export default function AuthorStoryLicensePage() {
 
                 <Separator />
 
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Current proof files</p>
-                    <p className="text-sm text-muted-foreground">
-                      These are the files currently attached to this story rights
-                      record.
-                    </p>
-                  </div>
+                <Accordion
+                  type="multiple"
+                  defaultValue={proofFiles.length === 0 ? ["current-proof-files"] : []}
+                  className="rounded-2xl border border-border/70 bg-muted/10 px-4"
+                >
+                  <AccordionItem value="current-proof-files" className="border-none">
+                    <AccordionTrigger className="py-4 hover:no-underline">
+                      <div className="space-y-1 text-left">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-foreground">
+                            Current proof files
+                          </span>
+                          <Badge className="border border-border/70 bg-background text-muted-foreground">
+                            {proofFiles.length} attached
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-normal leading-6 text-muted-foreground">
+                          Review the files currently attached to this rights
+                          record.
+                        </p>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4">
+                      {proofFiles.length > 0 ? (
+                        <div className="space-y-2">
+                          {proofFiles.map((file, index) => {
+                            const url = getAssetCandidates(apiBase, file)[0];
+                            const isPdf = file.toLowerCase().endsWith(".pdf");
 
-                  {proofFiles.length > 0 ? (
-                    <div className="space-y-2">
-                      {proofFiles.map((file, index) => {
-                        const url = getAssetCandidates(apiBase, file)[0];
-                        const isPdf = file.toLowerCase().endsWith(".pdf");
+                            return (
+                              <a
+                                key={`${file}-${index}`}
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-3 text-sm transition hover:bg-muted/30"
+                              >
+                                <span className="flex items-center gap-2 truncate">
+                                  {isPdf ? (
+                                    <FileText className="h-4 w-4 shrink-0" />
+                                  ) : (
+                                    <ImageIcon className="h-4 w-4 shrink-0" />
+                                  )}
+                                  <span className="truncate">
+                                    {file.split("/").pop()}
+                                  </span>
+                                </span>
 
-                        return (
-                          <a
-                            key={`${file}-${index}`}
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-3 text-sm transition hover:bg-muted/30"
-                          >
-                            <span className="flex items-center gap-2 truncate">
-                              {isPdf ? (
-                                <FileText className="h-4 w-4 shrink-0" />
-                              ) : (
-                                <ImageIcon className="h-4 w-4 shrink-0" />
-                              )}
-                              <span className="truncate">
-                                {file.split("/").pop()}
-                              </span>
-                            </span>
-
-                            <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          </a>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-                      No proof files uploaded yet. Add supporting documents to
-                      make the review process easier.
-                    </div>
-                  )}
-                </div>
+                                <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                              </a>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                          No proof files uploaded yet. Add supporting documents
+                          to make the review process easier.
+                        </div>
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </CardContent>
             </Card>
           </div>
@@ -974,29 +1141,53 @@ export default function AuthorStoryLicensePage() {
                   </p>
                 </div>
 
-                {(submittedAt || reviewedAt) && (
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    {submittedAt ? (
-                      <div className="flex items-start gap-2">
-                        <Clock className="mt-0.5 h-4 w-4 shrink-0" />
-                        <span>Submitted: {submittedAt}</span>
-                      </div>
-                    ) : null}
+                {hasReviewDetails ? (
+                  <Accordion
+                    type="single"
+                    collapsible
+                    defaultValue={normalizedLicense === "rejected" ? "review-details" : undefined}
+                    className="rounded-2xl border border-border/70 bg-background px-4"
+                  >
+                    <AccordionItem value="review-details" className="border-none">
+                      <AccordionTrigger className="py-4 hover:no-underline">
+                        <div className="space-y-1 text-left">
+                          <p className="font-medium text-foreground">
+                            Review timeline & notes
+                          </p>
+                          <p className="text-sm font-normal leading-6 text-muted-foreground">
+                            Open to see submission timestamps and the latest
+                            reviewer note.
+                          </p>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-4 pb-4">
+                        {(submittedAt || reviewedAt) && (
+                          <div className="space-y-2 text-sm text-muted-foreground">
+                            {submittedAt ? (
+                              <div className="flex items-start gap-2">
+                                <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                                <span>Submitted: {submittedAt}</span>
+                              </div>
+                            ) : null}
 
-                    {reviewedAt ? (
-                      <div className="flex items-start gap-2">
-                        <Clock className="mt-0.5 h-4 w-4 shrink-0" />
-                        <span>Reviewed: {reviewedAt}</span>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
+                            {reviewedAt ? (
+                              <div className="flex items-start gap-2">
+                                <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                                <span>Reviewed: {reviewedAt}</span>
+                              </div>
+                            ) : null}
+                          </div>
+                        )}
 
-                {reviewerFeedback ? (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100">
-                    <p className="font-medium">Reviewer feedback</p>
-                    <p className="mt-1 leading-6">{reviewerFeedback}</p>
-                  </div>
+                        {reviewerFeedback ? (
+                          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100">
+                            <p className="font-medium">Reviewer feedback</p>
+                            <p className="mt-1 leading-6">{reviewerFeedback}</p>
+                          </div>
+                        ) : null}
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 ) : null}
               </CardContent>
             </Card>

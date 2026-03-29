@@ -24,7 +24,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
+  getLatestRejectReason,
   LICENSE_STATUS_META,
+  normalizeRejectReasonHistory,
   RIGHTS_STATUS_META,
   type RightsBasis,
   type RightsReviewStatus,
@@ -59,6 +61,7 @@ type LicenseDetail = QueueItem & {
   licenseFiles?: string[];
   licenseNote?: string;
   licenseRejectReason?: string;
+  licenseRejectReasons?: string[];
   licenseReviewedAt?: string;
   enforcementReason?: string;
   rights?: {
@@ -200,6 +203,23 @@ export default function AdminStoryRightsModerationPage() {
   const currentFileUrl = currentFile ? getFileUrls(currentFile)[0] : undefined;
   const currentFileIsPdf =
     typeof currentFile === "string" && currentFile.toLowerCase().endsWith(".pdf");
+  const selectedRejectReasonHistory = useMemo(
+    () => normalizeRejectReasonHistory(selected),
+    [selected],
+  );
+  const selectedLatestRejectReason = useMemo(
+    () => getLatestRejectReason(selected),
+    [selected],
+  );
+  const previousSelectedRejectReasons = useMemo(
+    () =>
+      selectedRejectReasonHistory.length > 1
+        ? selectedRejectReasonHistory
+            .slice(0, selectedRejectReasonHistory.length - 1)
+            .reverse()
+        : [],
+    [selectedRejectReasonHistory],
+  );
 
   const handleReview = async (status: "approved" | "rejected") => {
     if (!selected) return;
@@ -506,10 +526,34 @@ export default function AdminStoryRightsModerationPage() {
                             </div>
                           ) : null}
 
-                          {selected.licenseRejectReason ? (
+                          {selectedLatestRejectReason ||
+                          selectedRejectReasonHistory.length > 0 ? (
                             <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                              <p className="font-medium">Reject reason</p>
-                              <p className="mt-1">{selected.licenseRejectReason}</p>
+                              <p className="font-medium">
+                                {selected.licenseStatus === "rejected"
+                                  ? "Latest reject reason"
+                                  : "Reject history"}
+                              </p>
+                              {selectedLatestRejectReason ? (
+                                <p className="mt-1">{selectedLatestRejectReason}</p>
+                              ) : null}
+                              {previousSelectedRejectReasons.length > 0 ? (
+                                <div className="mt-3 space-y-2">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-red-700/80">
+                                    Earlier review notes
+                                  </p>
+                                  <div className="space-y-2">
+                                    {previousSelectedRejectReasons.map((reason, index) => (
+                                      <div
+                                        key={`${reason}-${index}`}
+                                        className="rounded-lg border border-red-200/80 bg-white/70 px-3 py-2"
+                                      >
+                                        {reason}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
                             </div>
                           ) : null}
                         </div>
