@@ -11,7 +11,6 @@ import {
   Save,
   X,
   Check,
-  ChevronRight,
   Edit,
   Trash2,
   ArrowLeft,
@@ -387,18 +386,6 @@ export default function CreateChapterPage({
             </div>
 
             <div className="space-y-2 overflow-y-auto flex-1 pr-1">
-              {/* Tip */}
-              <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/60 p-4">
-                <div className="flex items-center gap-2 text-xs text-blue-800">
-                  <span className="font-medium">Quick tip</span>
-                  <ChevronRight className="h-3 w-3" />
-                  <span>
-                    Fill in the information on the right then click &quot;Create
-                    chapter&quot;.
-                  </span>
-                </div>
-              </div>
-
               {/* Skeleton */}
               {isLoadingList &&
                 Array.from({ length: 5 }).map((_, i) => (
