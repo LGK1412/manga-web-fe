@@ -1,7 +1,5 @@
 "use client"
 
-// src/app/admin/audit-logs/log-details/[id]/page.tsx
-
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import axios from "axios"
@@ -9,23 +7,23 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
-  EyeOff,
-  ShieldCheck,
-  ShieldAlert,
   Copy,
+  EyeOff,
   RefreshCcw,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react"
 
 import AdminLayout from "@/app/admin/adminLayout/page"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 
 import {
@@ -38,49 +36,82 @@ import {
   resolveAuditActorAvatar,
 } from "@/lib/audit-ui"
 
+const surfaceClass =
+  "rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)] backdrop-blur"
+const insetSurfaceClass = "rounded-xl border border-slate-200/70 bg-slate-50/80"
+
 type Me = {
   userId?: string
   email?: string
   role?: string
 }
 
-/** ✅ Helper: render value multiline friendly */
+function getActionTone(action: string) {
+  switch (action) {
+    case "approve":
+    case "report_status_resolved":
+      return "border border-emerald-200 bg-emerald-50 text-emerald-700"
+    case "reject":
+    case "report_status_rejected":
+    case "delete_comment":
+    case "ban_user":
+    case "auto_reject":
+      return "border border-rose-200 bg-rose-50 text-rose-700"
+    case "hide_content":
+    case "comment_hidden":
+    case "reply_hidden":
+      return "border border-orange-200 bg-orange-50 text-orange-700"
+    case "warn_user":
+      return "border border-amber-200 bg-amber-50 text-amber-700"
+    case "mute_user":
+      return "border border-blue-200 bg-blue-50 text-blue-700"
+    case "request_changes":
+      return "border border-violet-200 bg-violet-50 text-violet-700"
+    default:
+      return "border border-slate-200 bg-slate-100 text-slate-700"
+  }
+}
+
 function ValueView({ value }: { value: any }) {
   if (value === null || value === undefined) {
-    return <p className="text-xs text-gray-500">—</p>
+    return <p className="text-xs text-slate-500">--</p>
   }
 
   if (typeof value === "string") {
     return (
-      <Textarea value={value} readOnly className="text-xs min-h-[120px] resize-none bg-white" />
+      <Textarea
+        value={value}
+        readOnly
+        className="min-h-[120px] resize-none rounded-xl border-slate-200 bg-white/80 text-xs text-slate-700"
+      />
     )
   }
 
   if (typeof value === "number" || typeof value === "boolean") {
-    return <p className="text-sm text-gray-800">{String(value)}</p>
+    return <p className="text-sm text-slate-700">{String(value)}</p>
   }
 
-  // object / array
   return (
-    <ScrollArea className="h-44 border rounded-lg bg-white">
-      <pre className="text-xs text-gray-800 whitespace-pre-wrap break-words p-3">
+    <ScrollArea className="h-44 rounded-xl border border-slate-200/70 bg-white/80">
+      <pre className="whitespace-pre-wrap break-words p-3 text-xs text-slate-700">
         {JSON.stringify(value, null, 2)}
       </pre>
     </ScrollArea>
   )
 }
 
-/** ✅ Helper: render object fields theo dạng form (label hoá + allowlist) */
 function DiffObjectView({ obj }: { obj: Record<string, any> }) {
   const keys = Object.keys(obj || {})
-  if (!keys.length) return <p className="text-sm text-gray-500">—</p>
+  if (!keys.length) return <p className="text-sm text-slate-500">No changes available.</p>
 
   return (
     <div className="space-y-3">
-      {keys.map((k) => (
-        <div key={k} className="space-y-1">
-          <p className="text-xs font-semibold text-gray-700">{prettyFieldLabel(k)}</p>
-          <ValueView value={prettyFieldValue(k, obj[k])} />
+      {keys.map((key) => (
+        <div key={key} className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+            {prettyFieldLabel(key)}
+          </p>
+          <ValueView value={prettyFieldValue(key, obj[key])} />
         </div>
       ))}
     </div>
@@ -100,41 +131,44 @@ export default function AuditLogDetailsPage() {
   const [meError, setMeError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  /** ✅ role normalized */
   const roleNormalized = useMemo(() => String(me?.role || "").toLowerCase(), [me?.role])
   const isAdmin = useMemo(() => roleNormalized === "admin", [roleNormalized])
+  const canAttemptAdminActions = useMemo(
+    () => isAdmin || Boolean(meError),
+    [isAdmin, meError],
+  )
 
   const actorName = log?.actor_id?.username || log?.actor_name || "System"
-  const actorEmail = log?.actor_id?.email || log?.actor_email || "—"
+  const actorEmail = log?.actor_id?.email || log?.actor_email || "--"
   const actorRole = log?.actor_role || log?.actor_id?.role || "system"
   const actorAvatar = log?.actor_id?.avatar || log?.actor_avatar || log?.actorAvatar
 
   const timeText = log?.createdAt
     ? new Date(log.createdAt).toLocaleString("vi-VN", { hour12: false })
-    : "—"
+    : "--"
 
   const riskBadge = useMemo(() => {
     const risk = log?.risk ?? "low"
-    if (risk === "high") return "bg-red-100 text-red-800 border border-red-200"
-    if (risk === "medium") return "bg-yellow-100 text-yellow-800 border border-yellow-200"
-    return "bg-green-100 text-green-800 border border-green-200"
+    if (risk === "high") return "border border-rose-200 bg-rose-50 text-rose-700"
+    if (risk === "medium") return "border border-amber-200 bg-amber-50 text-amber-700"
+    return "border border-emerald-200 bg-emerald-50 text-emerald-700"
   }, [log?.risk])
 
   const approvalBadge = useMemo(() => {
     return log?.approval === "approved"
-      ? "bg-green-100 text-green-800 border border-green-200"
-      : "bg-yellow-100 text-yellow-800 border border-yellow-200"
+      ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border border-amber-200 bg-amber-50 text-amber-700"
   }, [log?.approval])
 
   const seenBadge = useMemo(() => {
     return log?.seen
-      ? "bg-slate-100 text-slate-700 border border-slate-200"
-      : "bg-orange-100 text-orange-800 border border-orange-200"
+      ? "border border-slate-200 bg-slate-100 text-slate-700"
+      : "border border-orange-200 bg-orange-50 text-orange-700"
   }, [log?.seen])
 
-  /** ✅ fetch me (role) */
   const fetchMe = async () => {
     if (!API) return
+
     try {
       setMeError(null)
       const res = await axios.get(`${API}/api/auth/me`, { withCredentials: true })
@@ -151,9 +185,9 @@ export default function AuditLogDetailsPage() {
     }
   }
 
-  /** ✅ fetch log detail */
   const fetchLog = async () => {
     if (!API || !id) return
+
     try {
       setError(null)
       const res = await axios.get(`${API}/api/audit-logs/${id}`, { withCredentials: true })
@@ -187,7 +221,7 @@ export default function AuditLogDetailsPage() {
 
   const handleApprove = async () => {
     if (!API || !id) return
-    if (!isAdmin) {
+    if (!canAttemptAdminActions) {
       toast.error("Admin only")
       return
     }
@@ -200,6 +234,7 @@ export default function AuditLogDetailsPage() {
         { withCredentials: true },
       )
       setLog(res.data)
+      setAdminNote(res.data?.adminNote ?? adminNote)
       toast.success("Approved")
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.response?.data?.error || "Approve failed"
@@ -212,7 +247,7 @@ export default function AuditLogDetailsPage() {
 
   const handleMarkSeen = async () => {
     if (!API || !id) return
-    if (!isAdmin) {
+    if (!canAttemptAdminActions) {
       toast.error("Admin only")
       return
     }
@@ -234,11 +269,11 @@ export default function AuditLogDetailsPage() {
   if (!log && !error) {
     return (
       <AdminLayout>
-        <div className="max-w-6xl mx-auto p-4 space-y-4">
-          <Skeleton className="h-8 w-48" />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <Skeleton className="h-[520px] lg:col-span-2" />
-            <Skeleton className="h-[520px]" />
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-2 py-2">
+          <Skeleton className="h-32 rounded-2xl" />
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <Skeleton className="h-[560px] rounded-2xl" />
+            <Skeleton className="h-[560px] rounded-2xl" />
           </div>
         </div>
       </AdminLayout>
@@ -248,23 +283,30 @@ export default function AuditLogDetailsPage() {
   if (error) {
     return (
       <AdminLayout>
-        <div className="max-w-3xl mx-auto p-6">
-          <Card>
+        <div className="mx-auto max-w-3xl px-2 py-2">
+          <Card className={surfaceClass}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-red-700">
+              <CardTitle className="flex items-center gap-2 text-rose-700">
                 <AlertTriangle className="h-5 w-5" />
                 Cannot load audit log
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm text-gray-600">{String(error)}</p>
+              <p className="text-sm text-slate-600">{String(error)}</p>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => router.back()}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
+                <Button
+                  variant="outline"
+                  className="rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                  onClick={() => router.back()}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
                   Back
                 </Button>
-                <Button onClick={fetchLog}>
-                  <RefreshCcw className="h-4 w-4 mr-2" />
+                <Button
+                  className="rounded-xl bg-slate-900 text-white hover:bg-slate-800"
+                  onClick={fetchLog}
+                >
+                  <RefreshCcw className="mr-2 h-4 w-4" />
                   Retry
                 </Button>
               </div>
@@ -275,211 +317,244 @@ export default function AuditLogDetailsPage() {
     )
   }
 
-  // ✅ hide technical id from UI (but keep to navigate internally)
-  const targetType = log?.target_type ? String(log.target_type) : "—"
-  const reportCode = log?.reportCode ? String(log.reportCode) : "—"
-
-  // ✅ allowlist diff fields + label hoá
+  const targetType = log?.target_type ? String(log.target_type) : "--"
+  const reportCode = log?.reportCode ? String(log.reportCode) : "--"
+  const targetTypeLabel = targetType === "--" ? "--" : targetType.replaceAll("_", " ")
   const beforeObj: Record<string, any> = normalizeDiff(log, log?.before || {})
   const afterObj: Record<string, any> = normalizeDiff(log, log?.after || {})
-
   const canOpenReport =
     String(log?.target_type || "").toLowerCase() === "report" && Boolean(log?.target_id)
+  const canEditAdminNote = canAttemptAdminActions && log?.approval !== "approved"
+  const hasDiff = Object.keys(beforeObj).length > 0 || Object.keys(afterObj).length > 0
+  const evidenceImages = Array.isArray(log?.evidenceImages) ? log.evidenceImages : []
 
   return (
     <AdminLayout>
-      <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="text-xs text-gray-500">
-              Admin / Audit Logs / <span className="text-gray-800">Details</span>
-            </div>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-2 py-2">
+        <Card className={surfaceClass}>
+          <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-slate-700">
+                  Audit review
+                </span>
+                <span className="h-1 w-1 rounded-full bg-slate-300" />
+                <span>{prettyAction(log.action)}</span>
+              </div>
 
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-gray-900">Audit Log</h1>
-              <Badge className={riskBadge}>
-                {log.risk === "high" ? (
-                  <ShieldAlert className="h-3.5 w-3.5 mr-1" />
-                ) : (
-                  <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className={riskBadge}>
+                  {log.risk === "high" ? (
+                    <ShieldAlert className="mr-1 h-3.5 w-3.5" />
+                  ) : (
+                    <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+                  )}
+                  {log.risk ?? "low"}
+                </Badge>
+                <Badge className={seenBadge}>{log.seen ? "Seen" : "Unseen"}</Badge>
+                <Badge className={approvalBadge}>{String(log.approval ?? "pending")}</Badge>
+              </div>
+
+              <p className="max-w-3xl text-sm leading-6 text-slate-700">
+                {buildHumanMessage(log)}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-slate-700">
+                  {reportCode}
+                </span>
+
+                {reportCode !== "--" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                    onClick={() => copyText(reportCode)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
                 )}
-                {log.risk ?? "low"}
-              </Badge>
-            </div>
 
-            {/* ✅ show Report Code (allowed), no log id */}
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span className="font-mono text-xs bg-gray-50 border px-2 py-1 rounded">
-                {reportCode}
-              </span>
-              {reportCode !== "—" && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => copyText(reportCode)}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
+                <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-600">
+                  {timeText}
+                </span>
+
+                {canOpenReport && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                    onClick={() => router.push("/admin/report")}
+                  >
+                    Open report workspace
+                  </Button>
+                )}
+              </div>
+
+              {meError ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-xs leading-5 text-amber-800">
+                  Role verification is temporarily unavailable. Backend will still validate any
+                  action you submit.
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs leading-5 text-slate-600">
+                  Reviewing as{" "}
+                  <b className="font-semibold text-slate-900">
+                    {prettyRole(roleNormalized || "unknown")}
+                  </b>
+                  .
+                </div>
               )}
             </div>
 
-            <div className="text-xs text-gray-500">
-              Logged in as <b className="text-gray-800">{prettyRole(roleNormalized || "unknown")}</b>
-              {meError && <span className="ml-2 text-red-600">(me API error: {meError})</span>}
-            </div>
-          </div>
+            <Button
+              variant="outline"
+              onClick={() => router.back()}
+              className="gap-2 rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </CardContent>
+        </Card>
 
-          <Button variant="outline" onClick={() => router.back()} className="gap-2">
-            <ArrowLeft className="h-4 w-4" /> Back
-          </Button>
-        </div>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-5">
+            <Card className={surfaceClass}>
+              <CardHeader className="pb-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle className="text-base font-semibold text-slate-950">
+                      Record details
+                    </CardTitle>
+                    <p className="text-sm leading-6 text-slate-500">
+                      Core metadata for this audit entry.
+                    </p>
+                  </div>
 
-        {/* Main grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Left */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Summary */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Summary</CardTitle>
+                  <Badge
+                    variant="outline"
+                    className="w-fit border-slate-200 bg-slate-100 text-slate-700"
+                  >
+                    {targetTypeLabel}
+                  </Badge>
+                </div>
               </CardHeader>
 
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-xs text-gray-500">Action</p>
-                    <Badge className="mt-1">{prettyAction(log.action)}</Badge>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Time</p>
-                    <p className="mt-1 font-medium">{timeText}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                  <div>
-                    <p className="text-xs text-gray-500">Report Code</p>
-                    <p className="mt-1 font-mono text-xs">{reportCode}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-500">Target</p>
-                    <p className="mt-1 font-medium">
-                      {String(targetType || "—").replaceAll("_", " ")}
-                      {reportCode !== "—" ? ` • ${reportCode}` : ""}
+              <CardContent className="space-y-5">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <div className={`${insetSurfaceClass} p-4`}>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      Action
                     </p>
-
-                    {/* ✅ open report but do NOT show target_id */}
-                    {canOpenReport && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="mt-2"
-                        onClick={() => router.push(`/admin/reports/${log.target_id}`)}
-                      >
-                        Open Report
-                      </Button>
-                    )}
+                    <Badge className={`mt-3 text-xs ${getActionTone(log.action)}`}>
+                      {prettyAction(log.action)}
+                    </Badge>
                   </div>
 
-                  <div>
-                    <p className="text-xs text-gray-500">Status</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge className={seenBadge}>{log.seen ? "Seen" : "Unseen"}</Badge>
-                      <Badge className={approvalBadge}>{String(log.approval ?? "pending")}</Badge>
-                    </div>
+                  <div className={`${insetSurfaceClass} p-4`}>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      Logged at
+                    </p>
+                    <p className="mt-3 text-sm font-medium text-slate-900">{timeText}</p>
                   </div>
-                </div>
 
-                <Separator />
+                  <div className={`${insetSurfaceClass} p-4`}>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      Report code
+                    </p>
+                    <p className="mt-3 font-mono text-xs text-slate-700">{reportCode}</p>
+                  </div>
 
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Message</p>
-                  <p className="text-sm text-gray-800 leading-relaxed">{buildHumanMessage(log)}</p>
+                  <div className={`${insetSurfaceClass} p-4`}>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      Target
+                    </p>
+                    <p className="mt-3 text-sm font-medium text-slate-900">{targetTypeLabel}</p>
+                  </div>
                 </div>
 
                 {log?.note && (
-                  <div className="pt-2">
-                    <p className="text-xs font-semibold text-gray-700 mb-1">Moderator Note</p>
+                  <div className={`${insetSurfaceClass} p-4`}>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      Moderator note
+                    </p>
                     <Textarea
                       value={String(log.note)}
                       readOnly
-                      className="text-xs min-h-[120px] resize-none bg-white"
+                      className="mt-3 min-h-[120px] resize-none rounded-xl border-slate-200 bg-white/80 text-xs text-slate-700"
                     />
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Tabs */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Details</CardTitle>
+            <Card className={surfaceClass}>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base font-semibold text-slate-950">
+                  Change details
+                </CardTitle>
+                <p className="text-sm leading-6 text-slate-500">
+                  Compare snapshots and inspect any evidence attached to this record.
+                </p>
               </CardHeader>
 
               <CardContent>
-                <Tabs defaultValue="overview" className="w-full">
-                  <TabsList className="grid grid-cols-3 w-full">
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="diff">Before/After</TabsTrigger>
-                    <TabsTrigger value="evidence">Evidence</TabsTrigger>
+                <Tabs defaultValue="diff" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 rounded-xl bg-slate-100 p-1">
+                    <TabsTrigger value="diff" className="rounded-lg">
+                      Before / After
+                    </TabsTrigger>
+                    <TabsTrigger value="evidence" className="rounded-lg">
+                      Evidence
+                    </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="overview" className="mt-4 space-y-3">
-                    <div className="text-sm text-gray-600">
-                      <p>
-                        <span className="text-gray-500">Actor:</span>{" "}
-                        <span className="font-medium text-gray-900">{actorName}</span>{" "}
-                        <span className="text-gray-400">({prettyRole(actorRole)})</span>
-                      </p>
-                      <p className="text-xs">{actorEmail}</p>
-                    </div>
-                  </TabsContent>
-
                   <TabsContent value="diff" className="mt-4">
-                    {log.before || log.after ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="rounded-lg border bg-red-50">
-                          <div className="px-3 py-2 text-xs font-semibold text-red-800 border-b">
+                    {hasDiff ? (
+                      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                        <div className="rounded-xl border border-rose-200/80 bg-rose-50/60 p-4">
+                          <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-700">
                             Before
                           </div>
-                          <div className="p-3">
-                            <DiffObjectView obj={beforeObj} />
-                          </div>
+                          <DiffObjectView obj={beforeObj} />
                         </div>
 
-                        <div className="rounded-lg border bg-green-50">
-                          <div className="px-3 py-2 text-xs font-semibold text-green-800 border-b">
+                        <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-4">
+                          <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
                             After
                           </div>
-                          <div className="p-3">
-                            <DiffObjectView obj={afterObj} />
-                          </div>
+                          <DiffObjectView obj={afterObj} />
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-500 mt-3">—</p>
+                      <div className={`${insetSurfaceClass} p-4 text-sm text-slate-500`}>
+                        No before/after snapshot was recorded for this entry.
+                      </div>
                     )}
                   </TabsContent>
 
                   <TabsContent value="evidence" className="mt-4">
-                    {Array.isArray(log.evidenceImages) && log.evidenceImages.length > 0 ? (
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {log.evidenceImages.map((src: string, idx: number) => (
-                          <div key={idx} className="border rounded-lg overflow-hidden bg-white">
+                    {evidenceImages.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {evidenceImages.map((src: string, idx: number) => (
+                          <div
+                            key={idx}
+                            className="overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50/60"
+                          >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={src}
                               alt={`evidence-${idx}`}
-                              className="w-full h-32 object-cover"
+                              className="h-40 w-full object-cover"
                             />
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-500">No evidence attached.</p>
+                      <div className={`${insetSurfaceClass} p-4 text-sm text-slate-500`}>
+                        No evidence attached.
+                      </div>
                     )}
                   </TabsContent>
                 </Tabs>
@@ -487,102 +562,127 @@ export default function AuditLogDetailsPage() {
             </Card>
           </div>
 
-          {/* Right */}
-          <div className="space-y-4">
-            {/* Actor */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Actor</CardTitle>
-              </CardHeader>
-              <CardContent className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
+          <Card className={`${surfaceClass} lg:sticky lg:top-4 lg:self-start`}>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base font-semibold text-slate-950">
+                Review panel
+              </CardTitle>
+              <p className="text-sm leading-6 text-slate-500">
+                Actor context, admin note, and moderation actions in one place.
+              </p>
+            </CardHeader>
+
+            <CardContent className="space-y-5">
+              <div className={`${insetSurfaceClass} flex items-center gap-3 p-3`}>
+                <Avatar className="h-11 w-11 border border-slate-200">
                   <AvatarImage
                     src={resolveAuditActorAvatar(actorAvatar, API)}
                     alt={actorName}
                     referrerPolicy="no-referrer"
                   />
-                  <AvatarFallback>
+                  <AvatarFallback className="bg-slate-100 text-xs font-semibold text-slate-700">
                     {String(actorName)
                       .split(" ")
                       .filter(Boolean)
-                      .map((n: string) => n[0])
+                      .map((part: string) => part[0])
                       .join("")
                       .slice(0, 2)
                       .toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
 
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">{actorName}</p>
-                  <p className="text-xs text-gray-500">{actorEmail}</p>
-                  <Badge variant="outline" className="mt-2 text-xs">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-900">{actorName}</p>
+                  <p className="truncate text-xs text-slate-500">{actorEmail}</p>
+                  <Badge
+                    variant="outline"
+                    className="mt-2 border-slate-200 bg-white text-slate-700"
+                  >
                     {prettyRole(actorRole)}
                   </Badge>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Admin note */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Admin Note</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+              <Separator className="bg-slate-200/80" />
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-slate-900">Admin note</p>
+                  <Badge className={approvalBadge}>{String(log.approval ?? "pending")}</Badge>
+                </div>
+
                 <Textarea
                   value={adminNote}
                   onChange={(e) => setAdminNote(e.target.value)}
-                  disabled={loading || !isAdmin}
-                  placeholder={!isAdmin ? "Admin only" : "Write admin note..."}
+                  disabled={loading || !canEditAdminNote}
+                  className="min-h-[140px] rounded-xl border-slate-200 bg-white/80 text-sm text-slate-700"
+                  placeholder={
+                    !canAttemptAdminActions
+                      ? "Admin only"
+                      : log?.approval === "approved"
+                        ? "This log is already approved."
+                        : "Write admin note before approving..."
+                  }
                 />
-                <p className="text-xs text-gray-500">
-                  * Quyền thật sẽ do backend quyết định khi Approve/Seen.
+                <p className="text-xs leading-5 text-slate-500">
+                  {log?.approval === "approved"
+                    ? "This note is no longer editable after approval."
+                    : "This note is submitted together with Approve. Backend still enforces permission for approve and seen actions."}
                 </p>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Actions */}
-            <Card className="sticky top-4">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+              <Separator className="bg-slate-200/80" />
+
+              <div className="space-y-2">
                 {!log.seen && (
                   <Button
                     variant="outline"
-                    className="w-full"
+                    className="w-full rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                     onClick={handleMarkSeen}
-                    disabled={loading || !isAdmin}
-                    title={!isAdmin ? "Admin only" : ""}
+                    disabled={loading || !canAttemptAdminActions}
+                    title={!canAttemptAdminActions ? "Admin only" : ""}
                   >
-                    <EyeOff className="h-4 w-4 mr-2" />
-                    Mark Seen
+                    <EyeOff className="mr-2 h-4 w-4" />
+                    Mark seen
                   </Button>
                 )}
 
                 {log.approval === "pending" && (
                   <Button
-                    className="w-full"
+                    className="w-full rounded-xl bg-slate-900 text-white hover:bg-slate-800"
                     onClick={handleApprove}
-                    disabled={loading || !isAdmin}
-                    title={!isAdmin ? "Admin only" : ""}
+                    disabled={loading || !canAttemptAdminActions}
+                    title={!canAttemptAdminActions ? "Admin only" : ""}
                   >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
                     Approve
                   </Button>
                 )}
 
-                <Button variant="outline" className="w-full" onClick={fetchLog} disabled={loading}>
-                  <RefreshCcw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                    onClick={fetchLog}
+                    disabled={loading}
+                  >
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                    Refresh record
+                  </Button>
 
-                <Button variant="ghost" className="w-full" onClick={fetchMe} disabled={loading}>
-                  <RefreshCcw className="h-4 w-4 mr-2" />
-                  Refresh Role (/me)
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+                  <Button
+                    variant="ghost"
+                    className="w-full rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    onClick={fetchMe}
+                    disabled={loading}
+                  >
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                    Retry role check
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </AdminLayout>

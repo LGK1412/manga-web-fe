@@ -27,6 +27,7 @@ import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { toast } from "sonner"
 
 import {
   AuditApproval,
@@ -73,7 +74,7 @@ type AuditLogUI = {
 
 /** ===== Helpers ===== */
 function formatTime(iso?: string) {
-  if (!iso) return "—"
+  if (!iso) return "--"
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return String(iso)
   return d.toLocaleString("vi-VN", { hour12: false })
@@ -82,6 +83,10 @@ function formatTime(iso?: string) {
 function safeStr(x: any) {
   return x === null || x === undefined ? "" : String(x)
 }
+
+const surfaceClass =
+  "rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)] backdrop-blur"
+const insetSurfaceClass = "rounded-xl border border-slate-200/70 bg-slate-50/80"
 
 /** ✅ mapping BE -> FE UI (clean) */
 function mapAuditRowToUI(row: any): AuditLogUI {
@@ -127,17 +132,24 @@ export default function AuditLogsPage() {
   const router = useRouter()
 
   const [me, setMe] = useState<Me | null>(null)
+  const [meError, setMeError] = useState<string | null>(null)
   const roleNormalized = useMemo(() => String(me?.role || "").toLowerCase(), [me?.role])
   const isAdmin = useMemo(() => roleNormalized === "admin", [roleNormalized])
+  const canAttemptAdminActions = useMemo(
+    () => isAdmin || Boolean(meError),
+    [isAdmin, meError],
+  )
 
   const [logs, setLogs] = useState<AuditLogUI[]>([])
   const [loading, setLoading] = useState(false)
+  const [listError, setListError] = useState<string | null>(null)
 
   const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
   const [actionFilter, setActionFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [dateFilter, setDateFilter] = useState("7days") // UI only
+  const [dateFilter, setDateFilter] = useState("7days")
   const [highRiskOnly, setHighRiskOnly] = useState(false)
 
   const [currentPage, setCurrentPage] = useState(1)
@@ -150,36 +162,67 @@ export default function AuditLogsPage() {
     if (!API) return
     axios
       .get(`${API}/api/auth/me`, { withCredentials: true })
-      .then((res) => setMe(res.data))
-      .catch(() => setMe(null))
+      .then((res) => {
+        setMe(res.data)
+        setMeError(null)
+      })
+      .catch((err: any) => {
+        const msg =
+          err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          err?.message ||
+          "Unable to verify current role."
+        setMe(null)
+        setMeError(msg)
+      })
   }, [API])
 
   /** ✅ Fetch from BE */
+  const buildListParams = () => ({
+    search: debouncedSearch || undefined,
+    role: roleFilter !== "all" ? roleFilter : undefined,
+    action: actionFilter !== "all" ? actionFilter : undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+    risk: highRiskOnly ? "high" : undefined,
+    dateRange: dateFilter !== "all" ? dateFilter : undefined,
+  })
+
   const fetchLogs = async () => {
-    if (!API) return
+    if (!API) {
+      setListError("Missing NEXT_PUBLIC_API_URL.")
+      setLogs([])
+      setTotalPages(1)
+      setTotalRows(0)
+      return
+    }
 
     const endpoint = `${API}/api/audit-logs`
     const params: any = {
       page: currentPage,
       limit: itemsPerPage,
-      search: search?.trim() || undefined,
-      role: roleFilter !== "all" ? roleFilter : undefined,
-      action: actionFilter !== "all" ? actionFilter : undefined,
-      status: statusFilter !== "all" ? statusFilter : undefined,
-      risk: highRiskOnly ? "high" : undefined,
-      // dateFilter: UI only
+      ...buildListParams(),
     }
 
     setLoading(true)
     try {
       const res = await axios.get(endpoint, { params, withCredentials: true })
       const rows = Array.isArray(res.data?.rows) ? res.data.rows : []
+      setListError(null)
       setLogs(rows.map(mapAuditRowToUI))
 
       setTotalPages(res.data?.totalPages ?? 1)
       setTotalRows(res.data?.total ?? rows.length)
     } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Unable to load audit logs."
       console.error("[AuditLogs] FETCH ERROR", err?.response?.data || err?.message)
+      setListError(msg)
+      setLogs([])
+      setTotalPages(1)
+      setTotalRows(0)
     } finally {
       setLoading(false)
     }
@@ -189,16 +232,15 @@ export default function AuditLogsPage() {
   useEffect(() => {
     fetchLogs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [API, currentPage, roleFilter, actionFilter, statusFilter, highRiskOnly])
+  }, [API, currentPage, roleFilter, actionFilter, statusFilter, highRiskOnly, dateFilter, debouncedSearch])
 
   /** ✅ fetch on search with debounce */
   useEffect(() => {
     const t = setTimeout(() => {
       setCurrentPage(1)
-      fetchLogs()
+      setDebouncedSearch(search.trim())
     }, 350)
     return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search])
 
   /** ===== Stats ===== */
@@ -211,18 +253,64 @@ export default function AuditLogsPage() {
     }
   }, [logs, totalRows])
 
+  const summaryCards = [
+    {
+      title: "Total logs",
+      value: stats.total,
+      helper: "Matching filters",
+      icon: FileText,
+      iconClass: "bg-slate-100 text-slate-700",
+    },
+    {
+      title: "Unseen logs",
+      value: stats.unseen,
+      helper: "Current page",
+      icon: EyeOff,
+      iconClass: "bg-orange-100 text-orange-700",
+    },
+    {
+      title: "Pending approval",
+      value: stats.pendingApproval,
+      helper: "Current page",
+      icon: Clock,
+      iconClass: "bg-violet-100 text-violet-700",
+    },
+    {
+      title: "High risk",
+      value: stats.highRisk,
+      helper: "Current page",
+      icon: AlertTriangle,
+      iconClass: "bg-rose-100 text-rose-700",
+    },
+  ]
+
   /** ✅ Actions (admin-only) */
   const handleMarkAllSeen = async () => {
     if (!API) return
-    if (!isAdmin) return
+    if (!canAttemptAdminActions) {
+      toast.error("Admin only")
+      return
+    }
 
     const endpoint = `${API}/api/audit-logs/seen-all`
     try {
       setLoading(true)
-      await axios.patch(endpoint, {}, { withCredentials: true })
+      const res = await axios.patch(endpoint, {}, { withCredentials: true })
       await fetchLogs()
+      const updatedCount = Number(res.data?.updated ?? 0)
+      toast.success(
+        updatedCount > 0
+          ? `Marked ${updatedCount} log(s) as seen.`
+          : "No unseen logs needed updating.",
+      )
     } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Unable to mark all logs as seen."
       console.error("[AuditLogs] markAllSeen error", err?.response?.data || err?.message)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -230,15 +318,25 @@ export default function AuditLogsPage() {
 
   const handleMarkSeen = async (logId: string) => {
     if (!API) return
-    if (!isAdmin) return
+    if (!canAttemptAdminActions) {
+      toast.error("Admin only")
+      return
+    }
 
     const endpoint = `${API}/api/audit-logs/${logId}/seen`
     try {
       setLoading(true)
       await axios.patch(endpoint, {}, { withCredentials: true })
       setLogs((prev) => prev.map((l) => (l.id === logId ? { ...l, seen: true } : l)))
+      toast.success("Log marked as seen.")
     } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Unable to mark this log as seen."
       console.error("[AuditLogs] markSeen error", err?.response?.data || err?.message)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -246,22 +344,57 @@ export default function AuditLogsPage() {
 
   const handleApprove = async (logId: string) => {
     if (!API) return
-    if (!isAdmin) return
+    if (!canAttemptAdminActions) {
+      toast.error("Admin only")
+      return
+    }
 
     const endpoint = `${API}/api/audit-logs/${logId}/approve`
     try {
       setLoading(true)
       await axios.patch(endpoint, { adminNote: "" }, { withCredentials: true })
       setLogs((prev) => prev.map((l) => (l.id === logId ? { ...l, approval: "approved" } : l)))
+      toast.success("Log approved.")
     } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Unable to approve this log."
       console.error("[AuditLogs] approve error", err?.response?.data || err?.message)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
   }
 
   /** ✅ CSV: bỏ technical columns */
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
+    if (!API) return
+
+    let exportRows: AuditLogUI[] = []
+    try {
+      const res = await axios.get(`${API}/api/audit-logs/export`, {
+        params: buildListParams(),
+        withCredentials: true,
+      })
+      const rawRows = Array.isArray(res.data?.rows) ? res.data.rows : []
+      exportRows = rawRows.map(mapAuditRowToUI)
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Unable to export audit logs."
+      toast.error(msg)
+      return
+    }
+
+    if (!exportRows.length) {
+      toast.error("No logs match the current filters.")
+      return
+    }
+
     const headers = [
       "Time",
       "Actor",
@@ -274,7 +407,7 @@ export default function AuditLogsPage() {
       "Approval",
     ]
 
-    const rows = logs.map((log) => [
+    const rows = exportRows.map((log) => [
       log.time,
       log.actor.name,
       log.actor.email,
@@ -295,8 +428,10 @@ export default function AuditLogsPage() {
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = "audit-logs.csv"
+    a.download = "audit-logs-filtered.csv"
     a.click()
+    window.URL.revokeObjectURL(url)
+    toast.success("Filtered audit logs exported to CSV.")
   }
 
   const getRoleColor = (role: string) => {
@@ -318,34 +453,34 @@ export default function AuditLogsPage() {
     switch (action) {
       case "approve":
       case "report_status_resolved":
-        return "bg-green-100 text-green-800"
+        return "border border-emerald-200 bg-emerald-50 text-emerald-700"
       case "reject":
       case "report_status_rejected":
-        return "bg-red-100 text-red-800"
+        return "border border-rose-200 bg-rose-50 text-rose-700"
       case "hide_content":
-        return "bg-orange-100 text-orange-800"
+        return "border border-orange-200 bg-orange-50 text-orange-700"
 
       case "comment_hidden":
       case "reply_hidden":
-        return "bg-orange-100 text-orange-800"
+        return "border border-orange-200 bg-orange-50 text-orange-700"
       case "comment_restored":
       case "reply_restored":
-        return "bg-green-100 text-green-800"
+        return "border border-emerald-200 bg-emerald-50 text-emerald-700"
 
       case "delete_comment":
-        return "bg-red-100 text-red-800"
+        return "border border-rose-200 bg-rose-50 text-rose-700"
       case "warn_user":
-        return "bg-yellow-100 text-yellow-800"
+        return "border border-amber-200 bg-amber-50 text-amber-700"
       case "mute_user":
-        return "bg-blue-100 text-blue-800"
+        return "border border-blue-200 bg-blue-50 text-blue-700"
       case "ban_user":
-        return "bg-red-100 text-red-800"
+        return "border border-rose-200 bg-rose-50 text-rose-700"
       case "request_changes":
-        return "bg-purple-100 text-purple-800"
+        return "border border-violet-200 bg-violet-50 text-violet-700"
       case "auto_reject":
-        return "bg-red-100 text-red-800"
+        return "border border-rose-200 bg-rose-50 text-rose-700"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "border border-slate-200 bg-slate-100 text-slate-700"
     }
   }
 
@@ -364,119 +499,114 @@ export default function AuditLogsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm text-gray-500">
-              Admin / <span className="text-gray-700">Audit Logs</span>
+      <div className="space-y-5">
+        <Card className={surfaceClass}>
+          <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-slate-700">
+                  Audit operations
+                </span>
+                <span className="h-1 w-1 rounded-full bg-slate-300" />
+                <span>{totalRows} matching logs</span>
+              </div>
+
+              <p className="max-w-2xl text-sm leading-6 text-slate-600">
+                Review moderator activity, export the active filter set, and clear unseen
+                records without leaving the workspace.
+              </p>
+
+              {meError ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-xs leading-5 text-amber-800">
+                  Role verification from `/api/auth/me` is temporarily unavailable. You can
+                  still try actions here and let the backend validate permission.
+                </div>
+              ) : !isAdmin ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs leading-5 text-slate-600">
+                  Reviewing as{" "}
+                  <b className="font-semibold text-slate-900">
+                    {prettyRole(me?.role ?? "unknown")}
+                  </b>
+                  . Approve and seen actions remain admin-only.
+                </div>
+              ) : null}
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mt-2">Audit Logs</h1>
-            <p className="text-sm text-gray-600 mt-1">Track moderator actions and approvals</p>
-          </div>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleMarkAllSeen}
-              disabled={loading || !isAdmin}
-              title={!isAdmin ? "Admin only" : ""}
-            >
-              Mark all as seen
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                className="rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                onClick={handleMarkAllSeen}
+                disabled={loading || !canAttemptAdminActions}
+                title={!canAttemptAdminActions ? "Admin only" : ""}
+              >
+                Mark all as seen
+              </Button>
 
-            <Button variant="outline" onClick={handleExportCSV} disabled={loading}>
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
-          </div>
-        </div>
+              <Button
+                variant="outline"
+                className="rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                onClick={handleExportCSV}
+                disabled={loading}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export filtered CSV
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-        {!isAdmin && (
-          <p className="text-xs text-gray-500">
-            You are logged in as <b>{prettyRole(me?.role ?? "unknown")}</b>. Approve/Seen actions are admin-only.
-          </p>
-        )}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {summaryCards.map((item) => {
+            const Icon = item.icon
+            return (
+              <Card key={item.title} className={surfaceClass}>
+                <CardContent className="flex items-start justify-between gap-4 p-5">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      {item.title}
+                    </p>
+                    <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
+                      {item.value}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">{item.helper}</p>
+                  </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <FileText className="h-4 w-4 text-blue-600" />
-                Total Logs
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
-              <p className="text-xs text-gray-500">Server-side count</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <EyeOff className="h-4 w-4 text-orange-600" />
-                Unseen Logs
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.unseen}</div>
-              <p className="text-xs text-gray-500">Current list</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Clock className="h-4 w-4 text-purple-600" />
-                Pending Approval
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.pendingApproval}</div>
-              <p className="text-xs text-gray-500">Current list</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-600" />
-                High Risk
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.highRisk}</div>
-              <p className="text-xs text-gray-500">Current list</p>
-            </CardContent>
-          </Card>
+                  <span
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl ${item.iconClass}`}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </span>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
 
         {/* Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Filters</CardTitle>
+        <Card className={surfaceClass}>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base font-semibold text-slate-950">Refine results</CardTitle>
+            <p className="text-sm leading-6 text-slate-500">
+              Filters run server-side and also drive the CSV export so the table and download stay aligned.
+            </p>
           </CardHeader>
 
           <CardContent className="space-y-4">
             <div className="flex gap-4 flex-col lg:flex-row">
               <div className="flex-1">
                 <Input
-                  placeholder="Search by actor, email, message…"
+                  placeholder="Search by actor, email, or message..."
                   value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value)
-                    setCurrentPage(1)
-                  }}
-                  className="w-full"
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full border-slate-200 bg-white/80 text-slate-900 placeholder:text-slate-400"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
               <Select value={roleFilter} onValueChange={(v) => (setRoleFilter(v), setCurrentPage(1))}>
-                <SelectTrigger>
+                <SelectTrigger className="border-slate-200 bg-white/80 text-slate-700">
                   <SelectValue placeholder="Role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -489,29 +619,29 @@ export default function AuditLogsPage() {
               </Select>
 
               <Select value={actionFilter} onValueChange={(v) => (setActionFilter(v), setCurrentPage(1))}>
-                <SelectTrigger>
+                <SelectTrigger className="border-slate-200 bg-white/80 text-slate-700">
                   <SelectValue placeholder="Action" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Actions</SelectItem>
 
                   {/* report */}
-                  <SelectItem value="report_status_new">Report · Status set to New</SelectItem>
-                  <SelectItem value="report_status_in-progress">Report · Status set to In Progress</SelectItem>
-                  <SelectItem value="report_status_resolved">Report · Resolved</SelectItem>
-                  <SelectItem value="report_status_rejected">Report · Rejected</SelectItem>
-                  <SelectItem value="report_update">Report · Updated</SelectItem>
+                  <SelectItem value="report_status_new">Report - Status set to New</SelectItem>
+                  <SelectItem value="report_status_in-progress">Report - Status set to In Progress</SelectItem>
+                  <SelectItem value="report_status_resolved">Report - Resolved</SelectItem>
+                  <SelectItem value="report_status_rejected">Report - Rejected</SelectItem>
+                  <SelectItem value="report_update">Report - Updated</SelectItem>
 
                   {/* comment/reply */}
-                  <SelectItem value="comment_hidden">Comment · Hidden</SelectItem>
-                  <SelectItem value="comment_restored">Comment · Restored</SelectItem>
-                  <SelectItem value="reply_hidden">Reply · Hidden</SelectItem>
-                  <SelectItem value="reply_restored">Reply · Restored</SelectItem>
+                  <SelectItem value="comment_hidden">Comment - Hidden</SelectItem>
+                  <SelectItem value="comment_restored">Comment - Restored</SelectItem>
+                  <SelectItem value="reply_hidden">Reply - Hidden</SelectItem>
+                  <SelectItem value="reply_restored">Reply - Restored</SelectItem>
                 </SelectContent>
               </Select>
 
               <Select value={statusFilter} onValueChange={(v) => (setStatusFilter(v), setCurrentPage(1))}>
-                <SelectTrigger>
+                <SelectTrigger className="border-slate-200 bg-white/80 text-slate-700">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -524,18 +654,18 @@ export default function AuditLogsPage() {
               </Select>
 
               <Select value={dateFilter} onValueChange={(v) => (setDateFilter(v), setCurrentPage(1))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Date" />
+                <SelectTrigger className="border-slate-200 bg-white/80 text-slate-700">
+                  <SelectValue placeholder="Date Range" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
                   <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="7days">7 Days</SelectItem>
-                  <SelectItem value="30days">30 Days</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
+                  <SelectItem value="7days">Last 7 Days</SelectItem>
+                  <SelectItem value="30days">Last 30 Days</SelectItem>
                 </SelectContent>
               </Select>
 
-              <div className="flex items-center space-x-2 px-3 py-2 border rounded-md bg-white">
+              <div className={`flex items-center space-x-2 px-3 py-2 ${insetSurfaceClass}`}>
                 <Switch
                   checked={highRiskOnly}
                   onCheckedChange={(v) => {
@@ -543,40 +673,73 @@ export default function AuditLogsPage() {
                     setCurrentPage(1)
                   }}
                 />
-                <span className="text-sm text-gray-700">High Risk Only</span>
+                <span className="text-sm text-slate-700">High Risk Only</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Table */}
-        <Card>
+        <Card className={`${surfaceClass} overflow-hidden`}>
+          <div className="flex flex-col gap-3 border-b border-slate-200/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-950">Activity records</p>
+              <p className="text-sm leading-6 text-slate-500">
+                Newest actions first. Open a record to inspect evidence, notes, and approval state.
+              </p>
+            </div>
+
+            <div className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+              {loading ? "Refreshing..." : `${totalRows} matching logs`}
+            </div>
+          </div>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="text-xs font-semibold">Time</TableHead>
-                    <TableHead className="text-xs font-semibold">Actor</TableHead>
-                    <TableHead className="text-xs font-semibold">Action</TableHead>
-                    <TableHead className="text-xs font-semibold">Message</TableHead>
-                    <TableHead className="text-xs font-semibold">Risk</TableHead>
-                    <TableHead className="text-xs font-semibold">Status</TableHead>
-                    <TableHead className="text-xs font-semibold">Approval</TableHead>
-                    <TableHead className="text-xs font-semibold">Actions</TableHead>
+                  <TableRow className="bg-slate-50/80">
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Time</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Actor</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Action</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Message</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Risk</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Status</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Approval</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
 
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-sm text-gray-500">
+                      <TableCell colSpan={8} className="py-10 text-center text-sm text-slate-500">
                         Loading...
+                      </TableCell>
+                    </TableRow>
+                  ) : listError ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="py-8">
+                        <div className="flex flex-col items-center gap-3 text-center">
+                          <div>
+                            <p className="text-sm font-semibold text-rose-700">
+                              Unable to load audit logs
+                            </p>
+                            <p className="mt-1 text-sm text-slate-500">{listError}</p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                            onClick={fetchLogs}
+                          >
+                            Retry
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : logs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-sm text-gray-500">
+                      <TableCell colSpan={8} className="py-10 text-center text-sm text-slate-500">
                         No logs found.
                       </TableCell>
                     </TableRow>
@@ -584,11 +747,13 @@ export default function AuditLogsPage() {
                     logs.map((log) => (
                       <TableRow
                         key={log.id}
-                        className={`${!log.seen ? "bg-blue-50" : ""} ${
-                          log.risk === "high" ? "border-l-4 border-l-red-500" : ""
+                        className={`transition-colors hover:bg-slate-50/70 ${!log.seen ? "bg-blue-50/40" : ""} ${
+                          log.risk === "high" ? "border-l-4 border-l-rose-500" : ""
                         }`}
                       >
-                        <TableCell className="text-xs whitespace-nowrap">{log.time}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs text-slate-500">
+                          {log.time}
+                        </TableCell>
 
                         <TableCell className="min-w-[280px]">
                           <div className="flex items-start gap-3">
@@ -632,11 +797,11 @@ export default function AuditLogsPage() {
                           </Badge>
                         </TableCell>
 
-                        <TableCell className="text-xs max-w-xs">
+                        <TableCell className="max-w-xs text-xs text-slate-600">
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="truncate block">{log.summary}</span>
+                                <span className="block truncate">{log.summary}</span>
                               </TooltipTrigger>
                               <TooltipContent>{log.summary}</TooltipContent>
                             </Tooltip>
@@ -652,11 +817,14 @@ export default function AuditLogsPage() {
 
                         <TableCell>
                           {!log.seen ? (
-                            <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                            <Badge
+                              variant="secondary"
+                              className="border border-orange-200 bg-orange-50 text-orange-700"
+                            >
                               NEW
                             </Badge>
                           ) : (
-                            <span className="text-xs text-gray-500">Seen</span>
+                            <span className="text-xs text-slate-500">Seen</span>
                           )}
                         </TableCell>
 
@@ -665,8 +833,8 @@ export default function AuditLogsPage() {
                             variant={log.approval === "approved" ? "default" : "outline"}
                             className={`text-xs ${
                               log.approval === "approved"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-yellow-100 text-yellow-800"
+                                ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                                : "border border-amber-200 bg-amber-50 text-amber-700"
                             }`}
                           >
                             {log.approval}
@@ -678,6 +846,7 @@ export default function AuditLogsPage() {
                           <Button
                             size="sm"
                             variant="outline"
+                            className="rounded-xl border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                             onClick={() => router.push(`/admin/audit-logs/log-details/${log.id}`)}
                           >
                             <Eye className="h-4 w-4" />
@@ -687,9 +856,10 @@ export default function AuditLogsPage() {
                             <Button
                               size="sm"
                               variant="outline"
+                              className="rounded-xl border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                               onClick={() => handleMarkSeen(log.id)}
-                              disabled={loading || !isAdmin}
-                              title={!isAdmin ? "Admin only" : ""}
+                              disabled={loading || !canAttemptAdminActions}
+                              title={!canAttemptAdminActions ? "Admin only" : ""}
                             >
                               <EyeOff className="h-4 w-4" />
                             </Button>
@@ -699,9 +869,10 @@ export default function AuditLogsPage() {
                             <Button
                               size="sm"
                               variant="outline"
+                              className="rounded-xl border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                               onClick={() => handleApprove(log.id)}
-                              disabled={loading || !isAdmin}
-                              title={!isAdmin ? "Admin only" : ""}
+                              disabled={loading || !canAttemptAdminActions}
+                              title={!canAttemptAdminActions ? "Admin only" : ""}
                             >
                               <CheckCircle2 className="h-4 w-4" />
                             </Button>
@@ -715,15 +886,16 @@ export default function AuditLogsPage() {
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between p-4 border-t">
-              <div className="text-sm text-gray-600">
-                Page {currentPage} / {totalPages} • Total {totalRows} logs
+            <div className="flex items-center justify-between border-t border-slate-200/70 p-4">
+              <div className="text-sm text-slate-600">
+                Page {currentPage} / {totalPages} - Total {totalRows} logs
               </div>
 
               <div className="flex gap-2">
                 <Button
                   size="sm"
                   variant="outline"
+                  className="rounded-xl border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   disabled={currentPage === 1 || loading}
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 >
@@ -733,6 +905,7 @@ export default function AuditLogsPage() {
                 <Button
                   size="sm"
                   variant="outline"
+                  className="rounded-xl border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   disabled={currentPage === totalPages || loading}
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 >
