@@ -72,6 +72,13 @@ type AuditLogUI = {
   adminNote?: string
 }
 
+type AuditSummary = {
+  total: number
+  unseen: number
+  pendingApproval: number
+  highRisk: number
+}
+
 /** ===== Helpers ===== */
 function formatTime(iso?: string) {
   if (!iso) return "--"
@@ -80,13 +87,15 @@ function formatTime(iso?: string) {
   return d.toLocaleString("vi-VN", { hour12: false })
 }
 
-function safeStr(x: any) {
-  return x === null || x === undefined ? "" : String(x)
-}
-
 const surfaceClass =
   "rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)] backdrop-blur"
 const insetSurfaceClass = "rounded-xl border border-slate-200/70 bg-slate-50/80"
+const emptySummary: AuditSummary = {
+  total: 0,
+  unseen: 0,
+  pendingApproval: 0,
+  highRisk: 0,
+}
 
 /** ✅ mapping BE -> FE UI (clean) */
 function mapAuditRowToUI(row: any): AuditLogUI {
@@ -127,6 +136,25 @@ function mapAuditRowToUI(row: any): AuditLogUI {
   }
 }
 
+async function readBlobErrorMessage(err: any) {
+  const fallback =
+    err?.response?.data?.message ||
+    err?.response?.data?.error ||
+    err?.message ||
+    "Unable to export audit logs."
+
+  const blob = err?.response?.data
+  if (!(blob instanceof Blob)) return fallback
+
+  try {
+    const text = await blob.text()
+    const parsed = JSON.parse(text)
+    return parsed?.message || parsed?.error || fallback
+  } catch {
+    return fallback
+  }
+}
+
 export default function AuditLogsPage() {
   const API = process.env.NEXT_PUBLIC_API_URL
   const router = useRouter()
@@ -141,6 +169,7 @@ export default function AuditLogsPage() {
   )
 
   const [logs, setLogs] = useState<AuditLogUI[]>([])
+  const [summary, setSummary] = useState<AuditSummary>(emptySummary)
   const [loading, setLoading] = useState(false)
   const [listError, setListError] = useState<string | null>(null)
 
@@ -191,6 +220,7 @@ export default function AuditLogsPage() {
     if (!API) {
       setListError("Missing NEXT_PUBLIC_API_URL.")
       setLogs([])
+      setSummary(emptySummary)
       setTotalPages(1)
       setTotalRows(0)
       return
@@ -207,11 +237,18 @@ export default function AuditLogsPage() {
     try {
       const res = await axios.get(endpoint, { params, withCredentials: true })
       const rows = Array.isArray(res.data?.rows) ? res.data.rows : []
+      const nextSummary = res.data?.summary ?? emptySummary
       setListError(null)
       setLogs(rows.map(mapAuditRowToUI))
+      setSummary({
+        total: Number(nextSummary.total ?? 0),
+        unseen: Number(nextSummary.unseen ?? 0),
+        pendingApproval: Number(nextSummary.pendingApproval ?? 0),
+        highRisk: Number(nextSummary.highRisk ?? 0),
+      })
 
       setTotalPages(res.data?.totalPages ?? 1)
-      setTotalRows(res.data?.total ?? rows.length)
+      setTotalRows(Number(res.data?.total ?? nextSummary.total ?? rows.length))
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
@@ -221,6 +258,7 @@ export default function AuditLogsPage() {
       console.error("[AuditLogs] FETCH ERROR", err?.response?.data || err?.message)
       setListError(msg)
       setLogs([])
+      setSummary(emptySummary)
       setTotalPages(1)
       setTotalRows(0)
     } finally {
@@ -245,13 +283,8 @@ export default function AuditLogsPage() {
 
   /** ===== Stats ===== */
   const stats = useMemo(() => {
-    return {
-      total: totalRows,
-      unseen: logs.filter((l) => !l.seen).length,
-      pendingApproval: logs.filter((l) => l.approval === "pending").length,
-      highRisk: logs.filter((l) => l.risk === "high").length,
-    }
-  }, [logs, totalRows])
+    return summary
+  }, [summary])
 
   const summaryCards = [
     {
@@ -264,21 +297,21 @@ export default function AuditLogsPage() {
     {
       title: "Unseen logs",
       value: stats.unseen,
-      helper: "Current page",
+      helper: "Matching filters",
       icon: EyeOff,
       iconClass: "bg-orange-100 text-orange-700",
     },
     {
       title: "Pending approval",
       value: stats.pendingApproval,
-      helper: "Current page",
+      helper: "Matching filters",
       icon: Clock,
       iconClass: "bg-violet-100 text-violet-700",
     },
     {
       title: "High risk",
       value: stats.highRisk,
-      helper: "Current page",
+      helper: "Matching filters",
       icon: AlertTriangle,
       iconClass: "bg-rose-100 text-rose-700",
     },
@@ -327,7 +360,7 @@ export default function AuditLogsPage() {
     try {
       setLoading(true)
       await axios.patch(endpoint, {}, { withCredentials: true })
-      setLogs((prev) => prev.map((l) => (l.id === logId ? { ...l, seen: true } : l)))
+      await fetchLogs()
       toast.success("Log marked as seen.")
     } catch (err: any) {
       const msg =
@@ -353,7 +386,7 @@ export default function AuditLogsPage() {
     try {
       setLoading(true)
       await axios.patch(endpoint, { adminNote: "" }, { withCredentials: true })
-      setLogs((prev) => prev.map((l) => (l.id === logId ? { ...l, approval: "approved" } : l)))
+      await fetchLogs()
       toast.success("Log approved.")
     } catch (err: any) {
       const msg =
@@ -371,67 +404,40 @@ export default function AuditLogsPage() {
   /** ✅ CSV: bỏ technical columns */
   const handleExportCSV = async () => {
     if (!API) return
-
-    let exportRows: AuditLogUI[] = []
-    try {
-      const res = await axios.get(`${API}/api/audit-logs/export`, {
-        params: buildListParams(),
-        withCredentials: true,
-      })
-      const rawRows = Array.isArray(res.data?.rows) ? res.data.rows : []
-      exportRows = rawRows.map(mapAuditRowToUI)
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        "Unable to export audit logs."
-      toast.error(msg)
-      return
-    }
-
-    if (!exportRows.length) {
+    if (summary.total === 0) {
       toast.error("No logs match the current filters.")
       return
     }
 
-    const headers = [
-      "Time",
-      "Actor",
-      "Email",
-      "Role",
-      "Action",
-      "Message",
-      "Risk",
-      "Seen",
-      "Approval",
-    ]
+    try {
+      const res = await axios.get(`${API}/api/audit-logs/export`, {
+        params: buildListParams(),
+        withCredentials: true,
+        responseType: "blob",
+      })
 
-    const rows = exportRows.map((log) => [
-      log.time,
-      log.actor.name,
-      log.actor.email,
-      prettyRole(log.actor.role),
-      prettyAction(log.action),
-      log.summary,
-      log.risk,
-      log.seen ? "Yes" : "No",
-      log.approval,
-    ])
+      const disposition = String(res.headers["content-disposition"] || "")
+      const filenameMatch = disposition.match(/filename=\"?([^\"]+)\"?/i)
+      const filename = filenameMatch?.[1] || "audit-logs-filtered.csv"
+      const blob =
+        res.data instanceof Blob ? res.data : new Blob([res.data], { type: "text/csv" })
 
-    const csv = [
-      headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${safeStr(cell)}"`).join(",")),
-    ].join("\n")
+      if (blob.size === 0) {
+        toast.error("No logs match the current filters.")
+        return
+      }
 
-    const blob = new Blob([csv], { type: "text/csv" })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "audit-logs-filtered.csv"
-    a.click()
-    window.URL.revokeObjectURL(url)
-    toast.success("Filtered audit logs exported to CSV.")
+      const url = window.URL.createObjectURL(blob)
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = filename
+      anchor.click()
+      window.URL.revokeObjectURL(url)
+      toast.success("Filtered audit logs exported to CSV.")
+    } catch (err: any) {
+      const msg = await readBlobErrorMessage(err)
+      toast.error(msg)
+    }
   }
 
   const getRoleColor = (role: string) => {

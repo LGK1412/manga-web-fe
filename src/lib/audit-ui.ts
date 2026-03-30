@@ -19,17 +19,17 @@ export const STATUS_LABEL: Record<string, string> = {
 
 export const ACTION_LABEL: Record<string, string> = {
   // report
-  report_status_new: "Report · Status set to New",
-  "report_status_in-progress": "Report · Status set to In Progress",
-  report_status_resolved: "Report · Resolved",
-  report_status_rejected: "Report · Rejected",
-  report_update: "Report · Updated",
+  report_status_new: "Report - Status set to New",
+  "report_status_in-progress": "Report - Status set to In Progress",
+  report_status_resolved: "Report - Resolved",
+  report_status_rejected: "Report - Rejected",
+  report_update: "Report - Updated",
 
   // comment/reply
-  comment_hidden: "Comment · Hidden",
-  comment_restored: "Comment · Restored",
-  reply_hidden: "Reply · Hidden",
-  reply_restored: "Reply · Restored",
+  comment_hidden: "Comment - Hidden",
+  comment_restored: "Comment - Restored",
+  reply_hidden: "Reply - Hidden",
+  reply_restored: "Reply - Restored",
 }
 
 export const FIELD_LABEL: Record<string, string> = {

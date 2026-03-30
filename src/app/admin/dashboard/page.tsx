@@ -2,8 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Users, BookOpen, AlertCircle, Bell, Eye, TrendingUp } from "lucide-react";
+import {
+  Users,
+  BookOpen,
+  AlertCircle,
+  Bell,
+  Eye,
+  TrendingUp,
+  ArrowRight,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -33,11 +43,11 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 import { fetchQueue } from "@/lib/moderation";
 import type { QueueItem } from "@/lib/typesLogs";
+import { cn } from "@/lib/utils";
 
 // ===== Types
 type UserSummary = { total: number; deltaPctMoM: number };
@@ -67,11 +77,84 @@ type TopStory = {
 
 type ReportSummary = { open: number; new7d: number };
 
-// 🔔 Notification stats from BE
+//  Notification stats from BE
 type NotiStats = { total: number; unread: number; read: number };
 
-// 👇 Moderation chart type
+//  Moderation chart type
 type ModerationWeekPoint = { week: string; chapters: number; avgRisk: number };
+
+type DashboardLoadingState = {
+  summary: boolean;
+  weekly: boolean;
+  recent: boolean;
+  report: boolean;
+  mangaSummary: boolean;
+  mangaGrowth: boolean;
+  topStories: boolean;
+  notiStats: boolean;
+  modWeekly: boolean;
+};
+
+type DashboardErrorState = {
+  summary?: string;
+  weekly?: string;
+  recent?: string;
+  report?: string;
+  mangaSummary?: string;
+  mangaGrowth?: string;
+  topStories?: string;
+  notiStats?: string;
+  modWeekly?: string;
+};
+
+type DataMessageTone = "default" | "danger";
+type AttentionCardTone = "danger" | "info" | "amber";
+
+type AttentionCardProps = {
+  title: string;
+  subtitle: string;
+  value: string;
+  detail: string;
+  href: string;
+  actionLabel: string;
+  icon: LucideIcon;
+  tone: AttentionCardTone;
+  loading: boolean;
+  error?: string;
+};
+
+type SnapshotCardProps = {
+  title: string;
+  value: string;
+  detail: string;
+  icon: LucideIcon;
+  loading: boolean;
+  error?: string;
+};
+
+type ChartStateProps = {
+  loading: boolean;
+  error?: string;
+  hasData: boolean;
+  emptyTitle: string;
+  emptyDescription: string;
+  children: React.ReactNode;
+};
+
+const surfaceCardClass =
+  "rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)] dark:border-slate-800 dark:bg-slate-950/85";
+
+const initialLoading: DashboardLoadingState = {
+  summary: true,
+  weekly: true,
+  recent: true,
+  report: true,
+  mangaSummary: true,
+  mangaGrowth: true,
+  topStories: true,
+  notiStats: true,
+  modWeekly: true,
+};
 
 // ===== Helper: updatedAt -> week label (Monday of that week)
 function getWeekLabel(dateStr: string): string {
@@ -84,6 +167,345 @@ function getWeekLabel(dateStr: string): string {
 
   // format YYYY-MM-DD
   return monday.toLocaleDateString("en-CA");
+}
+
+function formatWeekTick(value: string) {
+  if (!value || value === "Unknown") return value;
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
+function formatMonthTick(value: string) {
+  if (!value) return "Unknown";
+
+  const parsedValue = /^\d{4}-\d{2}$/.test(value)
+    ? `${value}-01T00:00:00`
+    : value;
+  const date = new Date(parsedValue);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en-US", { month: "short" }).format(date);
+}
+
+function formatReadableDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatDelta(value: number) {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatRoleLabel(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function dataMessagePalette(tone: DataMessageTone) {
+  if (tone === "danger") {
+    return {
+      container:
+        "border-red-200/80 bg-red-50/80 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200",
+      icon: "text-red-500 dark:text-red-300",
+      title: "text-red-900 dark:text-red-50",
+    };
+  }
+
+  return {
+    container:
+      "border-slate-200/80 bg-slate-50/80 text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300",
+    icon: "text-slate-400 dark:text-slate-500",
+    title: "text-slate-900 dark:text-slate-100",
+  };
+}
+
+function roleBadgeClass(role: string) {
+  const normalized = role.toLowerCase();
+
+  if (normalized === "admin") {
+    return "border-slate-300 bg-slate-100 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
+  }
+
+  if (normalized === "author") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200";
+  }
+
+  if (normalized.includes("moderator") || normalized.includes("manager")) {
+    return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-200";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200";
+}
+
+function storyStatusBadgeClass(status: string) {
+  if (status.toLowerCase() === "ongoing") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200";
+}
+
+function DataStateMessage({
+  title,
+  description,
+  tone = "default",
+}: {
+  title: string;
+  description: string;
+  tone?: DataMessageTone;
+}) {
+  const palette = dataMessagePalette(tone);
+
+  return (
+    <div
+      className={cn(
+        "flex h-full min-h-[220px] flex-col items-center justify-center rounded-xl border border-dashed px-6 text-center",
+        palette.container,
+      )}
+    >
+      <AlertCircle className={cn("mb-3 h-5 w-5", palette.icon)} />
+      <p className={cn("text-sm font-semibold", palette.title)}>{title}</p>
+      <p className="mt-1 max-w-sm text-sm leading-6">{description}</p>
+    </div>
+  );
+}
+
+function ChartSkeletonState() {
+  return (
+    <div className="flex h-full flex-col justify-end gap-4 rounded-xl border border-slate-200/80 bg-slate-50/70 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/50">
+      <div className="flex items-end gap-3">
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-12 w-full rounded-xl" />
+        <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-20 w-full rounded-xl" />
+      </div>
+      <div className="flex justify-between gap-2">
+        <Skeleton className="h-3 w-12" />
+        <Skeleton className="h-3 w-12" />
+        <Skeleton className="h-3 w-12" />
+        <Skeleton className="h-3 w-12" />
+      </div>
+    </div>
+  );
+}
+
+function ChartState({
+  loading,
+  error,
+  hasData,
+  emptyTitle,
+  emptyDescription,
+  children,
+}: ChartStateProps) {
+  if (loading) return <ChartSkeletonState />;
+
+  if (error) {
+    return (
+      <DataStateMessage
+        title="Unable to load chart"
+        description={error}
+        tone="danger"
+      />
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <DataStateMessage
+        title={emptyTitle}
+        description={emptyDescription}
+      />
+    );
+  }
+
+  return <>{children}</>;
+}
+
+function TableStateRow({
+  colSpan,
+  title,
+  description,
+  tone = "default",
+}: {
+  colSpan: number;
+  title: string;
+  description: string;
+  tone?: DataMessageTone;
+}) {
+  const palette = dataMessagePalette(tone);
+
+  return (
+    <TableRow>
+      <TableCell colSpan={colSpan} className="py-10">
+        <div
+          className={cn(
+            "mx-auto flex max-w-md flex-col items-center rounded-xl border border-dashed px-4 py-6 text-center",
+            palette.container,
+          )}
+        >
+          <AlertCircle className={cn("mb-2 h-4 w-4", palette.icon)} />
+          <p className={cn("text-sm font-semibold", palette.title)}>{title}</p>
+          <p className="mt-1 text-sm">{description}</p>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function AttentionCard({
+  title,
+  subtitle,
+  value,
+  detail,
+  href,
+  actionLabel,
+  icon: Icon,
+  tone,
+  loading,
+  error,
+}: AttentionCardProps) {
+  const toneStyles = {
+    danger: {
+      card:
+        "border-red-200/80 bg-red-50/75 dark:border-red-900/50 dark:bg-red-950/20",
+      icon:
+        "border-red-200/80 bg-white text-red-500 dark:border-red-900/50 dark:bg-red-950/50 dark:text-red-300",
+      label: "text-red-600 dark:text-red-300",
+    },
+    info: {
+      card:
+        "border-blue-200/80 bg-blue-50/70 dark:border-blue-900/50 dark:bg-blue-950/20",
+      icon:
+        "border-blue-200/80 bg-white text-blue-500 dark:border-blue-900/50 dark:bg-blue-950/50 dark:text-blue-300",
+      label: "text-blue-600 dark:text-blue-300",
+    },
+    amber: {
+      card:
+        "border-amber-200/80 bg-amber-50/75 dark:border-amber-900/50 dark:bg-amber-950/20",
+      icon:
+        "border-amber-200/80 bg-white text-amber-500 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-300",
+      label: "text-amber-700 dark:text-amber-300",
+    },
+  }[tone];
+
+  return (
+    <Card className={cn(surfaceCardClass, toneStyles.card)}>
+      <CardHeader className="pb-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <CardTitle className="text-base text-slate-950 dark:text-slate-50">
+              {title}
+            </CardTitle>
+            <CardDescription className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+              {subtitle}
+            </CardDescription>
+          </div>
+
+          <div
+            className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border",
+              toneStyles.icon,
+            )}
+          >
+            <Icon className="h-5 w-5" />
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {loading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-10 w-20" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+        ) : error ? (
+          <div className="rounded-xl border border-red-200/80 bg-white/70 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-slate-950/40 dark:text-red-200">
+            Unable to load this panel right now.
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <div className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+              {value}
+            </div>
+            <p className={cn("text-sm font-medium", toneStyles.label)}>{detail}</p>
+          </div>
+        )}
+
+        <Button
+          asChild
+          variant="outline"
+          className="h-10 w-full justify-between rounded-xl border-white/70 bg-white/75 px-3 text-slate-900 hover:bg-white dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-100 dark:hover:bg-slate-950/80"
+        >
+          <Link href={href}>
+            {actionLabel}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SnapshotCard({
+  title,
+  value,
+  detail,
+  icon: Icon,
+  loading,
+  error,
+}: SnapshotCardProps) {
+  return (
+    <Card className={surfaceCardClass}>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <div>
+          <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            {title}
+          </CardTitle>
+          <CardDescription className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            Snapshot for the current dashboard context
+          </CardDescription>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+          <Icon className="h-4 w-4" />
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {loading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-4 w-36" />
+          </div>
+        ) : error ? (
+          <div className="rounded-xl border border-red-200/80 bg-red-50/80 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-200">
+            Unable to load this metric.
+          </div>
+        ) : (
+          <>
+            <div className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+              {value}
+            </div>
+            <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+              {detail}
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function AdminDashboard() {
@@ -102,38 +524,49 @@ export default function AdminDashboard() {
   const [mangaGrowth, setMangaGrowth] = useState<MangaGrowthPoint[]>([]);
   const [topStories, setTopStories] = useState<TopStory[]>([]);
 
-  // 🔔 Notification stats
+  //  Notification stats
   const [notiStats, setNotiStats] = useState<NotiStats | null>(null);
 
   // ===== Moderation (queue -> weekly chart)
   const [modWeekly, setModWeekly] = useState<ModerationWeekPoint[]>([]);
 
-  const [loading, setLoading] = useState({
-    summary: true,
-    weekly: true,
-    recent: true,
-    report: true,
-    mangaSummary: true,
-    mangaGrowth: true,
-    topStories: true,
-    notiStats: true,
-    modWeekly: true,
-  });
-
-  const [error, setError] = useState<{
-    summary?: string;
-    weekly?: string;
-    recent?: string;
-    report?: string;
-    mangaSummary?: string;
-    mangaGrowth?: string;
-    topStories?: string;
-    notiStats?: string;
-    modWeekly?: string;
-  }>({});
+  const [loading, setLoading] = useState<DashboardLoadingState>(initialLoading);
+  const [error, setError] = useState<DashboardErrorState>({});
 
   useEffect(() => {
     let mounted = true;
+
+    if (!API) {
+      const missingApiMessage = "Missing NEXT_PUBLIC_API_URL.";
+      if (mounted) {
+        setError({
+          summary: missingApiMessage,
+          weekly: missingApiMessage,
+          recent: missingApiMessage,
+          report: missingApiMessage,
+          mangaSummary: missingApiMessage,
+          mangaGrowth: missingApiMessage,
+          topStories: missingApiMessage,
+          notiStats: missingApiMessage,
+          modWeekly: missingApiMessage,
+        });
+        setLoading({
+          summary: false,
+          weekly: false,
+          recent: false,
+          report: false,
+          mangaSummary: false,
+          mangaGrowth: false,
+          topStories: false,
+          notiStats: false,
+          modWeekly: false,
+        });
+      }
+
+      return () => {
+        mounted = false;
+      };
+    }
 
     // ====== Users
     const fetchSummary = async () => {
@@ -236,7 +669,7 @@ export default function AdminDashboard() {
       }
     };
 
-    // 🔔 Notifications stats
+    //  Notifications stats
     const fetchNotiStats = async () => {
       try {
         const res = await axios.get<NotiStats>(`${API}/api/admin/notifications/stats`, {
@@ -297,238 +730,374 @@ export default function AdminDashboard() {
     };
   }, [API]);
 
-  // ====== user activity (returning = 0 for now)
-  const userActivityData = useMemo(
+  const weeklyNewChartData = useMemo(
     () =>
-      weeklyNew.map((p) => ({
-        week: p.week,
-        new: p.new,
-        returning: 0,
+      weeklyNew.map((point) => ({
+        week: point.week,
+        label: formatWeekTick(point.week),
+        newUsers: point.new,
       })),
-    [weeklyNew]
+    [weeklyNew],
   );
 
-  // ====== derived UI values
-  const totalUsers = loading.summary ? "…" : (summary?.total ?? 0).toLocaleString();
-  const deltaUsers = loading.summary
-    ? "…"
-    : `${(summary?.deltaPctMoM ?? 0) >= 0 ? "+" : ""}${(summary?.deltaPctMoM ?? 0).toFixed(2)}%`;
+  const storiesGrowthChartData = useMemo(
+    () =>
+      mangaGrowth.map((point) => ({
+        month: point.month,
+        label: formatMonthTick(point.month),
+        stories: point.stories,
+      })),
+    [mangaGrowth],
+  );
 
-  const storiesTotal = loading.mangaSummary
-    ? "…"
+  const moderationChartData = useMemo(
+    () =>
+      modWeekly.map((point) => ({
+        week: point.week,
+        label: formatWeekTick(point.week),
+        chapters: point.chapters,
+        avgRisk: point.avgRisk,
+      })),
+    [modWeekly],
+  );
+
+  const latestModerationPoint = modWeekly[modWeekly.length - 1];
+  const unpublishedStories = Math.max(
+    0,
+    (mangaSummary?.total ?? 0) - (mangaSummary?.published ?? 0),
+  );
+
+  const totalUsers = loading.summary ? "0" : (summary?.total ?? 0).toLocaleString();
+  const totalStories = loading.mangaSummary
+    ? "0"
     : (mangaSummary?.total ?? 0).toLocaleString();
-  const storiesDelta = loading.mangaSummary
-    ? "…"
-    : `${(mangaSummary?.deltaPctMoM ?? 0) >= 0 ? "+" : ""}${(mangaSummary?.deltaPctMoM ?? 0).toFixed(2)}%`;
-
-  const openReports = loading.report ? "…" : (reportSummary?.open ?? 0).toString();
-  const newReports7d = loading.report ? "…" : (reportSummary?.new7d ?? 0).toString();
-
-  // 🔔 derive noti numbers
-  const totalNotifications = loading.notiStats ? "…" : (notiStats?.total ?? 0).toString();
-  const unreadNotifications = loading.notiStats ? "…" : (notiStats?.unread ?? 0).toString();
-  const readNotifications = loading.notiStats ? "…" : (notiStats?.read ?? 0).toString();
+  const publishedStories = loading.mangaSummary
+    ? "0"
+    : (mangaSummary?.published ?? 0).toLocaleString();
+  const pendingReports = loading.report ? "0" : (reportSummary?.open ?? 0).toString();
+  const newReports7d = loading.report ? "0" : (reportSummary?.new7d ?? 0).toString();
+  const unreadNotifications = loading.notiStats
+    ? "0"
+    : (notiStats?.unread ?? 0).toString();
+  const readNotifications = loading.notiStats
+    ? "0"
+    : (notiStats?.read ?? 0).toString();
+  const moderationLatestCount = loading.modWeekly
+    ? "0"
+    : (latestModerationPoint?.chapters ?? 0).toString();
+  const moderationLatestDetail = latestModerationPoint
+    ? `Avg risk ${latestModerationPoint.avgRisk}/100 in the week of ${formatWeekTick(latestModerationPoint.week)}`
+    : "No reviewed chapters captured yet.";
+  const totalUsersDetail = loading.summary
+    ? "Loading user totals..."
+    : `${formatDelta(summary?.deltaPctMoM ?? 0)} from last month`;
+  const totalStoriesDetail = loading.mangaSummary
+    ? "Loading story totals..."
+    : `${formatDelta(mangaSummary?.deltaPctMoM ?? 0)} from last month`;
+  const outsidePublishDetail = loading.mangaSummary
+    ? "Loading publication split..."
+    : `${publishedStories} already published`;
 
   return (
     <AdminLayout>
-      <div className="mb-10">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
-        <p className="text-sm text-gray-500 mb-6">Admin / Dashboard</p>
-
-        {/* Statistic Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Users */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalUsers}</div>
-              <p className="text-xs text-muted-foreground">
-                <span
-                  className={`font-semibold ${
-                    !loading.summary && (summary?.deltaPctMoM ?? 0) >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }`}
-                >
-                  {deltaUsers}
-                </span>{" "}
-                from last month
+      <div className="space-y-8">
+        <section className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
+              Needs Attention Now
+            </p>
+            <div className="space-y-1">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                Start with the queues that can block moderation and publishing
+              </h2>
+              <p className="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                This dashboard prioritizes operational risk first, then follows with the
+                trends and activity that support the next decision.
               </p>
-              {!loading.summary && error.summary && (
-                <p className="text-xs text-red-600 mt-1">Error: {error.summary}</p>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Stories */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Stories</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{storiesTotal}</div>
-              <p className="text-xs text-muted-foreground">
-                <span
-                  className={`font-semibold ${
-                    !loading.mangaSummary && (mangaSummary?.deltaPctMoM ?? 0) >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }`}
-                >
-                  {storiesDelta}
-                </span>{" "}
-                from last month
-              </p>
-              {!loading.mangaSummary && error.mangaSummary && (
-                <p className="text-xs text-red-600 mt-1">Error: {error.mangaSummary}</p>
-              )}
-            </CardContent>
-          </Card>
+          <div className="grid gap-4 xl:grid-cols-3">
+            <AttentionCard
+              title="Pending reports"
+              subtitle="Open cases that still need triage or resolution."
+              value={pendingReports}
+              detail={`${newReports7d} new reports in the last 7 days`}
+              href="/admin/report"
+              actionLabel="Open report workspace"
+              icon={AlertCircle}
+              tone="danger"
+              loading={loading.report}
+              error={error.report}
+            />
+            <AttentionCard
+              title="Moderation review"
+              subtitle="Latest chapter reviews from the moderation queue."
+              value={moderationLatestCount}
+              detail={moderationLatestDetail}
+              href="/admin/moderation/queue"
+              actionLabel="Open moderation queue"
+              icon={Eye}
+              tone="amber"
+              loading={loading.modWeekly}
+              error={error.modWeekly}
+            />
+            <AttentionCard
+              title="Unread notifications"
+              subtitle="Messages and announcements that still need attention."
+              value={unreadNotifications}
+              detail={`${readNotifications} already marked as read`}
+              href="/admin/notifications"
+              actionLabel="Open notifications center"
+              icon={Bell}
+              tone="info"
+              loading={loading.notiStats}
+              error={error.notiStats}
+            />
+          </div>
+        </section>
 
-          {/* Reports */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Reports</CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{openReports}</div>
-              <p className="text-xs text-muted-foreground">
-                <span className="text-red-600 font-semibold">+{newReports7d}</span>{" "}
-                new reports (7 days)
-              </p>
-              {!loading.report && error.report && (
-                <p className="text-xs text-red-600 mt-1">Error: {error.report}</p>
-              )}
-            </CardContent>
-          </Card>
+        <section className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
+              Operational Snapshot
+            </p>
+            <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+              Core totals for people, stories, and publication status
+            </h3>
+          </div>
 
-          {/* Notifications */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Notifications Activity</CardTitle>
-              <Bell className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalNotifications}</div>
-              <p className="text-xs text-muted-foreground">
-                {loading.notiStats ? (
-                  "Loading stats..."
-                ) : (
-                  <>
-                    <span className="font-semibold text-blue-600">{unreadNotifications}</span>{" "}
-                    unread ·{" "}
-                    <span className="font-semibold text-gray-600">{readNotifications}</span>{" "}
-                    read
-                  </>
-                )}
-              </p>
-              {!loading.notiStats && error.notiStats && (
-                <p className="text-xs text-red-600 mt-1">Error: {error.notiStats}</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <SnapshotCard
+              title="Total users"
+              value={totalUsers}
+              detail={totalUsersDetail}
+              icon={Users}
+              loading={loading.summary}
+              error={error.summary}
+            />
+            <SnapshotCard
+              title="Total stories"
+              value={totalStories}
+              detail={totalStoriesDetail}
+              icon={BookOpen}
+              loading={loading.mangaSummary}
+              error={error.mangaSummary}
+            />
+            <SnapshotCard
+              title="Outside publish"
+              value={loading.mangaSummary ? "0" : unpublishedStories.toLocaleString()}
+              detail={outsidePublishDetail}
+              icon={TrendingUp}
+              loading={loading.mangaSummary}
+              error={error.mangaSummary}
+            />
+          </div>
+        </section>
 
-        {/* Charts Overview */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
-          {/* Users Line Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>New vs Returning Users</CardTitle>
-              <CardDescription>Weekly user activity</CardDescription>
-            </CardHeader>
-            <CardContent className="h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={userActivityData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="week" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="new" stroke="#3b82f6" strokeWidth={2} name="New Users" />
-                  <Line type="monotone" dataKey="returning" stroke="#10b981" strokeWidth={2} name="Returning Users" />
-                </LineChart>
-              </ResponsiveContainer>
-              {!loading.weekly && error.weekly && (
-                <p className="text-xs text-red-600 mt-2">Error: {error.weekly}</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Moderation Risk per Week */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Moderation Risk per Week</CardTitle>
-              <CardDescription>
-                Chapters count and average risk score by week (from moderation queue)
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <Card className={surfaceCardClass}>
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-base text-slate-950 dark:text-slate-50">
+                New users by week
+              </CardTitle>
+              <CardDescription className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Fresh registrations over the latest four-week window.
               </CardDescription>
             </CardHeader>
-            <CardContent className="h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={modWeekly}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="week" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="chapters" name="Chapters" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="avgRisk" name="Avg Risk" fill="#f97316" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-
-              {!loading.modWeekly && error.modWeekly && (
-                <p className="text-xs text-red-600 mt-2">Error: {error.modWeekly}</p>
-              )}
-              {loading.modWeekly && (
-                <p className="text-xs text-muted-foreground mt-2">Loading moderation stats…</p>
-              )}
+            <CardContent className="h-[280px]">
+              <ChartState
+                loading={loading.weekly}
+                error={error.weekly}
+                hasData={weeklyNewChartData.length > 0}
+                emptyTitle="No new-user trend yet"
+                emptyDescription="New registrations will appear here once the API returns weekly data."
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={weeklyNewChartData}
+                    margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
+                  >
+                    <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#64748b", fontSize: 12 }}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#64748b", fontSize: 12 }}
+                    />
+                    <Tooltip
+                      cursor={{ stroke: "#cbd5e1", strokeDasharray: "4 4" }}
+                      contentStyle={{
+                        borderRadius: 16,
+                        borderColor: "#e2e8f0",
+                        boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+                      }}
+                      labelFormatter={(label) => `Week of ${label}`}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="newUsers"
+                      name="New users"
+                      stroke="#2563eb"
+                      strokeWidth={2.5}
+                      dot={false}
+                      activeDot={{ r: 5, fill: "#2563eb" }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartState>
             </CardContent>
           </Card>
 
-          {/* Stories Growth */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Stories Growth</CardTitle>
-              <CardDescription>Monthly story additions</CardDescription>
+          <Card className={surfaceCardClass}>
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-base text-slate-950 dark:text-slate-50">
+                Stories growth
+              </CardTitle>
+              <CardDescription className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Monthly additions to the story catalog across the past six months.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={mangaGrowth}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Area type="monotone" dataKey="stories" stroke="#14b8a6" fill="#14b8a6" fillOpacity={0.3} />
-                </AreaChart>
-              </ResponsiveContainer>
-              {!loading.mangaGrowth && error.mangaGrowth && (
-                <p className="text-xs text-red-600 mt-2">Error: {error.mangaGrowth}</p>
-              )}
+            <CardContent className="h-[280px]">
+              <ChartState
+                loading={loading.mangaGrowth}
+                error={error.mangaGrowth}
+                hasData={storiesGrowthChartData.length > 0}
+                emptyTitle="No story growth trend yet"
+                emptyDescription="Story growth will show here once monthly reporting data is available."
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={storiesGrowthChartData}
+                    margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="stories-growth-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.38} />
+                        <stop offset="100%" stopColor="#14b8a6" stopOpacity={0.04} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#64748b", fontSize: 12 }}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#64748b", fontSize: 12 }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 16,
+                        borderColor: "#e2e8f0",
+                        boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="stories"
+                      name="Stories"
+                      stroke="#0f766e"
+                      strokeWidth={2.5}
+                      fill="url(#stories-growth-fill)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </ChartState>
             </CardContent>
           </Card>
-        </div>
+        </section>
 
-        {/* Tables */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Users */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Recently Registered Users</CardTitle>
-                <CardDescription>Latest 5 users</CardDescription>
+        <section>
+          <Card className={surfaceCardClass}>
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-base text-slate-950 dark:text-slate-50">
+                Moderation review by week
+              </CardTitle>
+              <CardDescription className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Weekly review volume and average risk score from the moderation queue.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="h-[320px]">
+              <ChartState
+                loading={loading.modWeekly}
+                error={error.modWeekly}
+                hasData={moderationChartData.length > 0}
+                emptyTitle="No moderation trend yet"
+                emptyDescription="Reviewed chapters will appear here after moderation activity is recorded."
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={moderationChartData}
+                    margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
+                    barGap={10}
+                  >
+                    <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#64748b", fontSize: 12 }}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#64748b", fontSize: 12 }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 16,
+                        borderColor: "#e2e8f0",
+                        boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+                      }}
+                    />
+                    <Bar
+                      dataKey="chapters"
+                      name="Reviewed chapters"
+                      fill="#334155"
+                      radius={[10, 10, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="avgRisk"
+                      name="Average risk"
+                      fill="#f59e0b"
+                      radius={[10, 10, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartState>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+          <Card className={surfaceCardClass}>
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-2">
+                <CardTitle className="text-base text-slate-950 dark:text-slate-50">
+                  Recently registered users
+                </CardTitle>
+                <CardDescription className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  The latest five accounts created on the platform.
+                </CardDescription>
               </div>
-              <Link href="/admin/user">
-                <Button variant="outline" size="sm">
-                  <Eye className="h-4 w-4 mr-2" />
-                  View all
-                </Button>
-              </Link>
+              <Button asChild variant="outline" size="sm" className="rounded-xl">
+                <Link href="/admin/user">
+                  <Eye className="mr-2 h-4 w-4" />
+                  View all users
+                </Link>
+              </Button>
             </CardHeader>
             <CardContent>
               <Table>
@@ -537,39 +1106,90 @@ export default function AdminDashboard() {
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Join Date</TableHead>
+                    <TableHead>Join date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(recentUsers ?? []).map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell className="text-sm text-gray-600">{user.email}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={user.role?.toLowerCase() === "author" ? "default" : "secondary"}
-                        >
-                          {user.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-600">{user.joinDate}</TableCell>
-                    </TableRow>
-                  ))}
+                  {loading.recent &&
+                    Array.from({ length: 3 }).map((_, index) => (
+                      <TableRow key={`recent-skeleton-${index}`}>
+                        <TableCell>
+                          <Skeleton className="h-4 w-28 rounded-md" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-40 rounded-md" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-6 w-24 rounded-full" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-24 rounded-md" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+
+                  {!loading.recent && error.recent && (
+                    <TableStateRow
+                      colSpan={4}
+                      title="Unable to load recent users"
+                      description={error.recent}
+                      tone="danger"
+                    />
+                  )}
+
+                  {!loading.recent && !error.recent && recentUsers.length === 0 && (
+                    <TableStateRow
+                      colSpan={4}
+                      title="No recent users yet"
+                      description="Newly created accounts will appear here once the API returns results."
+                    />
+                  )}
+
+                  {!loading.recent &&
+                    !error.recent &&
+                    recentUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium text-slate-900 dark:text-slate-100">
+                          {user.name}
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600 dark:text-slate-300">
+                          {user.email}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={cn(
+                              "rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                              roleBadgeClass(user.role),
+                            )}
+                          >
+                            {formatRoleLabel(user.role)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600 dark:text-slate-300">
+                          {formatReadableDate(user.joinDate)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
 
-          {/* Top Stories */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Top Stories by Views</CardTitle>
-                <CardDescription>Top 5 stories</CardDescription>
+          <Card className={surfaceCardClass}>
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-2">
+                <CardTitle className="text-base text-slate-950 dark:text-slate-50">
+                  Top stories by views
+                </CardTitle>
+                <CardDescription className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  High-traffic titles worth checking for performance and moderation context.
+                </CardDescription>
               </div>
-              <Button variant="outline" size="sm">
-                <Eye className="h-4 w-4 mr-2" />
-                View all
+              <Button asChild variant="outline" size="sm" className="rounded-xl">
+                <Link href="/admin/manga">
+                  <Eye className="mr-2 h-4 w-4" />
+                  View all stories
+                </Link>
               </Button>
             </CardHeader>
             <CardContent>
@@ -583,44 +1203,66 @@ export default function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loading.topStories && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-sm text-gray-500">
-                        Loading...
-                      </TableCell>
-                    </TableRow>
-                  )}
+                  {loading.topStories &&
+                    Array.from({ length: 3 }).map((_, index) => (
+                      <TableRow key={`top-story-skeleton-${index}`}>
+                        <TableCell>
+                          <Skeleton className="h-4 w-32 rounded-md" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-24 rounded-md" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-16 rounded-md" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-6 w-20 rounded-full" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
 
                   {!loading.topStories && error.topStories && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-sm text-red-600">
-                        Error: {error.topStories}
-                      </TableCell>
-                    </TableRow>
+                    <TableStateRow
+                      colSpan={4}
+                      title="Unable to load top stories"
+                      description={error.topStories}
+                      tone="danger"
+                    />
+                  )}
+
+                  {!loading.topStories && !error.topStories && topStories.length === 0 && (
+                    <TableStateRow
+                      colSpan={4}
+                      title="No top stories yet"
+                      description="Top-viewed stories will appear here once the analytics endpoint returns data."
+                    />
                   )}
 
                   {!loading.topStories &&
                     !error.topStories &&
                     topStories.map((story) => (
                       <TableRow key={story.id}>
-                        <TableCell className="font-medium">{story.title}</TableCell>
-                        <TableCell className="text-sm text-gray-600">{story.author}</TableCell>
+                        <TableCell className="font-medium text-slate-900 dark:text-slate-100">
+                          {story.title}
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600 dark:text-slate-300">
+                          {story.author}
+                        </TableCell>
                         <TableCell>
-                          <div className="flex items-center">
-                            <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
+                          <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                            <TrendingUp className="h-4 w-4 text-emerald-500" />
                             {story.views.toLocaleString()}
                           </div>
                         </TableCell>
                         <TableCell>
-                          {story.status === "ongoing" ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              ongoing
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              {story.status}
-                            </span>
-                          )}
+                          <Badge
+                            className={cn(
+                              "rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                              storyStatusBadgeClass(story.status),
+                            )}
+                          >
+                            {formatRoleLabel(story.status)}
+                          </Badge>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -628,8 +1270,53 @@ export default function AdminDashboard() {
               </Table>
             </CardContent>
           </Card>
-        </div>
+        </section>
+
+        <section className={cn(surfaceCardClass, "p-5 sm:p-6")}>
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
+                Quick Actions
+              </p>
+              <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                Jump into the admin workspaces you use most
+              </h3>
+              <p className="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                These shortcuts keep the main operational flows one click away when you
+                are moving between reports, moderation, notifications, and catalog work.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Button asChild variant="outline" className="h-11 rounded-xl px-4">
+                <Link href="/admin/report">
+                  Report workspace
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="h-11 rounded-xl px-4">
+                <Link href="/admin/moderation/queue">
+                  Moderation queue
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="h-11 rounded-xl px-4">
+                <Link href="/admin/notifications">
+                  Notifications center
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="h-11 rounded-xl px-4">
+                <Link href="/admin/manga">
+                  Manga management
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </section>
       </div>
     </AdminLayout>
   );
 }
+
