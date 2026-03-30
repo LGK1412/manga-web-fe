@@ -21,13 +21,10 @@ import {
   FileCheck,
   FileText,
   PanelRight,
-  ChevronDown,
-  ChevronRight,
   Bell,
   Send,
   Shapes,
   ContactRound,
-  ChevronLeft,
   Loader2,
   LogOut,
 } from "lucide-react";
@@ -243,15 +240,6 @@ const ROLE_TOOL_LABEL: Record<Role, string> = {
   user: "User Tool",
 };
 
-const ROLE_TOOL_SUBTITLE: Record<Role, string> = {
-  admin: "Platform oversight and system control",
-  content_moderator: "Review and policy workflow",
-  community_manager: "Conversation and trust workflow",
-  financial_manager: "Payout and account operations",
-  author: "Publishing and chapter workflow",
-  user: "Personal workspace",
-};
-
 /** ===== Helpers ===== */
 function isPathActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -346,9 +334,6 @@ export default function AdminLayout({
   }, [currentRole]);
 
   const toolTitle = currentRole ? ROLE_TOOL_LABEL[currentRole] : "Staff Tool";
-  const toolSubtitle = currentRole
-    ? ROLE_TOOL_SUBTITLE[currentRole]
-    : "Shared operations workspace";
   const roleLabel = formatWorkspaceRole(currentRole);
   const workspaceMeta = useMemo(
     () => resolveAdminWorkspaceMeta(pathname),
@@ -359,9 +344,9 @@ export default function AdminLayout({
   const itemIdleClass =
     "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white";
   const itemActiveClass =
-    "bg-slate-900 text-white shadow-sm shadow-slate-200 dark:bg-slate-100 dark:text-slate-950";
+    "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950";
   const subItemActiveClass =
-    "border border-blue-100 bg-blue-50 text-blue-700 shadow-sm dark:border-blue-900/60 dark:bg-blue-950/50 dark:text-blue-200";
+    "border border-blue-100 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/50 dark:text-blue-200";
 
   const isSubmenuActive = useMemo(() => {
     return (submenu: SubmenuItem) => {
@@ -440,84 +425,63 @@ export default function AdminLayout({
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
-      <div className="flex min-w-0 flex-1">
+    <div className="h-dvh min-h-screen overflow-hidden bg-slate-100 p-3 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
+      <div className="flex h-full min-h-0 min-w-0 gap-3">
         <aside
-          className={`flex shrink-0 flex-col border-r border-slate-200/80 bg-white/95 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur transition-all duration-300 dark:border-slate-800 dark:bg-slate-950/95 ${
+          className={`flex h-full shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_1px_3px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-300 dark:border-slate-800 dark:bg-slate-950/95 ${
             open ? "w-72" : "w-20"
           }`}
         >
-          <div className="border-b border-slate-200/80 px-4 py-5 dark:border-slate-800">
+          <div className="shrink-0 border-b border-slate-200/80 px-4 py-4 dark:border-slate-800">
             {open ? (
-              <div className="flex items-start gap-3">
-                <div className="relative min-w-0 flex-1 overflow-hidden rounded-[28px] border border-slate-200/80 bg-gradient-to-br from-white via-white to-red-50/70 px-4 py-4 shadow-[0_14px_28px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:from-slate-950 dark:via-slate-950 dark:to-red-950/20">
-                  <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-red-300/90 to-transparent dark:via-red-700/70" />
-
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-slate-200/80 bg-white px-3.5 py-3 dark:border-slate-800 dark:bg-slate-950/60">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[22px] border border-red-100/90 bg-white/90 text-red-600 shadow-sm ring-1 ring-red-100/80 dark:border-red-900/50 dark:bg-red-950/35 dark:text-red-300 dark:ring-red-900/50">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-red-500 dark:border-slate-700 dark:bg-slate-900 dark:text-red-300">
                       <Shield className="h-5 w-5" />
                     </div>
 
                     <div className="min-w-0">
-                      <div className="inline-flex max-w-full items-center rounded-full border border-red-100/90 bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-red-700 shadow-sm dark:border-red-900/50 dark:bg-slate-950/80 dark:text-red-200">
-                        <span className="truncate">{workspaceMeta.section}</span>
-                      </div>
-                      <p className="mt-2 truncate text-[15px] font-semibold tracking-[-0.01em] text-slate-950 dark:text-slate-50">
-                        {toolTitle}
+                      <p className="text-sm font-semibold leading-tight tracking-tight text-slate-950 whitespace-normal dark:text-slate-50">
+                        {roleLabel}
                       </p>
-                      <p className="mt-1 max-w-[11rem] text-xs leading-5 text-slate-500 dark:text-slate-400">
-                        {toolSubtitle}
+                      <p className="mt-1 truncate text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                        {workspaceMeta.section}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-[22px] border border-slate-200/80 bg-white/90 p-1 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setOpen(!open)}
-                    className="h-10 w-10 rounded-[18px] text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                    aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setOpen(!open)}
+                  className="h-10 w-10 shrink-0 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-3">
-                <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-[22px] border border-slate-200/80 bg-gradient-to-br from-white via-white to-red-50/70 text-red-600 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:via-slate-950 dark:to-red-950/20 dark:text-red-300">
-                  <div className="absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-red-300/90 to-transparent dark:via-red-700/70" />
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50 text-red-500 dark:border-slate-800 dark:bg-slate-900 dark:text-red-300">
                   <Shield className="h-5 w-5" />
                 </div>
 
-                <div className="rounded-[20px] border border-slate-200/80 bg-white/90 p-1 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setOpen(!open)}
-                    className="h-10 w-10 rounded-[16px] text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                    aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
-                  >
-                    <Menu className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {open && (
-              <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Signed in as
-                </p>
-                <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {roleLabel}
-                </p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setOpen(!open)}
+                  className="h-10 w-10 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
               </div>
             )}
           </div>
 
-          <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
             {loadingRole ? (
               <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">
                 Loading role...
@@ -543,9 +507,10 @@ export default function AdminLayout({
                       <button
                         type="button"
                         onClick={() => toggleGroup(item.id)}
+                        aria-expanded={expanded}
                         className={`w-full flex items-center ${
                           open ? "justify-start gap-3 px-3" : "justify-center"
-                        } rounded-2xl py-3 text-sm font-medium transition-all ${
+                        } rounded-xl py-3 text-sm font-medium transition-all ${
                           active ? itemActiveClass : itemIdleClass
                         }`}
                         title={!open ? item.label : ""}
@@ -559,11 +524,26 @@ export default function AdminLayout({
                             <span className="flex-1 text-left">
                               {item.label}
                             </span>
-                            {expanded ? (
-                              <ChevronDown className="h-4 w-4 shrink-0" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 shrink-0" />
-                            )}
+                            <span
+                              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-colors ${
+                                active
+                                  ? "border-white/15 bg-white/10 text-inherit dark:border-slate-700 dark:bg-slate-900/20"
+                                  : expanded
+                                    ? "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                                    : "border-slate-200/80 bg-white/80 text-slate-500 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-400"
+                              }`}
+                            >
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${
+                                  active
+                                    ? "bg-white/80 dark:bg-slate-200"
+                                    : expanded
+                                      ? "bg-emerald-500 dark:bg-emerald-400"
+                                      : "bg-slate-300 dark:bg-slate-600"
+                                }`}
+                              />
+                              <span>{item.submenu.length}</span>
+                            </span>
                           </>
                         )}
                       </button>
@@ -578,7 +558,7 @@ export default function AdminLayout({
                               <Link
                                 key={sub.href}
                                 href={sub.href}
-                                className={`flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm transition-colors ${
+                                className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors ${
                                   subActive ? subItemActiveClass : itemIdleClass
                                 }`}
                               >
@@ -603,7 +583,7 @@ export default function AdminLayout({
                     href={item.href}
                     className={`flex items-center ${
                       open ? "justify-start gap-3 px-3" : "justify-center"
-                    } rounded-2xl py-3 text-sm font-medium transition-all ${
+                    } rounded-xl py-3 text-sm font-medium transition-all ${
                       active ? itemActiveClass : itemIdleClass
                     }`}
                     title={!open ? item.label : ""}
@@ -618,14 +598,14 @@ export default function AdminLayout({
             )}
           </nav>
 
-          <div className="border-t border-slate-200/80 px-3 py-3 dark:border-slate-800">
+          <div className="shrink-0 border-t border-slate-200/80 px-3 py-4 dark:border-slate-800">
             <div className={open ? "flex" : "flex justify-center"}>
               <Button
                 type="button"
                 variant="ghost"
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className={`h-11 rounded-2xl border border-red-400 bg-red-200 font-semibold text-red-900 shadow-sm transition-colors hover:bg-red-300 hover:text-red-950 dark:border-red-900 dark:bg-red-950/70 dark:text-red-50 dark:hover:bg-red-950/90 ${
+                className={`h-11 rounded-xl border border-red-400 bg-red-200 font-semibold text-red-900 transition-colors hover:bg-red-300 hover:text-red-950 dark:border-red-900 dark:bg-red-950/70 dark:text-red-50 dark:hover:bg-red-950/90 ${
                   open ? "w-full justify-center gap-2 px-3" : "w-11 px-0"
                 }`}
                 title={!open ? "Logout" : ""}
@@ -641,46 +621,48 @@ export default function AdminLayout({
           </div>
         </aside>
 
-        <div className="min-w-0 flex-1 bg-[radial-gradient(circle_at_top,rgba(191,219,254,0.28),transparent_36%),linear-gradient(180deg,rgba(248,250,252,0.98),rgba(248,250,252,0.92))] dark:bg-[radial-gradient(circle_at_top,rgba(30,41,59,0.55),transparent_34%),linear-gradient(180deg,rgba(2,6,23,0.98),rgba(2,6,23,0.94))]">
-          <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/85 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
-            <div className="mx-auto flex w-full max-w-[1440px] items-start justify-between gap-4 px-6 py-4">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                    {toolTitle}
-                  </span>
-                  <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
-                  <span>{workspaceMeta.section}</span>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,rgba(191,219,254,0.2),transparent_36%),linear-gradient(180deg,rgba(248,250,252,0.98),rgba(248,250,252,0.94))] dark:bg-[radial-gradient(circle_at_top,rgba(30,41,59,0.48),transparent_34%),linear-gradient(180deg,rgba(2,6,23,0.98),rgba(2,6,23,0.95))]">
+          <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-3">
+            <header className="rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
+              <div className="flex items-start justify-between gap-4 px-6 py-5">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                      {toolTitle}
+                    </span>
+                    <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
+                    <span>{workspaceMeta.section}</span>
+                  </div>
+
+                  <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                    {workspaceMeta.title}
+                  </h2>
+                  <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    {workspaceMeta.description}
+                  </p>
                 </div>
 
-                <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
-                  {workspaceMeta.title}
-                </h2>
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                  {workspaceMeta.description}
-                </p>
-              </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  {canShowStaffInboxBell && <StaffNotificationBell />}
 
-              <div className="flex shrink-0 items-center gap-3">
-                {canShowStaffInboxBell && <StaffNotificationBell />}
-
-                <div className="hidden rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 md:flex">
-                  <span className="mr-2 text-xs uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                    Role
-                  </span>
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
-                    {roleLabel}
-                  </span>
+                  <div className="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 md:flex">
+                    <span className="mr-2 text-xs uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                      Role
+                    </span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                      {roleLabel}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </header>
+            </header>
 
-          <main className="min-w-0">
-            <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-6 py-6">
-              {children}
-            </div>
-          </main>
+            <main className="min-w-0 pb-3">
+              <div className="flex flex-col gap-6 px-1 py-1">
+                {children}
+              </div>
+            </main>
+          </div>
         </div>
       </div>
     </div>
