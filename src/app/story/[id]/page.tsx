@@ -28,6 +28,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
+import { ReportSubmitDialog } from "@/components/report/report-submit-dialog";
 import {
   Dialog,
   DialogContent,
@@ -501,9 +502,56 @@ export default function MangaDetailPage() {
   };
 
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
-  const [reportReason, setReportReason] = useState("Spam");
-  const [reportDescription, setReportDescription] = useState("");
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  const handleSubmitReport = async ({
+    reason,
+    description,
+  }: {
+    reason: string;
+    description?: string;
+  }) => {
+    if (!userId) {
+      toast({
+        title: "Not logged in",
+        description: "Please log in to submit a report.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmittingReport(true);
+    try {
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
+        {
+          reporter_id: userId,
+          target_type: "Manga",
+          target_id: manga?._id,
+          reason,
+          description,
+        },
+        { withCredentials: true }
+      );
+
+      toast({
+        title: "Report sent successfully",
+        description: "Thank you for your feedback.",
+      });
+
+      setReportDialogOpen(false);
+    } catch (err: any) {
+      toast({
+        title: "Error sending report",
+        description:
+          err.response?.data?.message ||
+          "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
 
   if (!mounted) return null;
 
@@ -704,13 +752,14 @@ export default function MangaDetailPage() {
                       </Button>
 
                       <Button
-                        variant="destructive"
+                        variant="outline"
                         size="lg"
                         onClick={() => setReportDialogOpen(true)}
                         type="button"
-                        className="text-xs justify-center"
+                        className="min-w-[140px] justify-center border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
                       >
-                        <Flag className="w-4 h-4 flex-shrink-0" />
+                        <Flag className="mr-2 w-4 h-4 flex-shrink-0" />
+                        Report
                       </Button>
                     </div>
                   </div>
@@ -790,7 +839,15 @@ export default function MangaDetailPage() {
               </DialogContent>
             </Dialog>
 
-            <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+            <ReportSubmitDialog
+              open={reportDialogOpen}
+              onOpenChange={setReportDialogOpen}
+              targetTypeLabel="Manga"
+              targetName={manga?.title}
+              submitting={isSubmittingReport}
+              onSubmit={handleSubmitReport}
+            />
+            {/* legacy report dialog kept only for reference during refactor
               <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
                   <DialogTitle>Report Content</DialogTitle>
@@ -891,6 +948,7 @@ export default function MangaDetailPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            */}
 
             <Card>
               <CardHeader>

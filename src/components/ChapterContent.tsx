@@ -7,16 +7,8 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ReportSubmitDialog } from "@/components/report/report-submit-dialog";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 
 import TTSReader from "./TTSReader";
 import translateWithGemini from "./Aitranlation";
@@ -52,8 +44,6 @@ export default function ChapterContent() {
 
   // ===== Report (Chapter) =====
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
-  const [reportReason, setReportReason] = useState("Spam");
-  const [reportDescription, setReportDescription] = useState("");
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   // ===== Effects =====
@@ -134,12 +124,16 @@ export default function ChapterContent() {
   };
 
   const openReportDialog = () => {
-    setReportReason("Spam");
-    setReportDescription("");
     setReportDialogOpen(true);
   };
 
-  const handleSubmitReport = async () => {
+  const handleSubmitReport = async ({
+    reason,
+    description,
+  }: {
+    reason: string;
+    description?: string;
+  }) => {
     if (!user) {
       toast({
         title: "Not logged in",
@@ -163,21 +157,19 @@ export default function ChapterContent() {
         `${API_BASE}/api/reports`,
         {
           reporter_id: user.user_id,
-          target_type: "Chapter", // <<<<<< DIFFERENT FROM COMMENT
+          target_type: "Chapter",
           target_id: chapterInfo._id,
-          reason: reportReason,
-          description: reportDescription.trim() || undefined,
+          reason,
+          description,
         },
         { withCredentials: true }
       );
 
       toast({
-        title: "Report sent successfully ✅",
+        title: "Report sent successfully",
         description: "Thank you for your feedback.",
       });
       setReportDialogOpen(false);
-      setReportDescription("");
-      setReportReason("Spam");
     } catch (err: any) {
       toast({
         title: "Error sending report",
@@ -207,15 +199,15 @@ export default function ChapterContent() {
         </div>
 
         <Button
-          variant="destructive"
+          variant="outline"
           size="sm"
           type="button"
-          className="shrink-0"
+          className="shrink-0 rounded-xl border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
           onClick={openReportDialog}
           title="Report this chapter"
         >
           <Flag className="w-4 h-4 mr-1" />
-          
+          Report
         </Button>
       </div>
 
@@ -264,6 +256,7 @@ export default function ChapterContent() {
         <div id="chapter-content" className="flex flex-col items-center gap-4">
           {chapterInfo.images?.map((img, i) => (
             <figure key={i} className="relative overflow-hidden rounded-xl shadow-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`${API_BASE}${img}`}
                 alt={`Page ${i + 1}`}
@@ -279,51 +272,14 @@ export default function ChapterContent() {
         </p>
       )}
 
-      {/* Report Dialog (Chapter) */}
-      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>Report Chapter</DialogTitle>
-            <DialogDescription>
-              Please select a reason and provide detailed description (if any).
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Reason</label>
-              <select
-                className="w-full border rounded-md px-3 py-2 text-sm"
-                value={reportReason}
-                onChange={(e) => setReportReason(e.target.value)}
-              >
-                <option value="Spam">Spam</option>
-                <option value="Inappropriate">Inappropriate content</option>
-                <option value="Harassment">Harassment / Offensive</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium mb-2 block">Detailed Description</label>
-              <Textarea
-                placeholder="Describe the issue you encountered..."
-                value={reportDescription}
-                onChange={(e) => setReportDescription(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmitReport} disabled={isSubmittingReport}>
-              {isSubmittingReport ? "Submitting..." : "Submit Report"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ReportSubmitDialog
+        open={reportDialogOpen}
+        onOpenChange={setReportDialogOpen}
+        targetTypeLabel="Chapter"
+        targetName={chapterInfo?.title}
+        submitting={isSubmittingReport}
+        onSubmit={handleSubmitReport}
+      />
     </div>
   );
 }

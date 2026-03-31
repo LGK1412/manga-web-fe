@@ -13,16 +13,8 @@ import { io, Socket } from "socket.io-client";
 import VoteButtons from "./VoteButtons";
 import ReplySection from "./ReplySection";
 import EmojiInputBox from "../emoji/EmojiInputBox";
+import { ReportSubmitDialog } from "@/components/report/report-submit-dialog";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
 let socket: Socket | null = null;
@@ -55,8 +47,6 @@ export default function ChapterComments() {
   // ===== Report dialog states =====
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<any | null>(null);
-  const [reportReason, setReportReason] = useState("Spam");
-  const [reportDescription, setReportDescription] = useState("");
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
 
@@ -69,6 +59,7 @@ export default function ChapterComments() {
   }, [replyingTo]);
 
   // ===== Socket connect =====
+  // Socket listeners intentionally subscribe once and call the latest handlers via refs.
   useEffect(() => {
     // Tránh chạy ở SSR
     if (typeof window === "undefined") return;
@@ -105,6 +96,7 @@ export default function ChapterComments() {
       socket?.disconnect();
       socket = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ===== Read cookie user =====
@@ -283,11 +275,72 @@ export default function ChapterComments() {
   useEffect(() => {
     if (messageSent) setMessageSent(false);
   }, [messageSent]);
-
   useEffect(() => {
     fetchComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapter_id]);
+
+  const handleReportDialogChange = (open: boolean) => {
+    setReportDialogOpen(open);
+    if (!open) setReportTarget(null);
+  };
+
+  const handleSubmitReport = async ({
+    reason,
+    description,
+  }: {
+    reason: string;
+    description?: string;
+  }) => {
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "Please log in to submit a report.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!reportTarget?._id) {
+      toast({
+        title: "Missing report target",
+        description: "Comment to report not found.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmittingReport(true);
+    try {
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
+        {
+          reporter_id: user.user_id,
+          target_type: "Comment",
+          target_id: reportTarget._id,
+          reason,
+          description,
+        },
+        { withCredentials: true }
+      );
+
+      toast({
+        title: "Report submitted successfully",
+        description: "Thank you for your feedback.",
+      });
+      setReportDialogOpen(false);
+      setReportTarget(null);
+    } catch (err: any) {
+      toast({
+        title: "Error submitting report",
+        description:
+          err.response?.data?.message || "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
 
   if (!mounted) return null;
 
@@ -318,16 +371,18 @@ export default function ChapterComments() {
                       {new Date(c.createdAt).toLocaleString()}
                     </span>
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       size="sm"
                       type="button"
-                      className="p-1"
+                      className="h-8 rounded-lg border-rose-200 bg-rose-50 px-2.5 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
                       onClick={() => {
                         setReportTarget(c);
                         setReportDialogOpen(true);
                       }}
+                      title={`Report comment from ${username}`}
                     >
                       <Flag className="w-3.5 h-3.5" />
+                      <span className="ml-1 text-xs font-medium">Report</span>
                     </Button>
                   </div>
                 </div>
@@ -443,43 +498,19 @@ export default function ChapterComments() {
         {error && <p className="text-red-500 text-sm">{error}</p>}
 
         {/* Report Dialog */}
-        <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-          <DialogContent className="sm:max-w-[480px]">
-            <DialogHeader>
-              <DialogTitle>Report Comment</DialogTitle>
-              <DialogDescription>
-                Please choose the reason and description (if have).
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-4 py-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Reason</label>
-                <select
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                  value={reportReason}
-                  onChange={(e) => setReportReason(e.target.value)}
-                >
-                  <option value="Spam">Spam</option>
-                  <option value="Inappropriate">Inappropriate content</option>
-                  <option value="Harassment">Harassment / Offensive</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Detailed description
-                </label>
-                <Textarea
-                  placeholder="Describe the issue you encountered..."
-                  value={reportDescription}
-                  onChange={(e) => setReportDescription(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
+        <ReportSubmitDialog
+          open={reportDialogOpen}
+          onOpenChange={handleReportDialogChange}
+          targetTypeLabel="Comment"
+          targetName={
+            reportTarget?.user?.username || reportTarget?.user_id?.username
+              ? `Comment by ${reportTarget?.user?.username || reportTarget?.user_id?.username}`
+              : "Comment"
+          }
+          submitting={isSubmittingReport}
+          onSubmit={handleSubmitReport}
+        />
+        {/* legacy report dialog kept only for reference during refactor
               <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
                 Cancel
               </Button>
@@ -539,6 +570,7 @@ export default function ChapterComments() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        */}
       </div>
       <Footer />
     </>

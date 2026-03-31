@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import {
@@ -246,6 +246,31 @@ function SortableHeader({
   );
 }
 
+function getReportedAgainstMeta(report: Report) {
+  return {
+    name:
+      report.target_detail?.target_human?.username ||
+      report.target_id?.authorId?.username ||
+      report.target_id?.user?.username ||
+      "Unknown user",
+    email:
+      report.target_detail?.target_human?.email ||
+      report.target_id?.authorId?.email ||
+      report.target_id?.user?.email ||
+      null,
+    avatar: report.target_detail?.target_human?.avatar,
+  };
+}
+
+function getReportFetchErrorMessage(err: any) {
+  return (
+    err?.response?.data?.message ||
+    err?.response?.data?.error ||
+    err?.message ||
+    "Unable to load reports."
+  );
+}
+
 export default function ReportsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -259,7 +284,9 @@ export default function ReportsPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [updatingReportId, setUpdatingReportId] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortColumn, setSortColumn] = useState<ReportSortColumn>("createdAt");
@@ -269,38 +296,31 @@ export default function ReportsPage() {
   const deepLinkHandledRef = useRef(false);
   const reportsPerPage = 10;
 
-  useEffect(() => {
-    const fetchReports = async () => {
-      if (!API) {
-        console.error("Missing NEXT_PUBLIC_API_URL");
-        return;
-      }
+  const fetchReports = useCallback(async () => {
+    if (!API) {
+      setListError("Missing NEXT_PUBLIC_API_URL.");
+      setReports([]);
+      return;
+    }
 
-      const endpoint = `${API}/api/reports`;
+    const endpoint = `${API}/api/reports`;
 
-      setLoading(true);
-      try {
-        console.log("[Admin Reports] REQUEST", { url: endpoint });
-
-        const res = await axios.get(endpoint, { withCredentials: true });
-
-        console.log("[Admin Reports] RESPONSE", {
-          status: res.status,
-          dataPreview: Array.isArray(res.data)
-            ? `Array(${res.data.length})`
-            : res.data,
-        });
-
-        setReports(res.data);
-      } catch (err: any) {
-        logAxiosError("[Admin Reports]", endpoint, err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReports();
+    setLoadingReports(true);
+    setListError(null);
+    try {
+      const res = await axios.get(endpoint, { withCredentials: true });
+      setReports(Array.isArray(res.data) ? res.data : []);
+    } catch (err: any) {
+      logAxiosError("[Admin Reports]", endpoint, err);
+      setListError(getReportFetchErrorMessage(err));
+    } finally {
+      setLoadingReports(false);
+    }
   }, [API]);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
 
   useEffect(() => {
     return () => {
@@ -337,7 +357,7 @@ export default function ReportsPage() {
     const endpoint = `${API}/api/reports/${id}/moderate`;
 
     try {
-      setLoading(true);
+      setUpdatingReportId(id);
 
       const payload: any = {};
       if (newStatus) payload.status = newStatus;
@@ -358,6 +378,7 @@ export default function ReportsPage() {
                 ...report,
                 status: newStatus ?? report.status,
                 resolution_note: note ?? report.resolution_note,
+                updatedAt: new Date().toISOString(),
               }
             : report
         )
@@ -368,6 +389,7 @@ export default function ReportsPage() {
               ...prev,
               status: newStatus ?? prev.status,
               resolution_note: note ?? prev.resolution_note,
+              updatedAt: new Date().toISOString(),
             }
           : prev
       );
@@ -385,23 +407,16 @@ export default function ReportsPage() {
       });
       toast.error("Update failed");
     } finally {
-      setLoading(false);
+      setUpdatingReportId(null);
     }
   };
 
   const filteredReports = useMemo(() => {
     return reports.filter((report) => {
       const term = searchTerm.toLowerCase();
-      const reportedAgainstUsername =
-        report.target_detail?.target_human?.username ||
-        report.target_id?.authorId?.username ||
-        report.target_id?.user?.username ||
-        "";
-      const reportedAgainstEmail =
-        report.target_detail?.target_human?.email ||
-        report.target_id?.authorId?.email ||
-        report.target_id?.user?.email ||
-        "";
+      const reportedAgainstMeta = getReportedAgainstMeta(report);
+      const reportedAgainstUsername = reportedAgainstMeta.name || "";
+      const reportedAgainstEmail = reportedAgainstMeta.email || "";
 
       const matchSearch =
         report.reportCode?.toLowerCase().includes(term) ||
@@ -435,16 +450,8 @@ export default function ReportsPage() {
     const sorted = [...filteredReports];
 
     sorted.sort((first, second) => {
-      const firstReportedAgainst =
-        first.target_detail?.target_human?.username ||
-        first.target_id?.authorId?.username ||
-        first.target_id?.user?.username ||
-        "";
-      const secondReportedAgainst =
-        second.target_detail?.target_human?.username ||
-        second.target_id?.authorId?.username ||
-        second.target_id?.user?.username ||
-        "";
+      const firstReportedAgainst = getReportedAgainstMeta(first).name;
+      const secondReportedAgainst = getReportedAgainstMeta(second).name;
 
       let result = 0;
 
@@ -551,11 +558,7 @@ export default function ReportsPage() {
   };
 
   const handleSendMail = (report: Report) => {
-    const reportedAgainstEmail =
-      report.target_detail?.target_human?.email ||
-      report.target_id?.authorId?.email ||
-      report.target_id?.user?.email ||
-      "";
+    const reportedAgainstEmail = getReportedAgainstMeta(report).email || "";
 
     if (!reportedAgainstEmail) {
       toast.error("Reported user email not found.");
@@ -688,7 +691,7 @@ export default function ReportsPage() {
   };
 
   useEffect(() => {
-    if (loading || deepLinkHandledRef.current) return;
+    if (loadingReports || deepLinkHandledRef.current) return;
     if (!linkedReportId && !linkedReportCode) return;
     if (!sortedReports.length) return;
 
@@ -711,7 +714,7 @@ export default function ReportsPage() {
     setSelectedReport(report);
     setIsModalOpen(true);
     setCurrentPage(Math.floor(targetIndex / reportsPerPage) + 1);
-  }, [linkedReportCode, linkedReportId, loading, sortedReports]);
+  }, [linkedReportCode, linkedReportId, loadingReports, sortedReports]);
 
   const handlePreviousReport = () => {
     if (selectedReportIndex <= 0) return;
@@ -735,10 +738,13 @@ export default function ReportsPage() {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <p className="text-sm text-gray-500">Admin / Reports</p>
+          <p className="text-sm text-gray-500">Admin / Report Workspace</p>
           <h1 className="text-3xl font-bold text-gray-900">
-            Reported Stories Management
+            Moderation Reports
           </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+            Review reports across manga, chapters, comments, and replies from one queue.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -753,7 +759,7 @@ export default function ReportsPage() {
               <div className="text-3xl font-bold text-gray-900">
                 {totalReports}
               </div>
-              <p className="mt-1 text-xs text-gray-600">+12 from last month</p>
+              <p className="mt-1 text-xs text-gray-600">Current queue snapshot across all report types.</p>
             </CardContent>
           </Card>
 
@@ -767,7 +773,7 @@ export default function ReportsPage() {
             <CardContent>
               <div className="text-3xl font-bold text-red-600">{newReports}</div>
               <p className="mt-1 text-xs text-gray-600">
-                Require immediate attention
+                Waiting for a first review
               </p>
             </CardContent>
           </Card>
@@ -784,7 +790,7 @@ export default function ReportsPage() {
                 {unresolvedReports}
               </div>
               <p className="mt-1 text-xs text-gray-600">
-                Currently under review
+                Already picked up by staff
               </p>
             </CardContent>
           </Card>
@@ -839,11 +845,28 @@ export default function ReportsPage() {
           </CardHeader>
 
           <CardContent>
+            {listError && reports.length > 0 && (
+              <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium">Some report data may be stale.</p>
+                  <p className="text-amber-800">{listError}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+                  onClick={fetchReports}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
+
             <div className="mb-5 flex flex-col gap-3 lg:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by code, reporter, user, or reason..."
+                  placeholder="Search by code, reporter, target, or reason..."
                   className="pl-8"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
@@ -964,10 +987,31 @@ export default function ReportsPage() {
                 </TableHeader>
 
                 <TableBody>
-                  {loading ? (
+                  {loadingReports ? (
                     <TableRow>
                       <TableCell colSpan={8} className="py-4 text-center">
                         Loading...
+                      </TableCell>
+                    </TableRow>
+                  ) : listError && reports.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="py-8 text-center">
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-sm font-semibold text-rose-700">
+                              Unable to load reports
+                            </p>
+                            <p className="mt-1 text-sm text-slate-500">{listError}</p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl border-slate-200"
+                            onClick={fetchReports}
+                          >
+                            Retry
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : currentReports.length === 0 ? (
@@ -978,18 +1022,11 @@ export default function ReportsPage() {
                     </TableRow>
                   ) : (
                     currentReports.map((report) => {
-                      const reportedAgainst =
-                        report.target_detail?.target_human?.username ||
-                        report.target_id?.authorId?.username ||
-                        report.target_id?.user?.username ||
-                        "Unknown user";
-                      const reportedAgainstEmail =
-                        report.target_detail?.target_human?.email ||
-                        report.target_id?.authorId?.email ||
-                        report.target_id?.user?.email ||
-                        null;
+                      const reportedAgainstMeta = getReportedAgainstMeta(report);
+                      const reportedAgainst = reportedAgainstMeta.name;
+                      const reportedAgainstEmail = reportedAgainstMeta.email;
                       const reportedAgainstAvatar = resolveAvatarUrl(
-                        report.target_detail?.target_human?.avatar,
+                        reportedAgainstMeta.avatar,
                         API
                       );
                       const reporterAvatar = resolveAvatarUrl(
@@ -1188,7 +1225,7 @@ export default function ReportsPage() {
         <ReportModal
           open={isModalOpen}
           report={selectedReport}
-          loading={loading}
+          loading={Boolean(updatingReportId)}
           onClose={closeModal}
           onUpdateStatus={handleUpdateStatus}
           statusColor={statusColor}

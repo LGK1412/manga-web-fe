@@ -1,7 +1,6 @@
 "use client"
 
-import DOMPurify from "isomorphic-dompurify"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import {
   AlertTriangle,
   ArrowLeft,
@@ -113,11 +112,46 @@ function escapePlainText(content: string) {
     .replace(/\n/g, "<br />")
 }
 
-function normalizeReportHtml(content: string, apiUrl?: string) {
-  const normalizedApi = (apiUrl || "").replace(/\/+$/, "")
-  const hasHtml = /<\/?[a-z][\s\S]*>/i.test(content)
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+}
 
-  let html = hasHtml ? content : escapePlainText(content)
+function normalizeContentAssetUrl(value: string, apiUrl?: string) {
+  const raw = String(value || "").trim()
+  const normalizedApi = (apiUrl || "").replace(/\/+$/, "")
+
+  if (!raw) return ""
+
+  const localhostNormalized = normalizedApi
+    ? raw.replace(/https?:\/\/localhost:\d+/gi, normalizedApi)
+    : raw
+
+  if (/^data:image\//i.test(localhostNormalized)) return localhostNormalized
+  if (/^https?:\/\//i.test(localhostNormalized)) return localhostNormalized
+
+  if (localhostNormalized.startsWith("/") && normalizedApi) {
+    return `${normalizedApi}${localhostNormalized}`
+  }
+
+  if (normalizedApi && /^assets\//i.test(localhostNormalized)) {
+    return `${normalizedApi}/${localhostNormalized.replace(/^\/+/, "")}`
+  }
+
+  return localhostNormalized
+}
+
+function normalizeReportHtml(content: string, apiUrl?: string) {
+  const decodedContent = decodeHtmlEntities(content)
+  const normalizedApi = (apiUrl || "").replace(/\/+$/, "")
+  const hasHtml = /<\/?[a-z][\s\S]*>/i.test(decodedContent)
+
+  let html = hasHtml ? decodedContent : escapePlainText(decodedContent)
 
   html = html.replace(/<div><br\s*\/?><\/div>/gi, "<br />")
 
@@ -133,10 +167,92 @@ function normalizeReportHtml(content: string, apiUrl?: string) {
     )
   }
 
-  return DOMPurify.sanitize(html, {
-    USE_PROFILES: { html: true },
-    ADD_ATTR: ["class", "target", "rel", "referrerpolicy"],
+  return html
+}
+
+function sanitizeReportHtml(content: string, apiUrl?: string) {
+  if (typeof window === "undefined") return ""
+
+  const allowedTags = new Set([
+    "a",
+    "b",
+    "blockquote",
+    "br",
+    "div",
+    "em",
+    "i",
+    "img",
+    "li",
+    "ol",
+    "p",
+    "span",
+    "strong",
+    "u",
+    "ul",
+  ])
+  const blockedTags = new Set(["iframe", "object", "embed", "script", "style", "link", "meta"])
+  const parser = new window.DOMParser()
+  const doc = parser.parseFromString(`<div>${normalizeReportHtml(content, apiUrl)}</div>`, "text/html")
+  const root = doc.body.firstElementChild
+
+  if (!root) return ""
+
+  const sanitizeNode = (node: Node, ownerDocument: Document): Node | null => {
+    if (node.nodeType === window.Node.TEXT_NODE) {
+      return ownerDocument.createTextNode(node.textContent || "")
+    }
+
+    if (node.nodeType !== window.Node.ELEMENT_NODE) return null
+
+    const element = node as HTMLElement
+    const tag = element.tagName.toLowerCase()
+
+    if (blockedTags.has(tag)) return null
+
+    if (!allowedTags.has(tag)) {
+      const fragment = ownerDocument.createDocumentFragment()
+      Array.from(element.childNodes).forEach((child) => {
+        const safeChild = sanitizeNode(child, ownerDocument)
+        if (safeChild) fragment.appendChild(safeChild)
+      })
+      return fragment
+    }
+
+    const cleanElement = ownerDocument.createElement(tag)
+
+    if (tag === "img") {
+      const normalizedSrc = normalizeContentAssetUrl(element.getAttribute("src") || "", apiUrl)
+      if (!normalizedSrc) return null
+      cleanElement.setAttribute("src", normalizedSrc)
+      cleanElement.setAttribute("alt", element.getAttribute("alt") || "report-media")
+      cleanElement.setAttribute("loading", "lazy")
+      cleanElement.setAttribute("referrerpolicy", "no-referrer")
+    }
+
+    if (tag === "a") {
+      const normalizedHref = normalizeContentAssetUrl(element.getAttribute("href") || "", apiUrl)
+      if (normalizedHref) {
+        cleanElement.setAttribute("href", normalizedHref)
+        cleanElement.setAttribute("target", "_blank")
+        cleanElement.setAttribute("rel", "noreferrer noopener")
+      }
+    }
+
+    Array.from(element.childNodes).forEach((child) => {
+      const safeChild = sanitizeNode(child, ownerDocument)
+      if (safeChild) cleanElement.appendChild(safeChild)
+    })
+
+    return cleanElement
+  }
+
+  const safeRoot = document.createElement("div")
+  Array.from(root.childNodes).forEach((child) => {
+    const safeChild = sanitizeNode(child, document)
+    if (safeChild) safeRoot.appendChild(safeChild)
   })
+
+  return safeRoot.innerHTML
 }
 
 function getReasonMeta(reason: string) {
@@ -222,15 +338,20 @@ export default function ReportModal({
 }: ReportModalProps) {
   const API = process.env.NEXT_PUBLIC_API_URL
   const [note, setNote] = useState("")
+  const [renderedTargetContent, setRenderedTargetContent] = useState("")
 
   useEffect(() => {
     setNote(report?.resolution_note ?? "")
   }, [report])
 
-  const renderedTargetContent = useMemo(() => {
+  useEffect(() => {
     const content = report?.target_detail?.content || report?.target_id?.content
-    if (!content) return ""
-    return normalizeReportHtml(content, API)
+    if (!content) {
+      setRenderedTargetContent("")
+      return
+    }
+
+    setRenderedTargetContent(sanitizeReportHtml(content, API))
   }, [API, report?.target_detail?.content, report?.target_id?.content])
 
   if (!report) return null
@@ -253,6 +374,18 @@ export default function ReportModal({
   const targetTitle = report.target_detail?.title || report.target_id?.title
   const reasonMeta = getReasonMeta(report.reason)
   const ReasonIcon = reasonMeta.icon
+  const targetContextLabel =
+    report.target_type === "Chapter" && targetTitle
+      ? `Chapter: ${targetTitle}`
+      : report.target_type === "Manga" && targetTitle
+        ? `Manga: ${targetTitle}`
+        : report.target_type === "Comment" || report.target_type === "Reply"
+          ? (reportedAgainstName ? `${report.target_type} by ${reportedAgainstName}` : report.target_type)
+          : targetTitle || `${report.target_type} target`
+  const targetPreviewLabel =
+    report.target_type === "Comment" || report.target_type === "Reply"
+      ? `${report.target_type} preview`
+      : "Target preview"
 
   const formatDate = (isoString?: string) => {
     if (!isoString) return "N/A"
@@ -279,7 +412,7 @@ export default function ReportModal({
                 Report Review Panel
               </SheetTitle>
               <SheetDescription className="max-w-2xl text-slate-500">
-                Review the report, check the target context, and update
+                Review the report, inspect the captured target context, and update
                 moderation progress without leaving the queue.
               </SheetDescription>
             </div>
@@ -397,9 +530,9 @@ export default function ReportModal({
           <div className="rounded-[26px] border border-slate-200/90 bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-slate-500">Target Preview</p>
+                <p className="text-sm text-slate-500">{targetPreviewLabel}</p>
                 <h3 className="mt-1 text-lg font-semibold text-slate-900">
-                  {targetTitle || `${report.target_type} target`}
+                  {targetContextLabel}
                 </h3>
               </div>
 
@@ -416,6 +549,29 @@ export default function ReportModal({
               </div>
             </div>
 
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Target owner
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-900">
+                  {reportedAgainstName}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">{reportedAgainstEmail}</p>
+              </div>
+
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Source context
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {targetTitle
+                    ? targetTitle
+                    : "This report currently carries metadata only."}
+                </p>
+              </div>
+            </div>
+
             {renderedTargetContent ? (
               <div
                 className="prose prose-sm mt-4 max-w-none rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-slate-700 prose-p:leading-7 prose-img:inline-block prose-img:max-w-10 prose-img:align-middle"
@@ -423,14 +579,14 @@ export default function ReportModal({
               />
             ) : (
               <div className="mt-4 rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                No target content available for this report.
+                No content snapshot was stored with this report.
               </div>
             )}
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
             <div className="rounded-[24px] border border-slate-200/90 bg-white p-5 shadow-sm">
-              <p className="text-sm text-slate-500">Reporter Description</p>
+              <p className="text-sm text-slate-500">Reporter note</p>
               <div className="mt-4 rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-700">
                 {report.description || "No additional description was provided."}
               </div>
@@ -449,8 +605,7 @@ export default function ReportModal({
                 className="mt-4 rounded-[18px] border-slate-200 bg-slate-50"
               />
               <p className="mt-2 text-xs text-slate-500">
-                Save notes without closing the panel, or update the status when
-                the review decision is ready.
+                Save a working note first, then move the report to the right review state.
               </p>
             </div>
           </div>
