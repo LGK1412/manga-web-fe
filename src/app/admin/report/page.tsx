@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import {
   AlertTriangle,
@@ -248,7 +248,10 @@ function SortableHeader({
 
 export default function ReportsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const API = process.env.NEXT_PUBLIC_API_URL;
+  const linkedReportId = searchParams.get("reportId")?.trim() || "";
+  const linkedReportCode = searchParams.get("reportCode")?.trim() || "";
 
   const [reports, setReports] = useState<Report[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -263,6 +266,7 @@ export default function ReportsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deepLinkHandledRef = useRef(false);
   const reportsPerPage = 10;
 
   useEffect(() => {
@@ -303,6 +307,18 @@ export default function ReportsPage() {
       if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!linkedReportId && !linkedReportCode) return;
+
+    deepLinkHandledRef.current = false;
+    setStatusFilter("all");
+    setTypeFilter("all");
+
+    if (linkedReportCode) {
+      setSearchTerm(linkedReportCode);
+    }
+  }, [linkedReportCode, linkedReportId]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -670,6 +686,32 @@ export default function ReportsPage() {
     setIsModalOpen(true);
     setCurrentPage(Math.floor(index / reportsPerPage) + 1);
   };
+
+  useEffect(() => {
+    if (loading || deepLinkHandledRef.current) return;
+    if (!linkedReportId && !linkedReportCode) return;
+    if (!sortedReports.length) return;
+
+    const targetIndex = sortedReports.findIndex((report) => {
+      if (linkedReportId && report._id === linkedReportId) return true;
+      if (
+        linkedReportCode &&
+        String(report.reportCode || "").toLowerCase() === linkedReportCode.toLowerCase()
+      ) {
+        return true;
+      }
+      return false;
+    });
+
+    if (targetIndex < 0) return;
+
+    deepLinkHandledRef.current = true;
+    const report = sortedReports[targetIndex];
+    setHighlightId(report._id);
+    setSelectedReport(report);
+    setIsModalOpen(true);
+    setCurrentPage(Math.floor(targetIndex / reportsPerPage) + 1);
+  }, [linkedReportCode, linkedReportId, loading, sortedReports]);
 
   const handlePreviousReport = () => {
     if (selectedReportIndex <= 0) return;

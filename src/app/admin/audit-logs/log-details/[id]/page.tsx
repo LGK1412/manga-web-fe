@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Copy,
   EyeOff,
+  MessageSquareText,
   RefreshCcw,
   ShieldAlert,
   ShieldCheck,
@@ -33,12 +34,14 @@ import {
   prettyFieldLabel,
   prettyFieldValue,
   prettyRole,
+  resolveAuditTarget,
   resolveAuditActorAvatar,
 } from "@/lib/audit-ui"
 
 const surfaceClass =
-  "rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)] backdrop-blur"
-const insetSurfaceClass = "rounded-xl border border-slate-200/70 bg-slate-50/80"
+  "rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/80 shadow-[0_1px_3px_rgba(15,23,42,0.04)] backdrop-blur"
+const insetSurfaceClass =
+  "rounded-xl border border-slate-200/70 bg-gradient-to-br from-white to-slate-50/85"
 
 type Me = {
   userId?: string
@@ -65,6 +68,12 @@ function getActionTone(action: string) {
       return "border border-amber-200 bg-amber-50 text-amber-700"
     case "mute_user":
       return "border border-blue-200 bg-blue-50 text-blue-700"
+    case "admin_reset_user_status":
+      return "border border-emerald-200 bg-emerald-50 text-emerald-700"
+    case "admin_update_staff_status":
+      return "border border-indigo-200 bg-indigo-50 text-indigo-700"
+    case "admin_set_role":
+      return "border border-violet-200 bg-violet-50 text-violet-700"
     case "request_changes":
       return "border border-violet-200 bg-violet-50 text-violet-700"
     default:
@@ -118,6 +127,190 @@ function DiffObjectView({ obj }: { obj: Record<string, any> }) {
   )
 }
 
+function firstNonEmpty(...values: Array<unknown>) {
+  for (const value of values) {
+    const text = String(value ?? "").trim()
+    if (text) return text
+  }
+  return ""
+}
+
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+}
+
+function extractCommentPlainText(content: string) {
+  return decodeHtmlEntities(String(content || ""))
+    .replace(/<div><br\s*\/?><\/div>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(div|p|li|blockquote|section|article|ul|ol)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+function escapePlainText(content: string) {
+  return content
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br />")
+}
+
+function normalizeCommentHtml(content: string, apiUrl?: string) {
+  const decodedContent = decodeHtmlEntities(content)
+  const normalizedApi = (apiUrl || "").replace(/\/+$/, "")
+  const hasHtml = /<\/?[a-z][\s\S]*>/i.test(decodedContent)
+
+  let html = hasHtml ? decodedContent : escapePlainText(decodedContent)
+  html = html.replace(/<div><br\s*\/?><\/div>/gi, "<br />")
+
+  if (normalizedApi) {
+    html = html.replace(/https?:\/\/localhost:\d+/gi, normalizedApi)
+    html = html.replace(
+      /src=(['"])\/(assets\/emoji\/[^'"]+)\1/gi,
+      `src=$1${normalizedApi}/$2$1`
+    )
+    html = html.replace(
+      /src=(['"])(assets\/emoji\/[^'"]+)\1/gi,
+      `src=$1${normalizedApi}/$2$1`
+    )
+  }
+
+  return html
+}
+
+function normalizeContentAssetUrl(value: string, apiUrl?: string) {
+  const raw = String(value || "").trim()
+  const normalizedApi = (apiUrl || "").replace(/\/+$/, "")
+
+  if (!raw) return ""
+
+  const localhostNormalized = normalizedApi
+    ? raw.replace(/https?:\/\/localhost:\d+/gi, normalizedApi)
+    : raw
+
+  if (/^data:image\//i.test(localhostNormalized)) return localhostNormalized
+  if (/^https?:\/\//i.test(localhostNormalized)) return localhostNormalized
+
+  if (localhostNormalized.startsWith("/") && normalizedApi) {
+    return `${normalizedApi}${localhostNormalized}`
+  }
+
+  if (normalizedApi && /^assets\//i.test(localhostNormalized)) {
+    return `${normalizedApi}/${localhostNormalized.replace(/^\/+/, "")}`
+  }
+
+  return localhostNormalized
+}
+
+function sanitizeAuditCommentHtml(content: string, apiUrl?: string) {
+  if (typeof window === "undefined") return ""
+
+  const allowedTags = new Set([
+    "a",
+    "b",
+    "blockquote",
+    "br",
+    "div",
+    "em",
+    "i",
+    "img",
+    "li",
+    "ol",
+    "p",
+    "span",
+    "strong",
+    "u",
+    "ul",
+  ])
+  const blockedTags = new Set(["iframe", "object", "embed", "script", "style", "link", "meta"])
+  const parser = new window.DOMParser()
+  const doc = parser.parseFromString(`<div>${normalizeCommentHtml(content, apiUrl)}</div>`, "text/html")
+  const root = doc.body.firstElementChild
+
+  if (!root) return ""
+
+  const sanitizeNode = (node: Node, ownerDocument: Document): Node | null => {
+    if (node.nodeType === window.Node.TEXT_NODE) {
+      return ownerDocument.createTextNode(node.textContent || "")
+    }
+
+    if (node.nodeType !== window.Node.ELEMENT_NODE) return null
+
+    const element = node as HTMLElement
+    const tag = element.tagName.toLowerCase()
+
+    if (blockedTags.has(tag)) return null
+
+    if (!allowedTags.has(tag)) {
+      const fragment = ownerDocument.createDocumentFragment()
+      Array.from(element.childNodes).forEach((child) => {
+        const safeChild = sanitizeNode(child, ownerDocument)
+        if (safeChild) fragment.appendChild(safeChild)
+      })
+      return fragment
+    }
+
+    const cleanElement = ownerDocument.createElement(tag)
+
+    if (tag === "img") {
+      const normalizedSrc = normalizeContentAssetUrl(element.getAttribute("src") || "", apiUrl)
+      if (!normalizedSrc) return null
+      cleanElement.setAttribute("src", normalizedSrc)
+      cleanElement.setAttribute("alt", element.getAttribute("alt") || "comment-media")
+      cleanElement.setAttribute("loading", "lazy")
+      cleanElement.setAttribute("referrerpolicy", "no-referrer")
+    }
+
+    if (tag === "a") {
+      const normalizedHref = normalizeContentAssetUrl(element.getAttribute("href") || "", apiUrl)
+      if (normalizedHref) {
+        cleanElement.setAttribute("href", normalizedHref)
+        cleanElement.setAttribute("target", "_blank")
+        cleanElement.setAttribute("rel", "noreferrer noopener")
+      }
+    }
+
+    Array.from(element.childNodes).forEach((child) => {
+      const safeChild = sanitizeNode(child, ownerDocument)
+      if (safeChild) cleanElement.appendChild(safeChild)
+    })
+
+    return cleanElement
+  }
+
+  const safeRoot = document.createElement("div")
+  Array.from(root.childNodes).forEach((child) => {
+    const safeChild = sanitizeNode(child, document)
+    if (safeChild) safeRoot.appendChild(safeChild)
+  })
+
+  return safeRoot.innerHTML
+}
+
+function getAuditCommentHtml(log: any) {
+  return firstNonEmpty(log?.after?.content_html, log?.before?.content_html)
+}
+
+function getAuditCommentPreviewSource(log: any) {
+  return firstNonEmpty(
+    log?.after?.content_html,
+    log?.before?.content_html,
+    log?.after?.content_preview,
+    log?.before?.content_preview
+  )
+}
+
 export default function AuditLogDetailsPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -126,6 +319,7 @@ export default function AuditLogDetailsPage() {
   const [log, setLog] = useState<any>(null)
   const [adminNote, setAdminNote] = useState("")
   const [loading, setLoading] = useState(false)
+  const [renderedCommentHtml, setRenderedCommentHtml] = useState("")
 
   const [me, setMe] = useState<Me | null>(null)
   const [meError, setMeError] = useState<string | null>(null)
@@ -142,6 +336,29 @@ export default function AuditLogDetailsPage() {
   const actorEmail = log?.actor_id?.email || log?.actor_email || "--"
   const actorRole = log?.actor_role || log?.actor_id?.role || "system"
   const actorAvatar = log?.actor_id?.avatar || log?.actor_avatar || log?.actorAvatar
+
+  const targetType = String(log?.target_type || "").toLowerCase()
+  const isCommentLikeRecord =
+    targetType === "comment" ||
+    targetType === "reply" ||
+    String(log?.action || "").startsWith("comment_") ||
+    String(log?.action || "").startsWith("reply_")
+  const commentPreviewSource = useMemo(() => getAuditCommentPreviewSource(log), [log])
+  const commentRenderSource = useMemo(
+    () => firstNonEmpty(getAuditCommentHtml(log), commentPreviewSource),
+    [commentPreviewSource, log]
+  )
+  const commentPlainText = useMemo(
+    () => extractCommentPlainText(commentPreviewSource),
+    [commentPreviewSource]
+  )
+  const commentFallbackText = useMemo(
+    () =>
+      targetType === "reply"
+        ? "This reply contains media or formatting only."
+        : "This comment contains media or formatting only.",
+    [targetType]
+  )
 
   const timeText = log?.createdAt
     ? new Date(log.createdAt).toLocaleString("vi-VN", { hour12: false })
@@ -210,6 +427,20 @@ export default function AuditLogDetailsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [API, id])
 
+  useEffect(() => {
+    if (!isCommentLikeRecord || !commentRenderSource) {
+      setRenderedCommentHtml("")
+      return
+    }
+
+    try {
+      const safeHtml = sanitizeAuditCommentHtml(commentRenderSource, API)
+      setRenderedCommentHtml(safeHtml)
+    } catch {
+      setRenderedCommentHtml("")
+    }
+  }, [API, commentRenderSource, isCommentLikeRecord])
+
   const copyText = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
@@ -266,6 +497,17 @@ export default function AuditLogDetailsPage() {
     }
   }
 
+  const reportCode = log?.reportCode ? String(log.reportCode) : "--"
+  const targetIdentity = resolveAuditTarget(log)
+  const beforeObj: Record<string, any> = normalizeDiff(log, log?.before || {})
+  const afterObj: Record<string, any> = normalizeDiff(log, log?.after || {})
+  const canOpenReport =
+    String(log?.target_type || "").toLowerCase() === "report" && Boolean(log?.target_id)
+  const canEditAdminNote = canAttemptAdminActions && log?.approval !== "approved"
+  const hasDiff = Object.keys(beforeObj).length > 0 || Object.keys(afterObj).length > 0
+  const evidenceImages = Array.isArray(log?.evidenceImages) ? log.evidenceImages : []
+  const hasEvidence = evidenceImages.length > 0
+
   if (!log && !error) {
     return (
       <AdminLayout>
@@ -317,21 +559,10 @@ export default function AuditLogDetailsPage() {
     )
   }
 
-  const targetType = log?.target_type ? String(log.target_type) : "--"
-  const reportCode = log?.reportCode ? String(log.reportCode) : "--"
-  const targetTypeLabel = targetType === "--" ? "--" : targetType.replaceAll("_", " ")
-  const beforeObj: Record<string, any> = normalizeDiff(log, log?.before || {})
-  const afterObj: Record<string, any> = normalizeDiff(log, log?.after || {})
-  const canOpenReport =
-    String(log?.target_type || "").toLowerCase() === "report" && Boolean(log?.target_id)
-  const canEditAdminNote = canAttemptAdminActions && log?.approval !== "approved"
-  const hasDiff = Object.keys(beforeObj).length > 0 || Object.keys(afterObj).length > 0
-  const evidenceImages = Array.isArray(log?.evidenceImages) ? log.evidenceImages : []
-
   return (
     <AdminLayout>
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-2 py-2">
-        <Card className={surfaceClass}>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 bg-gradient-to-br from-amber-50/20 via-white to-sky-50/25 px-2 py-2">
+        <Card className={`${surfaceClass} bg-gradient-to-br from-white via-white to-amber-50/55`}>
           <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -343,7 +574,7 @@ export default function AuditLogDetailsPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <Badge className={riskBadge}>
+                <Badge variant="outline" className={riskBadge}>
                   {log.risk === "high" ? (
                     <ShieldAlert className="mr-1 h-3.5 w-3.5" />
                   ) : (
@@ -351,8 +582,8 @@ export default function AuditLogDetailsPage() {
                   )}
                   {log.risk ?? "low"}
                 </Badge>
-                <Badge className={seenBadge}>{log.seen ? "Seen" : "Unseen"}</Badge>
-                <Badge className={approvalBadge}>{String(log.approval ?? "pending")}</Badge>
+                <Badge variant="outline" className={seenBadge}>{log.seen ? "Seen" : "Unseen"}</Badge>
+                <Badge variant="outline" className={approvalBadge}>{String(log.approval ?? "pending")}</Badge>
               </div>
 
               <p className="max-w-3xl text-sm leading-6 text-slate-700">
@@ -360,9 +591,11 @@ export default function AuditLogDetailsPage() {
               </p>
 
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-slate-700">
-                  {reportCode}
-                </span>
+                {reportCode !== "--" && (
+                  <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-slate-700">
+                    {reportCode}
+                  </span>
+                )}
 
                 {reportCode !== "--" && (
                   <Button
@@ -384,7 +617,18 @@ export default function AuditLogDetailsPage() {
                     size="sm"
                     variant="outline"
                     className="rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                    onClick={() => router.push("/admin/report")}
+                    onClick={() => {
+                      const params = new URLSearchParams()
+                      const reportId = String(log?.target_id || "").trim()
+                      const reportCodeValue = String(log?.reportCode || "").trim()
+
+                      if (reportId) params.set("reportId", reportId)
+                      if (reportCodeValue) params.set("reportCode", reportCodeValue)
+
+                      router.push(
+                        `/admin/report${params.toString() ? `?${params.toString()}` : ""}`,
+                      )
+                    }}
                   >
                     Open report workspace
                   </Button>
@@ -420,122 +664,119 @@ export default function AuditLogDetailsPage() {
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-5">
-            <Card className={surfaceClass}>
-              <CardHeader className="pb-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <CardTitle className="text-base font-semibold text-slate-950">
-                      Record details
-                    </CardTitle>
-                    <p className="text-sm leading-6 text-slate-500">
-                      Core metadata for this audit entry.
-                    </p>
-                  </div>
+            {isCommentLikeRecord && (
+              <Card className={`${surfaceClass} bg-gradient-to-br from-white via-white to-amber-50/50`}>
+                <CardHeader className="pb-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-950">
+                        <MessageSquareText className="h-4 w-4 text-amber-600" />
+                        {targetType === "reply" ? "Reply preview" : "Comment preview"}
+                      </CardTitle>
+                      <p className="text-sm leading-6 text-slate-500">
+                        Captured content from this audit entry, shown separately so the change log stays easier to scan.
+                      </p>
+                    </div>
 
-                  <Badge
-                    variant="outline"
-                    className="w-fit border-slate-200 bg-slate-100 text-slate-700"
-                  >
-                    {targetTypeLabel}
-                  </Badge>
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-5">
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  <div className={`${insetSurfaceClass} p-4`}>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                      Action
-                    </p>
-                    <Badge className={`mt-3 text-xs ${getActionTone(log.action)}`}>
-                      {prettyAction(log.action)}
+                    <Badge
+                      variant="outline"
+                      className="w-fit max-w-full whitespace-normal border-amber-200 bg-amber-50 text-left leading-5 text-amber-700"
+                    >
+                      {targetIdentity.label}
                     </Badge>
                   </div>
+                </CardHeader>
 
-                  <div className={`${insetSurfaceClass} p-4`}>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                      Logged at
-                    </p>
-                    <p className="mt-3 text-sm font-medium text-slate-900">{timeText}</p>
+                <CardContent className="space-y-4">
+                  <div className="rounded-[24px] border border-amber-200/70 bg-white/95 p-5 shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
+                    {renderedCommentHtml ? (
+                      <div
+                        className="space-y-3 whitespace-pre-wrap break-words text-sm leading-7 text-slate-700 [&_a]:text-sky-700 [&_a]:underline [&_blockquote]:rounded-2xl [&_blockquote]:border [&_blockquote]:border-slate-200 [&_blockquote]:bg-slate-50 [&_blockquote]:px-4 [&_blockquote]:py-3 [&_div]:min-h-[1.5rem] [&_img]:inline-block [&_img]:max-h-24 [&_img]:w-auto [&_img]:align-middle [&_img]:rounded-md [&_p]:mb-3 [&_p:last-child]:mb-0]"
+                        dangerouslySetInnerHTML={{ __html: renderedCommentHtml }}
+                      />
+                    ) : (
+                      <p className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-700">
+                        {commentPlainText || commentFallbackText}
+                      </p>
+                    )}
                   </div>
 
-                  <div className={`${insetSurfaceClass} p-4`}>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                      Report code
-                    </p>
-                    <p className="mt-3 font-mono text-xs text-slate-700">{reportCode}</p>
-                  </div>
+                  {(log?.note || targetIdentity.meta !== "--") && (
+                    <div className="flex flex-col gap-3 md:flex-row">
+                      {targetIdentity.meta !== "--" && (
+                        <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
+                          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                            Linked record
+                          </span>
+                          <p className="mt-1 break-all text-slate-700">{targetIdentity.meta}</p>
+                        </div>
+                      )}
 
-                  <div className={`${insetSurfaceClass} p-4`}>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                      Target
-                    </p>
-                    <p className="mt-3 text-sm font-medium text-slate-900">{targetTypeLabel}</p>
-                  </div>
-                </div>
+                      {log?.note && (
+                        <div className="flex-1 rounded-xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
+                          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                            Moderator note
+                          </span>
+                          <p className="mt-1 whitespace-pre-wrap break-words text-slate-700">
+                            {String(log.note)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
-                {log?.note && (
-                  <div className={`${insetSurfaceClass} p-4`}>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                      Moderator note
-                    </p>
-                    <Textarea
-                      value={String(log.note)}
-                      readOnly
-                      className="mt-3 min-h-[120px] resize-none rounded-xl border-slate-200 bg-white/80 text-xs text-slate-700"
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className={surfaceClass}>
+            <Card className={`${surfaceClass} bg-gradient-to-br from-white via-white to-emerald-50/30`}>
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-semibold text-slate-950">
                   Change details
                 </CardTitle>
                 <p className="text-sm leading-6 text-slate-500">
-                  Compare snapshots and inspect any evidence attached to this record.
+                  {hasEvidence
+                    ? "Compare snapshots and inspect the supporting evidence attached to this record."
+                    : "Compare the captured before and after snapshots for this record."}
                 </p>
               </CardHeader>
 
               <CardContent>
-                <Tabs defaultValue="diff" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 rounded-xl bg-slate-100 p-1">
-                    <TabsTrigger value="diff" className="rounded-lg">
-                      Before / After
-                    </TabsTrigger>
-                    <TabsTrigger value="evidence" className="rounded-lg">
-                      Evidence
-                    </TabsTrigger>
-                  </TabsList>
+                {hasEvidence ? (
+                  <Tabs defaultValue="diff" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 rounded-xl bg-slate-100 p-1">
+                      <TabsTrigger value="diff" className="rounded-lg">
+                        Before / After
+                      </TabsTrigger>
+                      <TabsTrigger value="evidence" className="rounded-lg">
+                        Evidence
+                      </TabsTrigger>
+                    </TabsList>
 
-                  <TabsContent value="diff" className="mt-4">
-                    {hasDiff ? (
-                      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                        <div className="rounded-xl border border-rose-200/80 bg-rose-50/60 p-4">
-                          <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-700">
-                            Before
+                    <TabsContent value="diff" className="mt-4">
+                      {hasDiff ? (
+                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                          <div className="rounded-xl border border-rose-200/80 bg-rose-50/60 p-4">
+                            <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-700">
+                              Before
+                            </div>
+                            <DiffObjectView obj={beforeObj} />
                           </div>
-                          <DiffObjectView obj={beforeObj} />
-                        </div>
 
-                        <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-4">
-                          <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
-                            After
+                          <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-4">
+                            <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                              After
+                            </div>
+                            <DiffObjectView obj={afterObj} />
                           </div>
-                          <DiffObjectView obj={afterObj} />
                         </div>
-                      </div>
-                    ) : (
-                      <div className={`${insetSurfaceClass} p-4 text-sm text-slate-500`}>
-                        No before/after snapshot was recorded for this entry.
-                      </div>
-                    )}
-                  </TabsContent>
+                      ) : (
+                        <div className={`${insetSurfaceClass} p-4 text-sm text-slate-500`}>
+                          No before/after snapshot was recorded for this entry.
+                        </div>
+                      )}
+                    </TabsContent>
 
-                  <TabsContent value="evidence" className="mt-4">
-                    {evidenceImages.length > 0 ? (
+                    <TabsContent value="evidence" className="mt-4">
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         {evidenceImages.map((src: string, idx: number) => (
                           <div
@@ -551,13 +792,29 @@ export default function AuditLogDetailsPage() {
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <div className={`${insetSurfaceClass} p-4 text-sm text-slate-500`}>
-                        No evidence attached.
+                    </TabsContent>
+                  </Tabs>
+                ) : hasDiff ? (
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <div className="rounded-xl border border-rose-200/80 bg-rose-50/60 p-4">
+                      <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-700">
+                        Before
                       </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
+                      <DiffObjectView obj={beforeObj} />
+                    </div>
+
+                    <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-4">
+                      <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                        After
+                      </div>
+                      <DiffObjectView obj={afterObj} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`${insetSurfaceClass} p-4 text-sm text-slate-500`}>
+                    No before/after snapshot was recorded for this entry.
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -565,10 +822,10 @@ export default function AuditLogDetailsPage() {
           <Card className={`${surfaceClass} lg:sticky lg:top-4 lg:self-start`}>
             <CardHeader className="pb-4">
               <CardTitle className="text-base font-semibold text-slate-950">
-                Review panel
+                Review actions
               </CardTitle>
               <p className="text-sm leading-6 text-slate-500">
-                Actor context, admin note, and moderation actions in one place.
+                Confirm the actor, add an admin note if needed, then complete the review action.
               </p>
             </CardHeader>
 
@@ -605,17 +862,14 @@ export default function AuditLogDetailsPage() {
 
               <Separator className="bg-slate-200/80" />
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-slate-900">Admin note</p>
-                  <Badge className={approvalBadge}>{String(log.approval ?? "pending")}</Badge>
-                </div>
+              <div className="space-y-2.5">
+                <p className="text-sm font-semibold text-slate-900">Admin note</p>
 
                 <Textarea
                   value={adminNote}
                   onChange={(e) => setAdminNote(e.target.value)}
                   disabled={loading || !canEditAdminNote}
-                  className="min-h-[140px] rounded-xl border-slate-200 bg-white/80 text-sm text-slate-700"
+                  className="min-h-[132px] rounded-xl border-slate-200 bg-white/80 text-sm text-slate-700"
                   placeholder={
                     !canAttemptAdminActions
                       ? "Admin only"
@@ -626,42 +880,49 @@ export default function AuditLogDetailsPage() {
                 />
                 <p className="text-xs leading-5 text-slate-500">
                   {log?.approval === "approved"
-                    ? "This note is no longer editable after approval."
-                    : "This note is submitted together with Approve. Backend still enforces permission for approve and seen actions."}
+                    ? "This note is locked after approval."
+                    : "This note is submitted together with Approve."}
                 </p>
               </div>
 
               <Separator className="bg-slate-200/80" />
 
-              <div className="space-y-2">
-                {!log.seen && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  {!log.seen && (
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-xl border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                      onClick={handleMarkSeen}
+                      disabled={loading || !canAttemptAdminActions}
+                      title={!canAttemptAdminActions ? "Admin only" : ""}
+                    >
+                      <EyeOff className="mr-2 h-4 w-4" />
+                      Mark seen
+                    </Button>
+                  )}
+
+                  {log.approval === "pending" && (
+                    <Button
+                      className="w-full rounded-xl bg-slate-900 text-white hover:bg-slate-800"
+                      onClick={handleApprove}
+                      disabled={loading || !canAttemptAdminActions}
+                      title={!canAttemptAdminActions ? "Admin only" : ""}
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Approve
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-2 border-t border-slate-200/80 pt-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Utilities
+                  </p>
+
                   <Button
                     variant="outline"
-                    className="w-full rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                    onClick={handleMarkSeen}
-                    disabled={loading || !canAttemptAdminActions}
-                    title={!canAttemptAdminActions ? "Admin only" : ""}
-                  >
-                    <EyeOff className="mr-2 h-4 w-4" />
-                    Mark seen
-                  </Button>
-                )}
-
-                {log.approval === "pending" && (
-                  <Button
-                    className="w-full rounded-xl bg-slate-900 text-white hover:bg-slate-800"
-                    onClick={handleApprove}
-                    disabled={loading || !canAttemptAdminActions}
-                    title={!canAttemptAdminActions ? "Admin only" : ""}
-                  >
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Approve
-                  </Button>
-                )}
-
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                  <Button
-                    variant="outline"
+                    size="sm"
                     className="w-full rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                     onClick={fetchLog}
                     disabled={loading}
@@ -672,6 +933,7 @@ export default function AuditLogDetailsPage() {
 
                   <Button
                     variant="ghost"
+                    size="sm"
                     className="w-full rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                     onClick={fetchMe}
                     disabled={loading}

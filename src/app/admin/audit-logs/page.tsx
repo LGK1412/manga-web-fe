@@ -87,6 +87,13 @@ function formatTime(iso?: string) {
   return d.toLocaleString("vi-VN", { hour12: false })
 }
 
+function formatDateInput(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
 const surfaceClass =
   "rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)] backdrop-blur"
 const insetSurfaceClass = "rounded-xl border border-slate-200/70 bg-slate-50/80"
@@ -158,6 +165,10 @@ async function readBlobErrorMessage(err: any) {
 export default function AuditLogsPage() {
   const API = process.env.NEXT_PUBLIC_API_URL
   const router = useRouter()
+  const defaultCustomTo = formatDateInput(new Date())
+  const defaultCustomFrom = formatDateInput(
+    new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
+  )
 
   const [me, setMe] = useState<Me | null>(null)
   const [meError, setMeError] = useState<string | null>(null)
@@ -179,6 +190,8 @@ export default function AuditLogsPage() {
   const [actionFilter, setActionFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [dateFilter, setDateFilter] = useState("7days")
+  const [customFrom, setCustomFrom] = useState(defaultCustomFrom)
+  const [customTo, setCustomTo] = useState(defaultCustomTo)
   const [highRiskOnly, setHighRiskOnly] = useState(false)
 
   const [currentPage, setCurrentPage] = useState(1)
@@ -207,18 +220,34 @@ export default function AuditLogsPage() {
   }, [API])
 
   /** ✅ Fetch from BE */
+  const hasCustomRange = dateFilter === "custom"
+  const isCustomRangeInvalid =
+    hasCustomRange && Boolean(customFrom) && Boolean(customTo) && customFrom > customTo
+
   const buildListParams = () => ({
     search: debouncedSearch || undefined,
     role: roleFilter !== "all" ? roleFilter : undefined,
     action: actionFilter !== "all" ? actionFilter : undefined,
     status: statusFilter !== "all" ? statusFilter : undefined,
     risk: highRiskOnly ? "high" : undefined,
-    dateRange: dateFilter !== "all" ? dateFilter : undefined,
+    dateRange:
+      dateFilter !== "all" && dateFilter !== "custom" ? dateFilter : undefined,
+    from: hasCustomRange && customFrom ? customFrom : undefined,
+    to: hasCustomRange && customTo ? customTo : undefined,
   })
 
   const fetchLogs = async () => {
     if (!API) {
       setListError("Missing NEXT_PUBLIC_API_URL.")
+      setLogs([])
+      setSummary(emptySummary)
+      setTotalPages(1)
+      setTotalRows(0)
+      return
+    }
+
+    if (isCustomRangeInvalid) {
+      setListError("Start date must be on or before end date.")
       setLogs([])
       setSummary(emptySummary)
       setTotalPages(1)
@@ -270,7 +299,18 @@ export default function AuditLogsPage() {
   useEffect(() => {
     fetchLogs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [API, currentPage, roleFilter, actionFilter, statusFilter, highRiskOnly, dateFilter, debouncedSearch])
+  }, [
+    API,
+    currentPage,
+    roleFilter,
+    actionFilter,
+    statusFilter,
+    highRiskOnly,
+    dateFilter,
+    customFrom,
+    customTo,
+    debouncedSearch,
+  ])
 
   /** ✅ fetch on search with debounce */
   useEffect(() => {
@@ -324,17 +364,28 @@ export default function AuditLogsPage() {
       toast.error("Admin only")
       return
     }
+    if (isCustomRangeInvalid) {
+      toast.error("Start date must be on or before end date.")
+      return
+    }
+    if (summary.unseen === 0) {
+      toast.error("No unseen logs match the current filters.")
+      return
+    }
 
     const endpoint = `${API}/api/audit-logs/seen-all`
     try {
       setLoading(true)
-      const res = await axios.patch(endpoint, {}, { withCredentials: true })
+      const res = await axios.patch(endpoint, {}, {
+        params: buildListParams(),
+        withCredentials: true,
+      })
       await fetchLogs()
       const updatedCount = Number(res.data?.updated ?? 0)
       toast.success(
         updatedCount > 0
-          ? `Marked ${updatedCount} log(s) as seen.`
-          : "No unseen logs needed updating.",
+          ? `Marked ${updatedCount} matching log(s) as seen.`
+          : "No unseen logs matched the current filters.",
       )
     } catch (err: any) {
       const msg =
@@ -404,6 +455,10 @@ export default function AuditLogsPage() {
   /** ✅ CSV: bỏ technical columns */
   const handleExportCSV = async () => {
     if (!API) return
+    if (isCustomRangeInvalid) {
+      toast.error("Start date must be on or before end date.")
+      return
+    }
     if (summary.total === 0) {
       toast.error("No logs match the current filters.")
       return
@@ -481,6 +536,12 @@ export default function AuditLogsPage() {
         return "border border-blue-200 bg-blue-50 text-blue-700"
       case "ban_user":
         return "border border-rose-200 bg-rose-50 text-rose-700"
+      case "admin_reset_user_status":
+        return "border border-emerald-200 bg-emerald-50 text-emerald-700"
+      case "admin_update_staff_status":
+        return "border border-indigo-200 bg-indigo-50 text-indigo-700"
+      case "admin_set_role":
+        return "border border-violet-200 bg-violet-50 text-violet-700"
       case "request_changes":
         return "border border-violet-200 bg-violet-50 text-violet-700"
       case "auto_reject":
@@ -546,7 +607,7 @@ export default function AuditLogsPage() {
                 disabled={loading || !canAttemptAdminActions}
                 title={!canAttemptAdminActions ? "Admin only" : ""}
               >
-                Mark all as seen
+                Mark matching as seen
               </Button>
 
               <Button
@@ -643,6 +704,11 @@ export default function AuditLogsPage() {
                   <SelectItem value="comment_restored">Comment - Restored</SelectItem>
                   <SelectItem value="reply_hidden">Reply - Hidden</SelectItem>
                   <SelectItem value="reply_restored">Reply - Restored</SelectItem>
+                  <SelectItem value="mute_user">User - Muted</SelectItem>
+                  <SelectItem value="ban_user">User - Banned</SelectItem>
+                  <SelectItem value="admin_reset_user_status">User - Reset Status</SelectItem>
+                  <SelectItem value="admin_update_staff_status">Staff - Status Updated</SelectItem>
+                  <SelectItem value="admin_set_role">User - Role Updated</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -668,6 +734,7 @@ export default function AuditLogsPage() {
                   <SelectItem value="today">Today</SelectItem>
                   <SelectItem value="7days">Last 7 Days</SelectItem>
                   <SelectItem value="30days">Last 30 Days</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -682,6 +749,46 @@ export default function AuditLogsPage() {
                 <span className="text-sm text-slate-700">High Risk Only</span>
               </div>
             </div>
+
+            {hasCustomRange && (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    From
+                  </label>
+                  <Input
+                    type="date"
+                    value={customFrom}
+                    onChange={(event) => {
+                      setCustomFrom(event.target.value)
+                      setCurrentPage(1)
+                    }}
+                    className="border-slate-200 bg-white/80 text-slate-700"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    To
+                  </label>
+                  <Input
+                    type="date"
+                    value={customTo}
+                    onChange={(event) => {
+                      setCustomTo(event.target.value)
+                      setCurrentPage(1)
+                    }}
+                    className="border-slate-200 bg-white/80 text-slate-700"
+                  />
+                </div>
+              </div>
+            )}
+
+            {hasCustomRange && isCustomRangeInvalid && (
+              <p className="text-xs text-rose-700">
+                Start date must be on or before end date.
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -706,12 +813,12 @@ export default function AuditLogsPage() {
                   <TableRow className="bg-slate-50/80">
                     <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Time</TableHead>
                     <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Actor</TableHead>
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Action</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Event</TableHead>
                     <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Message</TableHead>
                     <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Risk</TableHead>
                     <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Status</TableHead>
                     <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Approval</TableHead>
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Actions</TableHead>
+                    <TableHead className="text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Review</TableHead>
                   </TableRow>
                 </TableHeader>
 
@@ -798,7 +905,10 @@ export default function AuditLogsPage() {
                         </TableCell>
 
                         <TableCell>
-                          <Badge className={`text-xs ${getActionColor(log.action)}`}>
+                          <Badge
+                            variant="outline"
+                            className={`pointer-events-none text-xs ${getActionColor(log.action)}`}
+                          >
                             {prettyAction(log.action)}
                           </Badge>
                         </TableCell>
@@ -815,7 +925,7 @@ export default function AuditLogsPage() {
                         </TableCell>
 
                         <TableCell>
-                          <Badge className={`text-xs ${getRiskColor(log.risk)}`}>
+                          <Badge variant="outline" className={`text-xs ${getRiskColor(log.risk)}`}>
                             {log.risk === "high" && <AlertTriangle className="h-3 w-3 mr-1" />}
                             {log.risk}
                           </Badge>
@@ -824,7 +934,7 @@ export default function AuditLogsPage() {
                         <TableCell>
                           {!log.seen ? (
                             <Badge
-                              variant="secondary"
+                              variant="outline"
                               className="border border-orange-200 bg-orange-50 text-orange-700"
                             >
                               NEW
@@ -836,7 +946,7 @@ export default function AuditLogsPage() {
 
                         <TableCell>
                           <Badge
-                            variant={log.approval === "approved" ? "default" : "outline"}
+                            variant="outline"
                             className={`text-xs ${
                               log.approval === "approved"
                                 ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -848,41 +958,44 @@ export default function AuditLogsPage() {
                         </TableCell>
 
                         {/* ✅ Actions */}
-                        <TableCell className="text-right space-x-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="rounded-xl border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                            onClick={() => router.push(`/admin/audit-logs/log-details/${log.id}`)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-
-                          {!log.seen && (
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
                             <Button
                               size="sm"
                               variant="outline"
-                              className="rounded-xl border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                              onClick={() => handleMarkSeen(log.id)}
-                              disabled={loading || !canAttemptAdminActions}
-                              title={!canAttemptAdminActions ? "Admin only" : ""}
+                              className="rounded-xl border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:text-sky-800"
+                              onClick={() => router.push(`/admin/audit-logs/log-details/${log.id}`)}
+                              title="Open details"
                             >
-                              <EyeOff className="h-4 w-4" />
+                              <Eye className="h-4 w-4" />
                             </Button>
-                          )}
 
-                          {log.approval === "pending" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="rounded-xl border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                              onClick={() => handleApprove(log.id)}
-                              disabled={loading || !canAttemptAdminActions}
-                              title={!canAttemptAdminActions ? "Admin only" : ""}
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                            {!log.seen && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="rounded-xl border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                                onClick={() => handleMarkSeen(log.id)}
+                                disabled={loading || !canAttemptAdminActions}
+                                title={!canAttemptAdminActions ? "Admin only" : "Mark as seen"}
+                              >
+                                <EyeOff className="h-4 w-4" />
+                              </Button>
+                            )}
+
+                            {log.approval === "pending" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="rounded-xl border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+                                onClick={() => handleApprove(log.id)}
+                                disabled={loading || !canAttemptAdminActions}
+                                title={!canAttemptAdminActions ? "Admin only" : "Approve record"}
+                              >
+                                <CheckCircle2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
