@@ -1,15 +1,7 @@
 export type AIStatus = "AI_PENDING" | "AI_WARN" | "AI_BLOCK" | "AI_PASSED";
-export type Decision = "approve" | "reject" | "request_changes";
-export type ModerationResolutionStatus =
-  | "OPEN"
-  | "APPROVED"
-  | "CHANGES_REQUESTED"
-  | "REJECTED";
-export type ModeratorNextStep =
-  | "approve"
-  | "request_changes"
-  | "reject"
-  | "escalate";
+export type Decision = "approve" | "reject";
+export type ModerationResolutionStatus = "OPEN" | "APPROVED" | "REJECTED";
+export type ModeratorNextStep = "approve" | "reject" | "escalate";
 
 export interface FindingAdvice {
   moderator: {

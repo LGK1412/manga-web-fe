@@ -20,6 +20,7 @@ type Chapter = {
   content?: string | null;
   images?: string[];
   createdAt?: string;
+  authorId?: string | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -101,6 +102,10 @@ export default function ChapterContent() {
     () => (finalContent ? finalContent.replace(/<[^>]*>/g, "") : ""),
     [finalContent]
   );
+  const isOwnChapter =
+    !!user?.user_id &&
+    !!chapterInfo?.authorId &&
+    String(user.user_id) === String(chapterInfo.authorId);
 
   // ===== Handlers =====
   const handleTranslate = async () => {
@@ -124,6 +129,14 @@ export default function ChapterContent() {
   };
 
   const openReportDialog = () => {
+    if (isOwnChapter) {
+      toast({
+        title: "Action not allowed",
+        description: "You cannot report your own chapter.",
+        variant: "destructive",
+      });
+      return;
+    }
     setReportDialogOpen(true);
   };
 
@@ -150,13 +163,20 @@ export default function ChapterContent() {
       });
       return;
     }
+    if (isOwnChapter) {
+      toast({
+        title: "Action not allowed",
+        description: "You cannot report your own chapter.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmittingReport(true);
     try {
       await axios.post(
         `${API_BASE}/api/reports`,
         {
-          reporter_id: user.user_id,
           target_type: "Chapter",
           target_id: chapterInfo._id,
           reason,
@@ -198,17 +218,19 @@ export default function ChapterContent() {
           )}
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          type="button"
-          className="shrink-0 rounded-xl border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
-          onClick={openReportDialog}
-          title="Report this chapter"
-        >
-          <Flag className="w-4 h-4 mr-1" />
-          Report
-        </Button>
+        {!isOwnChapter ? (
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            className="shrink-0 rounded-xl border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
+            onClick={openReportDialog}
+            title="Report this chapter"
+          >
+            <Flag className="w-4 h-4 mr-1" />
+            Report
+          </Button>
+        ) : null}
       </div>
 
       {/* Text chapter */}

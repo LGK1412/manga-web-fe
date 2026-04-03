@@ -58,16 +58,10 @@ export type FetchQueueOptions = {
   forceDetailRefresh?: boolean;
 };
 
-export type ActionState = "approve" | "reject" | "publish" | "unpublish" | null;
+export type ActionState = "approve" | "reject" | null;
 
 export type ActionFeedback = {
   tone: "success" | "error";
   title: string;
   message: string;
-};
-
-export type DecisionSummary = {
-  toneClassName: string;
-  title: string;
-  description: string;
 };

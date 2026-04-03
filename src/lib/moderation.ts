@@ -47,14 +47,8 @@ export type ModerationRecordFromBE = {
   is_published?: boolean;
 };
 
-export async function fetchQueue(params?: { status?: AIStatus | null; limit?: number }): Promise<QueueItem[]> {
-  const res = await api.get("/moderation/queue", {
-    params: params?.status ? { status: params.status } : {},
-  });
-
-  const rows: QueueRowFromBE[] = Array.isArray(res.data) ? res.data : [];
-
-  return rows.map((row) => ({
+function mapQueueRow(row: QueueRowFromBE): QueueItem {
+  return {
     chapterId: row.chapter_id,
     title: row.chapterTitle || "Untitled",
     mangaTitle: row.mangaTitle || "-",
@@ -67,7 +61,25 @@ export async function fetchQueue(params?: { status?: AIStatus | null; limit?: nu
     resolved_at: row.resolved_at ?? null,
     labels: Array.isArray(row.labels) ? row.labels : [],
     updatedAt: row.updatedAt,
-  }));
+  };
+}
+
+export async function fetchQueue(params?: {
+  status?: AIStatus | null;
+  limit?: number;
+}): Promise<QueueItem[]> {
+  const res = await api.get("/moderation/queue", {
+    params: {
+      ...(params?.status ? { status: params.status } : {}),
+      ...(params?.limit ? { limit: params.limit } : {}),
+    },
+  });
+
+  const rows: QueueRowFromBE[] = Array.isArray(res.data)
+    ? res.data
+    : [];
+
+  return rows.map(mapQueueRow);
 }
 
 export async function fetchModerationRecord(chapterId: string): Promise<ModerationRecord> {

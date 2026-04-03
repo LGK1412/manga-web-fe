@@ -13,12 +13,13 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Search, X } from "lucide-react";
-import type { AIStatus } from "@/lib/typesLogs";
+import type { AIStatus, ModerationResolutionStatus } from "@/lib/typesLogs";
 
 interface QueueFiltersProps {
   onFiltersChange: (filters: {
     search: string;
     status: AIStatus | null;
+    resolutionStatus: ModerationResolutionStatus | null;
     riskRange: [number, number];
   }) => void;
 }
@@ -36,16 +37,21 @@ const RISK_PRESETS: Array<{
 export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | AIStatus>("all");
+  const [resolutionStatus, setResolutionStatus] =
+    useState<"all" | ModerationResolutionStatus>("all");
   const [riskRange, setRiskRange] = useState<[number, number]>([0, 100]);
 
   const emitFilters = (
     nextSearch = search,
     nextStatus: "all" | AIStatus = status,
+    nextResolutionStatus: "all" | ModerationResolutionStatus = resolutionStatus,
     nextRiskRange: [number, number] = riskRange
   ) => {
     onFiltersChange({
       search: nextSearch,
       status: nextStatus === "all" ? null : nextStatus,
+      resolutionStatus:
+        nextResolutionStatus === "all" ? null : nextResolutionStatus,
       riskRange: nextRiskRange,
     });
   };
@@ -60,13 +66,13 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
           onChange={(e) => {
             const value = e.target.value;
             setSearch(value);
-            emitFilters(value, status, riskRange);
+            emitFilters(value, status, resolutionStatus, riskRange);
           }}
           className="flex-1"
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="space-y-2">
           <label className="text-sm font-medium block">AI Status</label>
           <Select
@@ -74,7 +80,7 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
             onValueChange={(value) => {
               const nextStatus = value as "all" | AIStatus;
               setStatus(nextStatus);
-              emitFilters(search, nextStatus, riskRange);
+              emitFilters(search, nextStatus, resolutionStatus, riskRange);
             }}
           >
             <SelectTrigger>
@@ -86,6 +92,29 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
               <SelectItem value="AI_WARN">Warning</SelectItem>
               <SelectItem value="AI_BLOCK">Blocked</SelectItem>
               <SelectItem value="AI_PASSED">Passed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium block">Resolution</label>
+          <Select
+            value={resolutionStatus}
+            onValueChange={(value) => {
+              const nextResolutionStatus =
+                value as "all" | ModerationResolutionStatus;
+              setResolutionStatus(nextResolutionStatus);
+              emitFilters(search, status, nextResolutionStatus, riskRange);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Resolutions</SelectItem>
+              <SelectItem value="OPEN">Pending Review</SelectItem>
+              <SelectItem value="APPROVED">Approved</SelectItem>
+              <SelectItem value="REJECTED">Rejected</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -110,7 +139,7 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
                     variant={active ? "default" : "outline"}
                     onClick={() => {
                       setRiskRange(preset.range);
-                      emitFilters(search, status, preset.range);
+                      emitFilters(search, status, resolutionStatus, preset.range);
                     }}
                   >
                     {preset.label}
@@ -128,7 +157,7 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
             onValueChange={(value) => {
               const nextRange: [number, number] = [value[0], value[1]];
               setRiskRange(nextRange);
-              emitFilters(search, status, nextRange);
+              emitFilters(search, status, resolutionStatus, nextRange);
             }}
             className="w-full"
           />
@@ -140,16 +169,19 @@ export function QueueFilters({ onFiltersChange }: QueueFiltersProps) {
           variant="outline"
           onClick={() => {
             const resetSearch = "";
-            const resetStatus: "all" = "all";
+            const resetStatus = "all" as const;
+            const resetResolutionStatus = "all" as const;
             const resetRange: [number, number] = [0, 100];
 
             setSearch(resetSearch);
             setStatus(resetStatus);
+            setResolutionStatus(resetResolutionStatus);
             setRiskRange(resetRange);
 
             onFiltersChange({
               search: resetSearch,
               status: null,
+              resolutionStatus: null,
               riskRange: resetRange,
             });
           }}

@@ -503,6 +503,8 @@ export default function MangaDetailPage() {
 
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const isOwnStory =
+    !!userId && !!manga?.author?._id && String(userId) === String(manga.author._id);
 
   const handleSubmitReport = async ({
     reason,
@@ -519,13 +521,20 @@ export default function MangaDetailPage() {
       });
       return;
     }
+    if (isOwnStory) {
+      toast({
+        title: "Action not allowed",
+        description: "You cannot report your own story.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmittingReport(true);
     try {
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
         {
-          reporter_id: userId,
           target_type: "Manga",
           target_id: manga?._id,
           reason,
@@ -751,16 +760,18 @@ export default function MangaDetailPage() {
                         {isFavourite ? "Favorited" : "Add to favorites"}
                       </Button>
 
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        onClick={() => setReportDialogOpen(true)}
-                        type="button"
-                        className="min-w-[140px] justify-center border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
-                      >
-                        <Flag className="mr-2 w-4 h-4 flex-shrink-0" />
-                        Report
-                      </Button>
+                      {!isOwnStory ? (
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          onClick={() => setReportDialogOpen(true)}
+                          type="button"
+                          className="min-w-[140px] justify-center border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
+                        >
+                          <Flag className="mr-2 w-4 h-4 flex-shrink-0" />
+                          Report
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -912,7 +923,6 @@ export default function MangaDetailPage() {
                         await axios.post(
                           `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
                           {
-                            reporter_id: userId,
                             target_type: "Manga",
                             target_id: manga._id,
                             reason: reportReason,

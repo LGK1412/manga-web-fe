@@ -1,414 +1,525 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  CheckCircle2,
-  AlertTriangle,
-  AlertCircle,
-  MapPinned,
-  WandSparkles,
-  ArrowRight,
-  Copy,
-  Check,
-  Mail,
-} from "lucide-react";
+import { Card } from "@/components/ui/card";
 import {
   buildAuthorRevisionDraft,
+  type FindingMatchStrategy,
   type ProcessedFinding,
 } from "@/lib/moderation-findings";
+import { cn } from "@/lib/utils";
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Copy,
+  Mail,
+} from "lucide-react";
+
+type FindingsPanelProps = {
+  findings: ProcessedFinding[];
+  activeFindingId?: string | null;
+  onSelectFinding: (findingId: string) => void;
+};
 
 export function FindingsPanel({
   findings,
   activeFindingId,
   onSelectFinding,
-}: {
-  findings: ProcessedFinding[];
-  activeFindingId: string | null;
-  onSelectFinding: (findingId: string) => void;
-}) {
-  const actionableFindings = findings.filter((finding) => finding.verdict !== "pass");
-  const passedFindings = findings.filter((finding) => finding.verdict === "pass");
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
-
-  const blockCount = actionableFindings.filter((item) => item.verdict === "block").length;
-  const warnCount = actionableFindings.filter((item) => item.verdict === "warn").length;
-  const activeActionableFinding =
-    actionableFindings.find((finding) => finding.highlightId === activeFindingId) ||
-    actionableFindings[0] ||
-    null;
-
+}: FindingsPanelProps) {
+  const actionableFindings = useMemo(
+    () => findings.filter((finding) => finding.verdict !== "pass"),
+    [findings]
+  );
+  const passedFindings = useMemo(
+    () => findings.filter((finding) => finding.verdict === "pass"),
+    [findings]
+  );
   const authorDraft = useMemo(
     () => buildAuthorRevisionDraft(findings, activeFindingId),
     [findings, activeFindingId]
   );
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    setCopyState("idle");
-  }, [authorDraft?.body]);
+    if (!copied) return;
 
-  const handleCopyAuthorDraft = async () => {
-    if (!authorDraft) return;
+    const timeout = window.setTimeout(() => setCopied(false), 1800);
+    return () => window.clearTimeout(timeout);
+  }, [copied]);
+
+  const copyAuthorDraft = async () => {
+    if (!authorDraft || typeof navigator === "undefined" || !navigator.clipboard) {
+      return;
+    }
 
     try {
       await navigator.clipboard.writeText(authorDraft.body);
-      setCopyState("copied");
+      setCopied(true);
     } catch {
-      setCopyState("error");
+      setCopied(false);
     }
   };
 
   return (
-    <Card className="overflow-hidden lg:sticky lg:top-6">
-      <div className="border-b bg-background/95 px-5 py-4">
-        <div className="flex flex-col gap-3">
-          <div>
-            <h3 className="text-lg font-semibold">Policy Findings</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Click a finding to sync highlight in the content viewer. Each card shows what was
-              flagged, why it matters, the moderator next step, and the author-facing revision
-              guidance.
-            </p>
+    <Card className="overflow-hidden xl:sticky xl:top-6">
+      <div className="border-b bg-gradient-to-b from-background via-background to-muted/20 px-5 py-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Policy Findings</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Review the findings below, then click one to sync its highlight in the chapter
+                viewer.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline" className="bg-background/80">
+                Needs review: {actionableFindings.length}
+              </Badge>
+              <Badge variant="outline" className="bg-background/80">
+                Passed: {passedFindings.length}
+              </Badge>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">
-              {actionableFindings.length} actionable finding
-              {actionableFindings.length !== 1 ? "s" : ""}
-            </Badge>
-
-            {blockCount > 0 && (
-              <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
-                {blockCount} block
-              </Badge>
-            )}
-
-            {warnCount > 0 && (
-              <Badge
-                variant="outline"
-                className="border-yellow-200 bg-yellow-50 text-yellow-700"
-              >
-                {warnCount} warn
-              </Badge>
-            )}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SummaryTile
+              label="High priority"
+              value={String(
+                actionableFindings.filter((finding) => finding.verdict === "block").length
+              )}
+            />
+            <SummaryTile
+              label="Needs context review"
+              value={String(
+                actionableFindings.filter((finding) => finding.verdict === "warn").length
+              )}
+            />
+            <SummaryTile
+              label="Clear checks"
+              value={String(passedFindings.length)}
+            />
           </div>
         </div>
       </div>
 
-      <div className="max-h-[calc(100vh-12rem)] overflow-y-auto p-4">
-        {findings.length === 0 ? (
-          <div className="flex min-h-[18rem] items-center justify-center text-center">
-            <div>
-              <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-green-500" />
-              <p className="text-sm font-medium">No policy issues detected</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                The AI check did not find any flagged violations for this chapter.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {authorDraft && (
-              <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-blue-700">
-                      <Mail className="h-3.5 w-3.5" />
-                      Suggested Author Note
-                    </div>
-                    <p className="mt-2 text-sm text-blue-950">
-                      Use this as a base when sending revision guidance to the author.
-                      {activeActionableFinding
-                        ? ` Current focus: ${activeActionableFinding.displayTitle}.`
-                        : ""}
-                    </p>
-                    {activeActionableFinding && (
-                      <div className="mt-2">
-                        <Badge
-                          variant="outline"
-                          className={
-                            activeActionableFinding.authorGuidance.source === "ai"
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                              : "border-slate-200 bg-slate-50 text-slate-700"
-                          }
-                        >
-                          {activeActionableFinding.authorGuidance.source === "ai"
-                            ? "AI note basis"
-                            : "Fallback note basis"}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="border-blue-200 bg-white/80 text-blue-700 hover:bg-white"
-                    onClick={handleCopyAuthorDraft}
-                  >
-                    {copyState === "copied" ? (
-                      <Check className="mr-2 h-4 w-4" />
-                    ) : (
-                      <Copy className="mr-2 h-4 w-4" />
-                    )}
-                    {copyState === "copied"
-                      ? "Copied"
-                      : copyState === "error"
-                      ? "Copy failed"
-                      : "Copy note"}
-                  </Button>
+      <div className="max-h-[calc(100vh-12rem)] space-y-4 overflow-y-auto bg-muted/10 p-4">
+        {authorDraft && (
+          <div className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm font-medium text-sky-900">
+                  <Mail className="h-4 w-4" />
+                  Suggested Author Note
                 </div>
-
-                <div className="mt-3 rounded-xl border border-blue-200/80 bg-white/90 p-3">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-                    {authorDraft.body}
-                  </p>
-                </div>
-
-                <p className="mt-2 text-xs text-blue-700/80">
-                  This draft prioritizes the selected finding first and summarizes up to{" "}
-                  {authorDraft.includedFindingCount} actionable findings.
+                <p className="mt-1 text-sm text-sky-800/80">
+                  Focused on <strong>{authorDraft.focusTitle}</strong> and ready to copy into a
+                  rejection note if you want a quick starting point.
                 </p>
               </div>
-            )}
 
-            <div className="space-y-4">
-              {actionableFindings.map((finding) => {
-                const isActive = activeFindingId === finding.highlightId;
-                const verdictBadgeClass =
-                  finding.verdict === "block"
-                    ? "border-red-200 bg-red-50 text-red-700"
-                    : "border-yellow-200 bg-yellow-50 text-yellow-700";
-
-                const cardClass = isActive
-                  ? finding.verdict === "block"
-                    ? "border-red-300 bg-red-50/70 ring-2 ring-red-200"
-                    : "border-yellow-300 bg-yellow-50/70 ring-2 ring-yellow-200"
-                  : "border-border bg-background hover:border-muted-foreground/30 hover:bg-muted/30";
-
-                return (
-                  <button
-                    key={finding.highlightId}
-                    type="button"
-                    onClick={() => onSelectFinding(finding.highlightId)}
-                    className={`w-full rounded-2xl border p-4 text-left transition-all ${cardClass}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 shrink-0">
-                        {finding.verdict === "block" ? (
-                          <AlertCircle className="h-5 w-5 text-red-500" />
-                        ) : (
-                          <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                        )}
-                      </div>
-
-                      <div className="min-w-0 flex-1 space-y-4">
-                        <div className="flex flex-col gap-3">
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-semibold">{finding.displayTitle}</p>
-                                <Badge variant="secondary" className="max-w-full truncate">
-                                  {finding.primaryAction}
-                                </Badge>
-                              </div>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                Click to jump to the related content in the chapter viewer.
-                              </p>
-                            </div>
-
-                            <Badge variant="outline" className={verdictBadgeClass}>
-                              {finding.verdict.toUpperCase()}
-                            </Badge>
-                          </div>
-
-                          {finding.evidenceText && (
-                            <div className="rounded-xl border bg-background/85 p-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Flagged text
-                              </p>
-                              <p
-                                className={`mt-2 rounded-lg px-3 py-2 text-sm leading-relaxed ${
-                                  finding.verdict === "block"
-                                    ? "bg-red-100/80 text-red-950"
-                                    : "bg-yellow-100/80 text-yellow-950"
-                                }`}
-                              >
-                                “{finding.evidenceText}”
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="rounded-xl border bg-muted/25 p-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Why it was flagged
-                          </p>
-                          <p className="mt-2 text-sm leading-relaxed text-foreground/90">
-                            {finding.parsedReason}
-                          </p>
-                        </div>
-
-                        <div className="rounded-xl border bg-muted/25 p-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              Moderator Recommendation
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge
-                                variant="outline"
-                                className={
-                                  finding.moderatorGuidance.source === "ai"
-                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                    : "border-slate-200 bg-slate-50 text-slate-700"
-                                }
-                              >
-                                {finding.moderatorGuidance.source === "ai"
-                                  ? "AI advice"
-                                  : "Fallback guidance"}
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                className={
-                                  finding.moderatorGuidance.tone === "required"
-                                    ? "border-red-200 bg-red-50 text-red-700"
-                                    : finding.moderatorGuidance.tone === "rewrite"
-                                    ? "border-amber-200 bg-amber-50 text-amber-700"
-                                    : "border-blue-200 bg-blue-50 text-blue-700"
-                                }
-                              >
-                                {finding.moderatorGuidance.actionLabel}
-                              </Badge>
-                            </div>
-                          </div>
-
-                          <p className="mt-3 text-sm leading-relaxed text-foreground/90">
-                            {finding.moderatorGuidance.summary}
-                          </p>
-
-                          <div className="mt-3 space-y-2">
-                            {finding.moderatorGuidance.reviewCheckpoints.map(
-                              (checkpoint, index) => (
-                                <div
-                                  key={`${finding.highlightId}-moderator-check-${index}`}
-                                  className="rounded-xl border border-blue-200 bg-blue-50/60 p-3"
-                                >
-                                  <div className="flex items-start gap-2">
-                                    <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-foreground/70" />
-                                    <p className="text-sm text-foreground/85">{checkpoint}</p>
-                                  </div>
-                                </div>
-                              )
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl border bg-muted/25 p-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              <WandSparkles className="h-3.5 w-3.5" />
-                              Author Revision Direction
-                            </div>
-
-                            <Badge
-                              variant="outline"
-                              className={
-                                finding.authorGuidance.source === "ai"
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                  : "border-slate-200 bg-slate-50 text-slate-700"
-                              }
-                            >
-                              {finding.authorGuidance.source === "ai"
-                                ? "AI advice"
-                                : "Fallback guidance"}
-                            </Badge>
-                          </div>
-
-                          <p className="mt-3 text-sm leading-relaxed text-foreground/90">
-                            {finding.authorGuidance.objective}
-                          </p>
-
-                          {finding.authorGuidance.revisionSteps.length > 0 && (
-                            <div className="mt-3 space-y-2">
-                              {finding.authorGuidance.revisionSteps.map((step, index) => (
-                                <div
-                                  key={`${finding.highlightId}-author-step-${index}`}
-                                  className="rounded-xl border border-amber-200 bg-amber-50/60 p-3"
-                                >
-                                  <div className="flex items-start gap-2">
-                                    <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-foreground/70" />
-                                    <p className="text-sm text-foreground/85">{step}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <MapPinned className="h-3.5 w-3.5 shrink-0" />
-                          <span>
-                            {finding.locationLabel}
-                            {finding.matchStrategy === "span"
-                              ? " · precise highlight"
-                              : finding.matchStrategy === "fragment"
-                              ? " · multi-fragment match"
-                              : finding.matchStrategy === "excerpt"
-                              ? " · evidence-based match"
-                              : " · manual review fallback"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-sky-200 bg-white/80 text-sky-900 hover:bg-white"
+                onClick={copyAuthorDraft}
+              >
+                {copied ? (
+                  <Check className="mr-2 h-4 w-4" />
+                ) : (
+                  <Copy className="mr-2 h-4 w-4" />
+                )}
+                {copied ? "Copied" : "Copy note"}
+              </Button>
             </div>
 
-            {passedFindings.length > 0 && (
-              <details className="rounded-2xl border bg-muted/15 p-4">
-                <summary className="cursor-pointer list-none text-sm font-medium">
-                  Passed checks ({passedFindings.length})
-                </summary>
-
-                <div className="mt-4 space-y-3">
-                  {passedFindings.map((finding) => (
-                    <div
-                      key={finding.highlightId}
-                      className="rounded-xl border border-green-200 bg-green-50/60 p-4"
-                    >
-                      <div className="flex items-start gap-3">
-                        <CheckCircle2 className="mt-0.5 h-5 w-5 text-green-500" />
-
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-medium">{finding.displayTitle}</p>
-                            <Badge
-                              variant="outline"
-                              className="border-green-200 bg-green-50 text-green-700"
-                            >
-                              PASS
-                            </Badge>
-                          </div>
-
-                          <p className="text-sm text-muted-foreground">
-                            {finding.parsedReason}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
+            <div className="mt-3 rounded-xl border border-sky-100 bg-white/80 p-3">
+              <pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-slate-700">
+                {authorDraft.body}
+              </pre>
+            </div>
           </div>
+        )}
+
+        {actionableFindings.length === 0 ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-6 text-center shadow-sm">
+            <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
+            <h4 className="mt-3 text-base font-semibold text-emerald-950">
+              No actionable policy issues
+            </h4>
+            <p className="mt-1 text-sm leading-6 text-emerald-900/75">
+              The AI output did not surface any warning or block findings for this chapter. You
+              can still inspect the content manually before publishing.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {actionableFindings.map((finding, index) => (
+              <FindingCard
+                key={finding.highlightId}
+                finding={finding}
+                index={index + 1}
+                active={finding.highlightId === activeFindingId}
+                onSelect={() => onSelectFinding(finding.highlightId)}
+              />
+            ))}
+          </div>
+        )}
+
+        {passedFindings.length > 0 && (
+          <details className="group rounded-2xl border bg-background/90 p-4 shadow-sm">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+              <div>
+                <p className="text-sm font-semibold">Passed Findings</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Lower-risk checks that passed the current AI review.
+                </p>
+              </div>
+
+              <Badge variant="secondary">{passedFindings.length}</Badge>
+            </summary>
+
+            <div className="mt-4 space-y-3 border-t pt-4">
+              {passedFindings.map((finding, index) => (
+                <button
+                  key={finding.highlightId}
+                  type="button"
+                  onClick={() => onSelectFinding(finding.highlightId)}
+                  className={cn(
+                    "w-full rounded-xl border p-3 text-left transition",
+                    finding.highlightId === activeFindingId
+                      ? "border-emerald-300 bg-emerald-50/80 shadow-sm"
+                      : "border-border bg-muted/10 hover:border-emerald-200 hover:bg-emerald-50/40"
+                  )}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+                          Passed
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          Finding {index + 1}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm font-medium text-foreground">
+                        {finding.displayTitle}
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                        {finding.parsedReason}
+                      </p>
+                    </div>
+
+                    <span className="rounded-full border bg-background/80 px-2.5 py-1 text-xs text-muted-foreground">
+                      {matchLabelOf(finding.matchStrategy)}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </details>
         )}
       </div>
     </Card>
   );
+}
+
+function FindingCard({
+  finding,
+  index,
+  active,
+  onSelect,
+}: {
+  finding: ProcessedFinding;
+  index: number;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const verdictMeta = verdictMetaOf(finding.verdict);
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={active}
+      className="w-full text-left"
+    >
+      <div
+        className={cn(
+          "rounded-2xl border border-l-4 bg-background p-4 shadow-sm transition-all",
+          verdictMeta.borderClass,
+          active
+            ? cn("shadow-md ring-2", verdictMeta.activeRingClass)
+            : "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+        )}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex gap-3">
+            <div
+              className={cn(
+                "mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border",
+                verdictMeta.iconContainerClass
+              )}
+            >
+              <verdictMeta.icon className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border bg-muted/30 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Finding {index}
+                </span>
+                <Badge className={verdictMeta.badgeClass}>{verdictMeta.label}</Badge>
+                <Badge variant="outline" className="bg-background/80 text-foreground">
+                  {finding.primaryAction}
+                </Badge>
+              </div>
+
+              <h4 className="mt-2 text-sm font-semibold leading-6 text-foreground sm:text-base">
+                {finding.displayTitle}
+              </h4>
+
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <MetaPill label={finding.locationLabel} />
+                <MetaPill label={matchLabelOf(finding.matchStrategy)} />
+                <MetaPill
+                  label={
+                    finding.moderatorGuidance.source === "ai"
+                      ? "AI-backed guidance"
+                      : "Fallback guidance"
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          {finding.evidenceText && (
+            <div className={cn("rounded-xl border p-3", verdictMeta.evidenceClass)}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em]">
+                Flagged Text
+              </p>
+              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">
+                {finding.evidenceText}
+              </p>
+            </div>
+          )}
+
+          <div className="grid gap-3 xl:grid-cols-2">
+            <DetailPanel title="Why It Was Flagged">
+              <p className="text-sm leading-6 text-slate-700">{finding.parsedReason}</p>
+            </DetailPanel>
+
+            <DetailPanel
+              title="Moderator Recommendation"
+              tone={finding.moderatorGuidance.tone}
+              source={
+                finding.moderatorGuidance.source === "ai"
+                  ? "AI guidance"
+                  : "Fallback rule"
+              }
+            >
+              <div className="space-y-3">
+                <p className="text-sm leading-6 text-slate-700">
+                  {finding.moderatorGuidance.summary}
+                </p>
+                <Checklist
+                  items={finding.moderatorGuidance.reviewCheckpoints}
+                  emptyLabel="No extra checkpoints were generated for this finding."
+                  dotClassName={verdictMeta.dotClass}
+                />
+              </div>
+            </DetailPanel>
+          </div>
+
+          <DetailPanel
+            title="Author Revision Direction"
+            source={
+              finding.authorGuidance.source === "ai" ? "AI draft guidance" : "Fallback rule"
+            }
+            className="border-amber-200/70 bg-amber-50/70"
+          >
+            <div className="space-y-3">
+              <p className="text-sm font-medium leading-6 text-slate-800">
+                {finding.authorGuidance.objective}
+              </p>
+              <Checklist
+                items={finding.authorGuidance.revisionSteps}
+                emptyLabel="No step-by-step revision list was generated for this finding."
+                dotClassName="bg-amber-500"
+              />
+            </div>
+          </DetailPanel>
+
+          <div className="flex flex-col gap-2 border-t pt-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>Click this card to sync the viewer highlight with this finding.</span>
+            <span className="inline-flex items-center gap-1 font-medium text-foreground/80">
+              {active ? "Selected now" : "Open in viewer"}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </span>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border bg-background/80 px-3 py-3 shadow-sm">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function DetailPanel({
+  title,
+  source,
+  tone,
+  className,
+  children,
+}: {
+  title: string;
+  source?: string;
+  tone?: ProcessedFinding["moderatorGuidance"]["tone"];
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("rounded-xl border bg-muted/20 p-3", className)}>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+          {title}
+        </p>
+        {source && (
+          <Badge variant="outline" className="bg-background/80 text-[11px]">
+            {source}
+          </Badge>
+        )}
+        {tone && (
+          <Badge className={toneBadgeClassOf(tone)}>
+            {toneLabelOf(tone)}
+          </Badge>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Checklist({
+  items,
+  emptyLabel,
+  dotClassName,
+}: {
+  items: string[];
+  emptyLabel: string;
+  dotClassName: string;
+}) {
+  if (!items.length) {
+    return <p className="text-sm leading-6 text-muted-foreground">{emptyLabel}</p>;
+  }
+
+  return (
+    <ul className="space-y-2">
+      {items.map((item, index) => (
+        <li key={`${item}-${index}`} className="flex items-start gap-2 text-sm leading-6">
+          <span className={cn("mt-2 h-1.5 w-1.5 shrink-0 rounded-full", dotClassName)} />
+          <span className="text-slate-700">{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function MetaPill({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border bg-muted/20 px-2.5 py-1 text-xs text-muted-foreground">
+      <span className="h-1.5 w-1.5 rounded-full bg-current/60" />
+      {label}
+    </span>
+  );
+}
+
+function toneBadgeClassOf(tone: ProcessedFinding["moderatorGuidance"]["tone"]) {
+  switch (tone) {
+    case "required":
+      return "border-red-200 bg-red-50 text-red-700 hover:bg-red-50";
+    case "rewrite":
+      return "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50";
+    default:
+      return "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50";
+  }
+}
+
+function toneLabelOf(tone: ProcessedFinding["moderatorGuidance"]["tone"]) {
+  switch (tone) {
+    case "required":
+      return "Required";
+    case "rewrite":
+      return "Needs rewrite";
+    default:
+      return "Next step";
+  }
+}
+
+function matchLabelOf(strategy: FindingMatchStrategy) {
+  switch (strategy) {
+    case "span":
+      return "Exact span match";
+    case "excerpt":
+      return "Excerpt match";
+    case "fragment":
+      return "Fragment match";
+    default:
+      return "Manual context review";
+  }
+}
+
+function verdictMetaOf(verdict: ProcessedFinding["verdict"]) {
+  switch (verdict) {
+    case "block":
+      return {
+        label: "Block",
+        icon: AlertCircle,
+        badgeClass:
+          "border-red-200 bg-red-50 text-red-700 hover:bg-red-50",
+        borderClass: "border-l-red-500 border-red-200/80",
+        activeRingClass: "ring-red-200",
+        iconContainerClass: "border-red-200 bg-red-50 text-red-600",
+        evidenceClass: "border-red-200/80 bg-red-50/70 text-red-950",
+        dotClass: "bg-red-500",
+      };
+    case "warn":
+      return {
+        label: "Warn",
+        icon: AlertTriangle,
+        badgeClass:
+          "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50",
+        borderClass: "border-l-amber-500 border-amber-200/80",
+        activeRingClass: "ring-amber-200",
+        iconContainerClass: "border-amber-200 bg-amber-50 text-amber-600",
+        evidenceClass: "border-amber-200/80 bg-amber-50/70 text-amber-950",
+        dotClass: "bg-amber-500",
+      };
+    default:
+      return {
+        label: "Pass",
+        icon: CheckCircle2,
+        badgeClass:
+          "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50",
+        borderClass: "border-l-emerald-500 border-emerald-200/80",
+        activeRingClass: "ring-emerald-200",
+        iconContainerClass: "border-emerald-200 bg-emerald-50 text-emerald-600",
+        evidenceClass: "border-emerald-200/80 bg-emerald-50/70 text-emerald-950",
+        dotClass: "bg-emerald-500",
+      };
+  }
 }

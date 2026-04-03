@@ -1,17 +1,15 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import axios from "axios";
 import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
-  Check,
   CheckCircle2,
   Clock,
   ExternalLink,
-  FileText,
   Image as ImageIcon,
   Loader2,
   ShieldCheck,
@@ -19,15 +17,9 @@ import {
 } from "lucide-react";
 
 import { Navbar } from "@/components/navbar";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import {
   Card,
   CardContent,
@@ -35,18 +27,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
-import { StoryRightsSection } from "@/components/story-rights/story-rights-section";
 import {
-  buildRightsPayload,
-  evaluateClientPublishReadiness,
-  getLatestRejectReason,
-  getDefaultRights,
   LICENSE_STATUS_META,
+  getLatestRejectReason,
+  normalizeLicenseStatus,
   normalizeRejectReasonHistory,
-  RIGHTS_STATUS_META,
-  type StoryRights,
+  normalizeStoryRightsResponse,
   type StoryRightsResponse,
 } from "@/lib/story-rights";
 
@@ -56,149 +42,19 @@ type MangaDetailResponse = {
   coverImage?: string;
 };
 
-type GuideStep = {
-  title: string;
-  description: string;
-};
-
-type DocumentCase = {
-  title: string;
-  hint: string;
-  examples: string[];
-};
-
-type TemplateCard = {
-  title: string;
-  description: string;
-};
-
-const submissionSteps: GuideStep[] = [
-  {
-    title: "Choose rights type",
-    description:
-      "Select whether the story is original, translated, adapted, reposted, public domain, or open-license based.",
-  },
-  {
-    title: "Prepare supporting proof",
-    description:
-      "Collect contracts, permission screenshots, source links, declarations, or other records that match your selected rights type.",
-  },
-  {
-    title: "Upload files and add note",
-    description:
-      "Upload the proof files and write a short note explaining what the files prove and who granted permission.",
-  },
-  {
-    title: "Wait for review",
-    description:
-      "Moderators review the submission status, proof quality, and declaration completeness before approving publishing eligibility.",
-  },
-  {
-    title: "Fix and re-upload if rejected",
-    description:
-      "If the submission is rejected, review the feedback, update the rights details, and upload stronger proof again.",
-  },
-];
-
-const documentCases: DocumentCase[] = [
-  {
-    title: "Original work",
-    hint: "Use this when the story is created by you or your team.",
-    examples: [
-      "Signed self-declaration",
-      "Draft/manuscript screenshots",
-      "Creation timeline or working files",
-    ],
-  },
-  {
-    title: "Translated work",
-    hint: "Use this when you translated someone else's work.",
-    examples: [
-      "Authorization from the owner or publisher",
-      "Translation permission agreement",
-      "Permission email/chat screenshots",
-    ],
-  },
-  {
-    title: "Adapted work",
-    hint: "Use this when the story is adapted from another source.",
-    examples: [
-      "Adaptation agreement",
-      "Original source reference",
-      "Rights holder approval record",
-    ],
-  },
-  {
-    title: "Licensed / authorized work",
-    hint: "Use this for reposted or licensed distribution rights.",
-    examples: [
-      "Contract or license letter",
-      "Official permission screenshot",
-      "Publisher or platform authorization",
-    ],
-  },
-  {
-    title: "Public domain / open license",
-    hint: "Use this when the source is legally reusable.",
-    examples: [
-      "Source URL",
-      "License URL or public-domain reference",
-      "Attribution note or reuse terms screenshot",
-    ],
-  },
-];
-
-const templateCards: TemplateCard[] = [
-  {
-    title: "Self-declaration template",
-    description:
-      "A simple statement confirming you created the work or own the rights being submitted.",
-  },
-  {
-    title: "Authorization / permission template",
-    description:
-      "A sample document structure for permission from the original creator, owner, or publisher.",
-  },
-  {
-    title: "Submission checklist",
-    description:
-      "A quick checklist to verify that your rights type, note, and proof files are ready before upload.",
-  },
-];
-
-function getAssetCandidates(
-  apiBase: string,
-  filePath?: string,
-  folder = "assets/licenses",
-) {
+function getAssetCandidates(apiBase: string, filePath?: string) {
   if (!filePath) return [];
   if (/^https?:\/\//i.test(filePath)) return [filePath];
   if (filePath.startsWith("/")) return [`${apiBase}${filePath}`];
-  if (filePath.includes(folder)) {
+  if (filePath.includes("assets/licenses")) {
     return [`${apiBase}/${filePath.replace(/^\/+/, "")}`];
   }
-  return [`${apiBase}/${folder}/${filePath.replace(/^\/+/, "")}`];
-}
-
-function normalizeLicenseStatus(input?: string) {
-  const value = String(input || "none").toLowerCase();
-  if (value === "pending") return "pending" as const;
-  if (value === "approved") return "approved" as const;
-  if (value === "rejected") return "rejected" as const;
-  return "none" as const;
-}
-
-function normalizeRightsResponse(
-  payload: StoryRightsResponse | null | undefined,
-): StoryRights {
-  return {
-    ...getDefaultRights(),
-    ...(payload?.rights || {}),
-  };
+  return [`${apiBase}/assets/licenses/${filePath.replace(/^\/+/, "")}`];
 }
 
 function formatDateTime(value?: string | null) {
   if (!value) return null;
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
 
@@ -211,89 +67,53 @@ function formatDateTime(value?: string | null) {
   }).format(date);
 }
 
-function getLicenseStatusCopy(status: ReturnType<typeof normalizeLicenseStatus>) {
+function getReviewCopy(status: "none" | "pending" | "approved" | "rejected") {
   switch (status) {
     case "approved":
       return {
-        title: "Approved and ready",
+        title: "Approved",
         description:
-          "Your latest license submission has been approved. Keep the information and proof files up to date if anything changes.",
+          "Your proof images have been approved. Upload is now locked, and re-upload is only available after rejection.",
       };
     case "pending":
       return {
         title: "Under review",
         description:
-          "Your submission is being reviewed. You can still refine your rights metadata, but approval depends on moderator review.",
+          "Your proof images are being reviewed. Wait for Review Actions. You can upload again only after rejection.",
       };
     case "rejected":
       return {
-        title: "Fix and re-upload",
+        title: "Needs re-upload",
         description:
-          "Your previous submission was rejected. Review the feedback carefully, update the rights details, and upload clearer proof files.",
+          "Your previous submission was rejected. Upload clearer proof images and submit again.",
       };
     default:
       return {
-        title: "Start your submission",
+        title: "No proof submitted",
         description:
-          "Complete the rights setup, declaration, and proof upload so your story can move toward publishing eligibility.",
+          "Upload proof images for this story to start the review process.",
       };
   }
 }
 
-function getNextAction(
-  status: ReturnType<typeof normalizeLicenseStatus>,
-  canPublish: boolean,
-) {
-  if (status === "rejected") {
-    return "Update the rights form, fix the reviewer concerns, and upload stronger proof files.";
-  }
-
-  if (status === "pending") {
-    return "Wait for review or add clearer supporting documents if moderators requested more evidence.";
-  }
-
-  if (canPublish) {
-    return "Your rights setup currently satisfies publish checks. Keep this page updated if ownership or source information changes.";
-  }
-
-  return "Finish the rights form, save declaration, and upload the supporting files needed for your case.";
+function getFileLabel(index: number) {
+  return `File ${index + 1}`;
 }
 
-function StepCard({
-  index,
-  title,
-  description,
-}: {
-  index: number;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm">
-      <div className="mb-3 flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-          {index}
-        </div>
-        <p className="font-medium text-foreground">{title}</p>
-      </div>
-      <p className="text-sm leading-6 text-muted-foreground">{description}</p>
-    </div>
-  );
+function getUploadLockCopy(status: "none" | "pending" | "approved" | "rejected") {
+  switch (status) {
+    case "approved":
+      return "Upload is locked because this license has already been approved. Re-upload is only available after rejection.";
+    case "pending":
+      return "Upload is locked while the current submission is waiting for Review Actions. You can upload again only after rejection.";
+    default:
+      return null;
+  }
 }
 
-function InfoChip({ children }: { children: ReactNode }) {
-  return (
-    <div className="rounded-full border border-border/70 bg-background px-3 py-1 text-xs text-muted-foreground">
-      {children}
-    </div>
-  );
-}
-
-export default function AuthorStoryLicensePage() {
-  const params = useParams();
-  const id = Array.isArray((params as any)?.id)
-    ? (params as any).id[0]
-    : (params as any)?.id;
+export default function AuthorMangaLicensePage() {
+  const params = useParams<{ id: string }>();
+  const id = String(params?.id || "");
 
   const apiBase = useMemo(
     () => (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, ""),
@@ -311,20 +131,13 @@ export default function AuthorStoryLicensePage() {
   const [rightsPayload, setRightsPayload] = useState<StoryRightsResponse | null>(
     null,
   );
-  const [rights, setRights] = useState<StoryRights>(getDefaultRights());
-
   const [files, setFiles] = useState<File[]>([]);
-  const [uploadNote, setUploadNote] = useState("");
   const [statusError, setStatusError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [isSavingRights, setIsSavingRights] = useState(false);
-  const [isSavingDeclaration, setIsSavingDeclaration] = useState(false);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
-  const [referenceSections, setReferenceSections] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const hasAppliedReferenceDefaults = useRef(false);
 
   const coverUrl = (coverImage?: string) => {
     if (!coverImage) return "";
@@ -333,91 +146,53 @@ export default function AuthorStoryLicensePage() {
     return `${apiBase}/assets/coverImages/${coverImage}`;
   };
 
-  const fetchStory = async () => {
+  const fetchStory = useCallback(async () => {
     const res = await api.get<MangaDetailResponse>(`/manga/author/story/${id}`);
     setStory(res.data);
-  };
+  }, [api, id]);
 
-  const fetchRights = async () => {
+  const fetchLicense = useCallback(async () => {
     const res = await api.get<StoryRightsResponse>(`/license/${id}/rights`);
     setRightsPayload(res.data);
-    const normalized = normalizeRightsResponse(res.data);
-    setRights(normalized);
-    setUploadNote(normalized.proofNote || "");
-  };
-
-  const loadAll = async () => {
-    try {
-      setIsInitialLoading(true);
-      setStatusError(null);
-      await Promise.all([fetchStory(), fetchRights()]);
-    } catch (err: any) {
-      setStatusError(err?.response?.data?.message || "Failed to load story rights.");
-    } finally {
-      setIsInitialLoading(false);
-    }
-  };
+  }, [api, id]);
 
   useEffect(() => {
     if (!id) return;
-    loadAll();
-  }, [id]);
 
-  useEffect(() => {
-    hasAppliedReferenceDefaults.current = false;
-    setReferenceSections([]);
-  }, [id]);
+    const loadAll = async () => {
+      try {
+        setIsInitialLoading(true);
+        setStatusError(null);
+        await Promise.all([fetchStory(), fetchLicense()]);
+      } catch (err: any) {
+        setStatusError(
+          err?.response?.data?.message || "Failed to load proof upload page.",
+        );
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
 
-  const handleSaveRights = async () => {
-    try {
-      setIsSavingRights(true);
-      setStatusError(null);
-      setSuccessMessage(null);
-
-      const res = await api.patch<StoryRightsResponse>(
-        `/license/${id}/rights`,
-        buildRightsPayload(rights),
-      );
-
-      setRightsPayload(res.data);
-      setRights(normalizeRightsResponse(res.data));
-      setSuccessMessage("Story rights information updated.");
-    } catch (err: any) {
-      setStatusError(err?.response?.data?.message || "Failed to save story rights.");
-    } finally {
-      setIsSavingRights(false);
-    }
-  };
-
-  const handleSaveDeclaration = async () => {
-    try {
-      setIsSavingDeclaration(true);
-      setStatusError(null);
-      setSuccessMessage(null);
-
-      const res = await api.patch<StoryRightsResponse>(
-        `/license/${id}/rights/declaration`,
-        {
-          accepted: rights.declarationAccepted,
-          declarationVersion: rights.declarationVersion || "v1",
-        },
-      );
-
-      setRightsPayload(res.data);
-      setRights(normalizeRightsResponse(res.data));
-      setSuccessMessage("Declaration updated.");
-    } catch (err: any) {
-      setStatusError(
-        err?.response?.data?.message || "Failed to save declaration.",
-      );
-    } finally {
-      setIsSavingDeclaration(false);
-    }
-  };
+    void loadAll();
+  }, [fetchLicense, fetchStory, id]);
 
   const handleUploadProof = async () => {
+    const normalizedLicense = normalizeLicenseStatus(rightsPayload?.licenseStatus);
+    const uploadLockReason = getUploadLockCopy(normalizedLicense);
+
+    if (uploadLockReason) {
+      setStatusError(uploadLockReason);
+      return;
+    }
+
     if (!files.length) {
-      setStatusError("Please select at least one proof file.");
+      setStatusError("Please select at least one image.");
+      return;
+    }
+
+    const invalidFile = files.find((file) => !file.type.startsWith("image/"));
+    if (invalidFile) {
+      setStatusError("Only image files are allowed.");
       return;
     }
 
@@ -428,35 +203,23 @@ export default function AuthorStoryLicensePage() {
 
       const formData = new FormData();
       files.forEach((file) => formData.append("files", file));
-      formData.append("note", uploadNote);
 
       await api.post(`/license/${id}/files`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      await fetchRights();
+      await fetchLicense();
       setFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = "";
-      setSuccessMessage("Proof documents uploaded and submitted for review.");
+      setSuccessMessage("Proof images uploaded and submitted for review.");
     } catch (err: any) {
       setStatusError(
-        err?.response?.data?.message || "Failed to upload proof files.",
+        err?.response?.data?.message || "Failed to upload proof images.",
       );
     } finally {
       setIsUploadingProof(false);
     }
   };
-
-  const normalizedLicense = normalizeLicenseStatus(rightsPayload?.licenseStatus);
-
-  useEffect(() => {
-    if (isInitialLoading || hasAppliedReferenceDefaults.current) return;
-
-    setReferenceSections(
-      normalizedLicense === "none" ? ["submission-guide"] : [],
-    );
-    hasAppliedReferenceDefaults.current = true;
-  }, [isInitialLoading, normalizedLicense]);
 
   if (isInitialLoading) {
     return (
@@ -466,7 +229,7 @@ export default function AuthorStoryLicensePage() {
           <div className="flex h-[50vh] items-center justify-center">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
-              Loading story rights...
+              Loading proof upload page...
             </div>
           </div>
         </div>
@@ -474,17 +237,25 @@ export default function AuthorStoryLicensePage() {
     );
   }
 
-  const safeRights = rights;
-  const rightsMeta = RIGHTS_STATUS_META[safeRights.reviewStatus || "not_required"];
+  const rights = normalizeStoryRightsResponse(rightsPayload);
+  const normalizedLicense = normalizeLicenseStatus(rightsPayload?.licenseStatus);
   const licenseMeta =
     LICENSE_STATUS_META[
       normalizedLicense as keyof typeof LICENSE_STATUS_META
     ];
-  const licenseCopy = getLicenseStatusCopy(normalizedLicense);
-  const readiness =
-    rightsPayload?.publishEligibility ||
-    evaluateClientPublishReadiness(safeRights);
-  const proofFiles = safeRights.proofFiles || [];
+  const reviewCopy = getReviewCopy(normalizedLicense);
+  const uploadLockReason = getUploadLockCopy(normalizedLicense);
+  const isUploadLocked = Boolean(uploadLockReason);
+  const proofFiles = rights.proofFiles || [];
+  const canPublish = Boolean(
+    rightsPayload?.publishEligibility?.canPublish ?? rightsPayload?.canPublish,
+  );
+  const publishReason =
+    rightsPayload?.publishEligibility?.reason ||
+    rightsPayload?.publishReason ||
+    (canPublish
+      ? "This story currently satisfies the backend publish policy."
+      : "Upload proof images and wait for approval before publishing.");
   const selectedFilesSizeMb =
     files.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024;
   const submittedAt = formatDateTime(rightsPayload?.licenseSubmittedAt);
@@ -493,17 +264,16 @@ export default function AuthorStoryLicensePage() {
     licenseRejectReason: rightsPayload?.licenseRejectReason,
     licenseRejectReasons: rightsPayload?.licenseRejectReasons,
     rights: {
-      rejectReason: safeRights.rejectReason,
+      rejectReason: rights.rejectReason,
     },
   };
-  const rejectReasonHistory = normalizeRejectReasonHistory(rejectReasonSource);
   const reviewerFeedback =
-    getLatestRejectReason(rejectReasonSource) || safeRights.rejectReason || "";
+    getLatestRejectReason(rejectReasonSource) || rights.rejectReason || "";
+  const rejectReasonHistory = normalizeRejectReasonHistory(rejectReasonSource);
   const previousRejectReasons =
     rejectReasonHistory.length > 1
       ? rejectReasonHistory.slice(0, rejectReasonHistory.length - 1).reverse()
       : [];
-  const hasReviewDetails = Boolean(submittedAt || reviewedAt || reviewerFeedback);
 
   return (
     <div className="min-h-screen bg-background">
@@ -524,7 +294,7 @@ export default function AuthorStoryLicensePage() {
 
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-3xl font-bold">Story Rights</h1>
+                <h1 className="text-3xl font-bold">Proof Image Upload</h1>
                 {rightsPayload?.verifiedBadge ? (
                   <Badge className="gap-1 bg-green-600 text-white">
                     <ShieldCheck className="h-4 w-4" />
@@ -533,20 +303,15 @@ export default function AuthorStoryLicensePage() {
                 ) : null}
               </div>
               <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
-                Manage ownership declaration, source or license references, and
-                proof documents through a clearer submission workflow.
+                Upload the images that prove you have permission to publish this
+                story. Review status and feedback will appear here.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Badge className={`border ${rightsMeta.className}`}>
-              Rights: {rightsMeta.label}
-            </Badge>
-            <Badge className={`border ${licenseMeta.className}`}>
-              Review: {licenseMeta.label}
-            </Badge>
-          </div>
+          <Badge className={`border ${licenseMeta.className}`}>
+            Review: {licenseMeta.label}
+          </Badge>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -567,19 +332,23 @@ export default function AuthorStoryLicensePage() {
               </Alert>
             ) : null}
 
-            {reviewerFeedback || rejectReasonHistory.length > 0 ? (
+            {uploadLockReason ? (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Upload locked</AlertTitle>
+                <AlertDescription>{uploadLockReason}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            {reviewerFeedback ? (
               <Alert
                 variant="destructive"
                 className="border-red-200 bg-red-50 text-red-900 dark:text-red-100"
               >
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>
-                  {normalizedLicense === "rejected"
-                    ? "Reviewer feedback requires action"
-                    : "Previous reviewer feedback"}
-                </AlertTitle>
+                <AlertTitle>Reviewer feedback</AlertTitle>
                 <AlertDescription className="space-y-3">
-                  {reviewerFeedback ? <p>{reviewerFeedback}</p> : null}
+                  <p>{reviewerFeedback}</p>
                   {previousRejectReasons.length > 0 ? (
                     <div className="space-y-2">
                       <p className="text-xs font-semibold uppercase tracking-wide text-red-700/80 dark:text-red-200">
@@ -603,287 +372,34 @@ export default function AuthorStoryLicensePage() {
 
             <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="border-b border-border/60 pb-5">
-                <CardTitle>Reference Library</CardTitle>
+                <CardTitle>Upload Proof Images</CardTitle>
                 <CardDescription>
-                  Open these sections only when you need examples, reminders, or
-                  document ideas.
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="pt-3">
-                <Accordion
-                  type="multiple"
-                  className="w-full"
-                  value={referenceSections}
-                  onValueChange={setReferenceSections}
-                >
-                  <AccordionItem value="submission-guide" className="border-border/60">
-                    <AccordionTrigger className="py-4 hover:no-underline">
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-foreground">
-                            Submission Guide
-                          </span>
-                          <Badge className="border border-border/70 bg-background text-muted-foreground">
-                            {submissionSteps.length} steps
-                          </Badge>
-                        </div>
-                        <p className="text-sm font-normal leading-6 text-muted-foreground">
-                          Follow a cleaner flow from declaration to upload and
-                          review.
-                        </p>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-1">
-                      <div className="space-y-5 pt-1">
-                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                          {submissionSteps.map((step, index) => (
-                            <StepCard
-                              key={step.title}
-                              index={index + 1}
-                              title={step.title}
-                              description={step.description}
-                            />
-                          ))}
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          <InfoChip>Save metadata before upload</InfoChip>
-                          <InfoChip>Add a short proof note</InfoChip>
-                          <InfoChip>Re-upload if reviewer requests changes</InfoChip>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  <AccordionItem
-                    value="document-ideas"
-                    className="border-border/60"
-                  >
-                    <AccordionTrigger className="py-4 hover:no-underline">
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-foreground">
-                            What documents should I upload?
-                          </span>
-                          <Badge className="border border-border/70 bg-background text-muted-foreground">
-                            {documentCases.length} cases
-                          </Badge>
-                        </div>
-                        <p className="text-sm font-normal leading-6 text-muted-foreground">
-                          See proof examples that match original, translated,
-                          adapted, licensed, or public-domain stories.
-                        </p>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-1">
-                      <div className="grid gap-4 pt-1 md:grid-cols-2 xl:grid-cols-3">
-                        {documentCases.map((item) => (
-                          <div
-                            key={item.title}
-                            className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm"
-                          >
-                            <div className="space-y-1">
-                              <p className="font-medium text-foreground">
-                                {item.title}
-                              </p>
-                              <p className="text-sm leading-6 text-muted-foreground">
-                                {item.hint}
-                              </p>
-                            </div>
-
-                            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                              {item.examples.map((example) => (
-                                <li
-                                  key={example}
-                                  className="flex items-start gap-2"
-                                >
-                                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                                  <span>{example}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  <AccordionItem value="templates" className="border-border/60">
-                    <AccordionTrigger className="py-4 hover:no-underline">
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-foreground">
-                            Templates
-                          </span>
-                          <Badge className="border border-border/70 bg-background text-muted-foreground">
-                            {templateCards.length} items
-                          </Badge>
-                        </div>
-                        <p className="text-sm font-normal leading-6 text-muted-foreground">
-                          Quick references for declarations, permissions, and a
-                          last-minute checklist.
-                        </p>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-1">
-                      <div className="grid gap-4 pt-1 md:grid-cols-3">
-                        {templateCards.map((template) => (
-                          <div
-                            key={template.title}
-                            className="flex h-full flex-col justify-between rounded-2xl border border-border/70 bg-background p-4 shadow-sm"
-                          >
-                            <div className="space-y-2">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="rounded-xl bg-muted p-2">
-                                  <FileText className="h-4 w-4" />
-                                </div>
-                                <Badge className="border border-dashed bg-background text-muted-foreground">
-                                  Coming soon
-                                </Badge>
-                              </div>
-
-                              <div>
-                                <p className="font-medium text-foreground">
-                                  {template.title}
-                                </p>
-                                <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                                  {template.description}
-                                </p>
-                              </div>
-                            </div>
-
-                            <Button
-                              variant="outline"
-                              className="mt-5 rounded-xl"
-                              disabled
-                            >
-                              Download template
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </CardContent>
-            </Card>
-
-            <StoryRightsSection
-              value={rights}
-              onChange={setRights}
-              publishError={readiness.canPublish ? null : readiness.reason}
-            />
-
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardHeader className="border-b border-border/60 pb-5">
-                <CardTitle>Save Rights Setup</CardTitle>
-                <CardDescription>
-                  Save your rights metadata and declaration before uploading
-                  supporting files.
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="pt-6">
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button
-                    onClick={handleSaveRights}
-                    disabled={isSavingRights}
-                    className="rounded-xl"
-                  >
-                    {isSavingRights ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : null}
-                    Save Rights Metadata
-                  </Button>
-
-                  <Button
-                    variant="secondary"
-                    onClick={handleSaveDeclaration}
-                    disabled={isSavingDeclaration}
-                    className="rounded-xl"
-                  >
-                    {isSavingDeclaration ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : null}
-                    Save Declaration
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardHeader className="border-b border-border/60 pb-5">
-                <CardTitle>Proof Documents</CardTitle>
-                <CardDescription>
-                  Upload contracts, permission screenshots, declarations, or
-                  other evidence that supports your rights claim.
+                  Only image files are allowed. Upload screenshots, contracts,
+                  chats, or other visual proof that supports your rights. After
+                  submission, re-upload is only available if moderators reject
+                  the current proof set.
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-5 pt-6">
-                <Accordion
-                  type="multiple"
-                  defaultValue={proofFiles.length === 0 ? ["upload-checklist"] : []}
-                  className="rounded-2xl border border-border/70 bg-muted/10 px-4"
-                >
-                  <AccordionItem value="upload-checklist" className="border-none">
-                    <AccordionTrigger className="py-4 hover:no-underline">
-                      <div className="space-y-1 text-left">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-foreground">
-                            Upload checklist
-                          </span>
-                          <Badge className="border border-border/70 bg-background text-muted-foreground">
-                            3 reminders
-                          </Badge>
-                        </div>
-                        <p className="text-sm font-normal leading-6 text-muted-foreground">
-                          Accepted file types, examples, and a quick reminder
-                          before submission.
-                        </p>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-4">
-                      <div className="grid gap-3 md:grid-cols-3">
-                        <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Accepted types
-                          </p>
-                          <p className="mt-1 text-sm text-foreground">
-                            PDF, PNG, JPG, WEBP
-                          </p>
-                        </div>
-                        <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Good examples
-                          </p>
-                          <p className="mt-1 text-sm text-foreground">
-                            Contracts, permission chats, source pages,
-                            declarations
-                          </p>
-                        </div>
-                        <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Best practice
-                          </p>
-                          <p className="mt-1 text-sm text-foreground">
-                            Upload multiple files when one screenshot alone is
-                            not enough
-                          </p>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <Badge className="border border-border/70 bg-background text-muted-foreground">
+                    Max 5 files
+                  </Badge>
+                  <Badge className="border border-border/70 bg-background text-muted-foreground">
+                    Up to 10 MB each
+                  </Badge>
+                  <Badge className="border border-border/70 bg-background text-muted-foreground">
+                    JPG, PNG, WEBP, GIF
+                  </Badge>
+                </div>
 
                 <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-5">
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="space-y-1">
-                      <p className="text-sm font-medium">Choose files</p>
+                      <p className="text-sm font-medium">Choose images</p>
                       <p className="text-sm text-muted-foreground">
-                        Upload the files that directly support your selected
-                        rights case.
+                        Pick the proof images you want to submit for review.
                       </p>
                     </div>
 
@@ -892,27 +408,32 @@ export default function AuthorStoryLicensePage() {
                       variant="outline"
                       className="rounded-xl"
                       onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadLocked}
                     >
                       <UploadCloud className="mr-2 h-4 w-4" />
-                      Select files
+                      Select images
                     </Button>
                   </div>
 
                   <input
                     ref={fileInputRef}
                     type="file"
+                    accept="image/*"
                     className="hidden"
                     multiple
+                    disabled={isUploadLocked}
                     onChange={(e) => setFiles(Array.from(e.target.files || []))}
                   />
 
                   {files.length > 0 ? (
                     <div className="mt-4 space-y-3">
                       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <InfoChip>{files.length} selected</InfoChip>
-                        <InfoChip>
+                        <Badge className="border border-border/70 bg-background text-muted-foreground">
+                          {files.length} selected
+                        </Badge>
+                        <Badge className="border border-border/70 bg-background text-muted-foreground">
                           {selectedFilesSizeMb.toFixed(2)} MB total
-                        </InfoChip>
+                        </Badge>
                       </div>
 
                       <div className="space-y-2">
@@ -921,7 +442,9 @@ export default function AuthorStoryLicensePage() {
                             key={`${file.name}-${index}`}
                             className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-2 text-sm"
                           >
-                            <span className="truncate pr-3">{file.name}</span>
+                            <span className="truncate pr-3">
+                              {getFileLabel(index)}
+                            </span>
                             <span className="shrink-0 text-xs text-muted-foreground">
                               {(file.size / 1024 / 1024).toFixed(2)} MB
                             </span>
@@ -935,47 +458,31 @@ export default function AuthorStoryLicensePage() {
                         <UploadCloud className="h-5 w-5 text-muted-foreground" />
                       </div>
                       <p className="mt-3 font-medium text-foreground">
-                        No files selected yet
+                        No images selected yet
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Select one or more files, then add a short note before
-                        uploading.
+                        Select one or more images, then submit them for review.
                       </p>
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Submission note</label>
-                  <Textarea
-                    rows={5}
-                    value={uploadNote}
-                    onChange={(e) => setUploadNote(e.target.value)}
-                    placeholder="Example: This story is a translated work. Attached are the owner authorization screenshot, source page, and our signed declaration."
-                    className="rounded-xl"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Briefly explain what the files prove, who granted
-                    permission, and how the story may be used.
-                  </p>
-                </div>
-
                 <div className="flex flex-wrap gap-3">
                   <Button
                     onClick={handleUploadProof}
-                    disabled={isUploadingProof || files.length === 0}
+                    disabled={isUploadLocked || isUploadingProof || files.length === 0}
                     className="rounded-xl"
                   >
                     {isUploadingProof ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : null}
-                    Upload Proof
+                    Upload Images
                   </Button>
 
                   <Button
                     type="button"
                     variant="ghost"
-                    disabled={isUploadingProof}
+                    disabled={isUploadLocked || isUploadingProof}
                     className="rounded-xl"
                     onClick={() => {
                       setFiles([]);
@@ -985,71 +492,46 @@ export default function AuthorStoryLicensePage() {
                     Clear selection
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
 
-                <Separator />
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardHeader className="border-b border-border/60 pb-5">
+                <CardTitle>Current Proof Images</CardTitle>
+                <CardDescription>
+                  These are the images currently attached to this story.
+                </CardDescription>
+              </CardHeader>
 
-                <Accordion
-                  type="multiple"
-                  defaultValue={proofFiles.length === 0 ? ["current-proof-files"] : []}
-                  className="rounded-2xl border border-border/70 bg-muted/10 px-4"
-                >
-                  <AccordionItem value="current-proof-files" className="border-none">
-                    <AccordionTrigger className="py-4 hover:no-underline">
-                      <div className="space-y-1 text-left">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-foreground">
-                            Current proof files
+              <CardContent className="pt-6">
+                {proofFiles.length > 0 ? (
+                  <div className="space-y-2">
+                    {proofFiles.map((file, index) => {
+                      const url = getAssetCandidates(apiBase, file)[0];
+
+                      return (
+                        <a
+                          key={`${file}-${index}`}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-3 text-sm transition hover:bg-muted/30"
+                        >
+                          <span className="flex items-center gap-2 truncate">
+                            <ImageIcon className="h-4 w-4 shrink-0" />
+                            <span className="truncate">{getFileLabel(index)}</span>
                           </span>
-                          <Badge className="border border-border/70 bg-background text-muted-foreground">
-                            {proofFiles.length} attached
-                          </Badge>
-                        </div>
-                        <p className="text-sm font-normal leading-6 text-muted-foreground">
-                          Review the files currently attached to this rights
-                          record.
-                        </p>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-4">
-                      {proofFiles.length > 0 ? (
-                        <div className="space-y-2">
-                          {proofFiles.map((file, index) => {
-                            const url = getAssetCandidates(apiBase, file)[0];
-                            const isPdf = file.toLowerCase().endsWith(".pdf");
 
-                            return (
-                              <a
-                                key={`${file}-${index}`}
-                                href={url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center justify-between rounded-xl border border-border/70 bg-background px-3 py-3 text-sm transition hover:bg-muted/30"
-                              >
-                                <span className="flex items-center gap-2 truncate">
-                                  {isPdf ? (
-                                    <FileText className="h-4 w-4 shrink-0" />
-                                  ) : (
-                                    <ImageIcon className="h-4 w-4 shrink-0" />
-                                  )}
-                                  <span className="truncate">
-                                    {file.split("/").pop()}
-                                  </span>
-                                </span>
-
-                                <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                              </a>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-                          No proof files uploaded yet. Add supporting documents
-                          to make the review process easier.
-                        </div>
-                      )}
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                          <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        </a>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                    No proof images uploaded yet.
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -1059,7 +541,7 @@ export default function AuthorStoryLicensePage() {
               <CardHeader>
                 <CardTitle>Story</CardTitle>
                 <CardDescription>
-                  Check that you are editing the correct story.
+                  Check that you are uploading proof for the correct story.
                 </CardDescription>
               </CardHeader>
 
@@ -1095,100 +577,59 @@ export default function AuthorStoryLicensePage() {
 
             <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader>
-                <CardTitle>Review & Eligibility</CardTitle>
+                <CardTitle>Review Status</CardTitle>
                 <CardDescription>
-                  Keep track of the current review state and what to do next.
+                  Keep track of approval progress and publish eligibility.
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  <Badge className={`border ${rightsMeta.className}`}>
-                    Rights: {rightsMeta.label}
-                  </Badge>
-                  <Badge className={`border ${licenseMeta.className}`}>
-                    Review: {licenseMeta.label}
-                  </Badge>
-                </div>
+                <Badge className={`border ${licenseMeta.className}`}>
+                  Review: {licenseMeta.label}
+                </Badge>
 
                 <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <p className="font-medium text-foreground">{licenseCopy.title}</p>
+                  <p className="font-medium text-foreground">{reviewCopy.title}</p>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    {licenseCopy.description}
+                    {reviewCopy.description}
                   </p>
                 </div>
 
                 <div
                   className={`rounded-2xl border p-4 text-sm ${
-                    readiness.canPublish
+                    canPublish
                       ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100"
                       : "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100"
                   }`}
                 >
                   <p className="font-medium">
-                    {readiness.canPublish ? "Eligible / ready" : "Cannot publish yet"}
+                    {canPublish ? "Eligible to publish" : "Cannot publish yet"}
                   </p>
-                  <p className="mt-1">
-                    {readiness.reason ||
-                      "This story currently satisfies the backend publish policy."}
-                  </p>
+                  <p className="mt-1">{publishReason}</p>
                 </div>
 
-                <div className="rounded-2xl border border-border/70 bg-background p-4">
-                  <p className="text-sm font-medium text-foreground">Next step</p>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    {getNextAction(normalizedLicense, Boolean(readiness.canPublish))}
-                  </p>
-                </div>
-
-                {hasReviewDetails ? (
-                  <Accordion
-                    type="single"
-                    collapsible
-                    defaultValue={normalizedLicense === "rejected" ? "review-details" : undefined}
-                    className="rounded-2xl border border-border/70 bg-background px-4"
-                  >
-                    <AccordionItem value="review-details" className="border-none">
-                      <AccordionTrigger className="py-4 hover:no-underline">
-                        <div className="space-y-1 text-left">
-                          <p className="font-medium text-foreground">
-                            Review timeline & notes
-                          </p>
-                          <p className="text-sm font-normal leading-6 text-muted-foreground">
-                            Open to see submission timestamps and the latest
-                            reviewer note.
-                          </p>
+                {(submittedAt || reviewedAt) && (
+                  <div className="rounded-2xl border border-border/70 bg-background p-4">
+                    <p className="text-sm font-medium text-foreground">
+                      Review timeline
+                    </p>
+                    <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                      {submittedAt ? (
+                        <div className="flex items-start gap-2">
+                          <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                          <span>Submitted: {submittedAt}</span>
                         </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="space-y-4 pb-4">
-                        {(submittedAt || reviewedAt) && (
-                          <div className="space-y-2 text-sm text-muted-foreground">
-                            {submittedAt ? (
-                              <div className="flex items-start gap-2">
-                                <Clock className="mt-0.5 h-4 w-4 shrink-0" />
-                                <span>Submitted: {submittedAt}</span>
-                              </div>
-                            ) : null}
+                      ) : null}
 
-                            {reviewedAt ? (
-                              <div className="flex items-start gap-2">
-                                <Clock className="mt-0.5 h-4 w-4 shrink-0" />
-                                <span>Reviewed: {reviewedAt}</span>
-                              </div>
-                            ) : null}
-                          </div>
-                        )}
-
-                        {reviewerFeedback ? (
-                          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100">
-                            <p className="font-medium">Reviewer feedback</p>
-                            <p className="mt-1 leading-6">{reviewerFeedback}</p>
-                          </div>
-                        ) : null}
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                ) : null}
+                      {reviewedAt ? (
+                        <div className="flex items-start gap-2">
+                          <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                          <span>Reviewed: {reviewedAt}</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

@@ -40,6 +40,7 @@ export const ACTION_LABEL: Record<string, string> = {
   admin_reset_user_status: "User - Reset Status",
   admin_update_staff_status: "Staff - Status Updated",
   admin_set_role: "User - Role Updated",
+  request_changes: "Moderation - Rejected",
 }
 
 export const FIELD_LABEL: Record<string, string> = {

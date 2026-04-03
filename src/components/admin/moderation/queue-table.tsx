@@ -2,31 +2,79 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import type { SortingState } from "@tanstack/react-table";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { RiskMeter } from "./risk-meter";
 import { StatusBadge } from "./status-badge";
 import { ResolutionBadge } from "./resolution-badge";
 import type { QueueItem } from "@/lib/typesLogs";
-import { Eye, Mail } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronUp, Eye, Mail } from "lucide-react";
+
+type QueueSortColumn =
+  | "title"
+  | "mangaTitle"
+  | "author"
+  | "risk_score"
+  | "updatedAt";
+
+function nextSortingState(
+  currentSorting: SortingState,
+  column: QueueSortColumn
+): SortingState {
+  const activeSort = currentSorting[0];
+
+  if (!activeSort || activeSort.id !== column) {
+    return [{ id: column, desc: false }];
+  }
+
+  return [{ id: column, desc: !activeSort.desc }];
+}
+
+function SortButton({
+  column,
+  label,
+  sorting,
+  onSortingChange,
+}: {
+  column: QueueSortColumn;
+  label: string;
+  sorting: SortingState;
+  onSortingChange: (value: SortingState) => void;
+}) {
+  const activeSort = sorting[0];
+  const isActive = activeSort?.id === column;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSortingChange(nextSortingState(sorting, column))}
+      className="inline-flex items-center gap-1 font-medium text-slate-700 transition-colors hover:text-slate-900"
+    >
+      <span>{label}</span>
+      {!isActive ? (
+        <ArrowUpDown className="h-4 w-4 text-slate-400" />
+      ) : activeSort.desc ? (
+        <ChevronDown className="h-4 w-4 text-slate-500" />
+      ) : (
+        <ChevronUp className="h-4 w-4 text-slate-500" />
+      )}
+    </button>
+  );
+}
 
 interface QueueTableProps {
   items: QueueItem[];
-  selectedIds: Set<string>;
-  allVisibleSelected: boolean;
-  onToggleSelect: (id: string) => void;
-  onToggleSelectAll: (checked: boolean) => void;
   loading?: boolean;
+  sorting: SortingState;
+  onSortingChange: (value: SortingState) => void;
 }
 
 export function QueueTable({
   items,
-  selectedIds,
-  allVisibleSelected,
-  onToggleSelect,
-  onToggleSelectAll,
   loading,
+  sorting,
+  onSortingChange,
 }: QueueTableProps) {
   const router = useRouter();
 
@@ -35,22 +83,49 @@ export function QueueTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/60">
-            <TableHead className="w-12">
-              <Checkbox
-                checked={allVisibleSelected}
-                onCheckedChange={(checked) => onToggleSelectAll(Boolean(checked))}
-                disabled={loading || items.length === 0}
-                aria-label="Select all visible chapters"
+            <TableHead>
+              <SortButton
+                column="title"
+                label="Chapter"
+                sorting={sorting}
+                onSortingChange={onSortingChange}
               />
             </TableHead>
-            <TableHead>Chapter</TableHead>
-            <TableHead>Manga</TableHead>
-            <TableHead>Author</TableHead>
-            <TableHead>Risk Score</TableHead>
+            <TableHead>
+              <SortButton
+                column="mangaTitle"
+                label="Manga"
+                sorting={sorting}
+                onSortingChange={onSortingChange}
+              />
+            </TableHead>
+            <TableHead>
+              <SortButton
+                column="author"
+                label="Author"
+                sorting={sorting}
+                onSortingChange={onSortingChange}
+              />
+            </TableHead>
+            <TableHead>
+              <SortButton
+                column="risk_score"
+                label="Risk Score"
+                sorting={sorting}
+                onSortingChange={onSortingChange}
+              />
+            </TableHead>
             <TableHead>AI Status</TableHead>
             <TableHead>Resolution</TableHead>
             <TableHead>Labels</TableHead>
-            <TableHead>Updated</TableHead>
+            <TableHead>
+              <SortButton
+                column="updatedAt"
+                label="Updated"
+                sorting={sorting}
+                onSortingChange={onSortingChange}
+              />
+            </TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -59,9 +134,6 @@ export function QueueTable({
           {loading &&
             Array.from({ length: 5 }).map((_, index) => (
               <TableRow key={`loading-${index}`}>
-                <TableCell>
-                  <div className="h-4 w-4 rounded bg-muted animate-pulse" />
-                </TableCell>
                 <TableCell>
                   <div className="h-4 w-40 rounded bg-muted animate-pulse" />
                 </TableCell>
@@ -101,17 +173,6 @@ export function QueueTable({
                   router.push(`/admin/moderation/workspace?chapterId=${item.chapterId}`)
                 }
               >
-                <TableCell
-                  onClick={(e) => e.stopPropagation()}
-                  className="align-middle"
-                >
-                  <Checkbox
-                    checked={selectedIds.has(item.chapterId)}
-                    onCheckedChange={() => onToggleSelect(item.chapterId)}
-                    aria-label={`Select chapter ${item.title}`}
-                  />
-                </TableCell>
-
                 <TableCell className="font-medium">
                   <div className="space-y-1">
                     <p className="line-clamp-1">{item.title}</p>
@@ -193,7 +254,7 @@ export function QueueTable({
 
           {!loading && items.length === 0 && (
             <TableRow>
-              <TableCell colSpan={10} className="py-12 text-center">
+              <TableCell colSpan={9} className="py-12 text-center">
                 <div className="space-y-2">
                   <p className="text-sm font-medium">No chapters match the current filters</p>
                   <p className="text-sm text-muted-foreground">

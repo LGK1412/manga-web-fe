@@ -19,6 +19,15 @@ import { Button } from "@/components/ui/button";
 
 let socket: Socket | null = null;
 
+function resolveCommentOwnerId(comment: any) {
+  return (
+    comment?.user?._id ||
+    comment?.user_id?._id ||
+    comment?.user_id ||
+    null
+  );
+}
+
 export default function ChapterComments() {
   const params = useParams();
   const chapter_id = params.id as string;
@@ -309,13 +318,24 @@ export default function ChapterComments() {
       });
       return;
     }
+    if (
+      user?.user_id &&
+      resolveCommentOwnerId(reportTarget) &&
+      String(user.user_id) === String(resolveCommentOwnerId(reportTarget))
+    ) {
+      toast({
+        title: "Action not allowed",
+        description: "You cannot report your own comment.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmittingReport(true);
     try {
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
         {
-          reporter_id: user.user_id,
           target_type: "Comment",
           target_id: reportTarget._id,
           reason,
@@ -355,6 +375,11 @@ export default function ChapterComments() {
           {comments.map((c) => {
             const username =
               c?.user?.username || c?.user_id?.username || "Anonymous";
+            const commentOwnerId = resolveCommentOwnerId(c);
+            const isOwnComment =
+              !!user?.user_id &&
+              !!commentOwnerId &&
+              String(user.user_id) === String(commentOwnerId);
 
             return (
               <div
@@ -370,20 +395,22 @@ export default function ChapterComments() {
                     <span className="text-[11px]">
                       {new Date(c.createdAt).toLocaleString()}
                     </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      className="h-8 rounded-lg border-rose-200 bg-rose-50 px-2.5 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
-                      onClick={() => {
-                        setReportTarget(c);
-                        setReportDialogOpen(true);
-                      }}
-                      title={`Report comment from ${username}`}
-                    >
-                      <Flag className="w-3.5 h-3.5" />
-                      <span className="ml-1 text-xs font-medium">Report</span>
-                    </Button>
+                    {!isOwnComment ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        className="h-8 rounded-lg border-rose-200 bg-rose-50 px-2.5 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
+                        onClick={() => {
+                          setReportTarget(c);
+                          setReportDialogOpen(true);
+                        }}
+                        title={`Report comment from ${username}`}
+                      >
+                        <Flag className="w-3.5 h-3.5" />
+                        <span className="ml-1 text-xs font-medium">Report</span>
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
 
@@ -537,7 +564,6 @@ export default function ChapterComments() {
                     await axios.post(
                       `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
                       {
-                        reporter_id: user.user_id,
                         target_type: "Comment",
                         target_id: reportTarget._id,
                         reason: reportReason,

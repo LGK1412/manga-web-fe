@@ -41,7 +41,7 @@ export function ChapterSummary({
         icon: <ShieldAlert className="h-4 w-4 text-red-500" />,
         title: "High-risk result",
         description:
-          "The current AI result suggests direct policy risk. Reject or request changes is safer than publishing.",
+          "The current AI result suggests direct policy risk. Reject is safer than publishing.",
       };
     }
 
@@ -50,7 +50,7 @@ export function ChapterSummary({
         icon: <ShieldMinus className="h-4 w-4 text-yellow-500" />,
         title: "Needs closer review",
         description:
-          "The content may still be publishable, but it should usually be revised or manually verified before approval.",
+          "The content may still be publishable, but it should usually be manually verified carefully before approval.",
       };
     }
 
@@ -71,12 +71,6 @@ export function ChapterSummary({
     record.ai_status === "AI_BLOCK"
       ? [
           {
-            action: "request_changes",
-            label: "Request Changes",
-            variant: "default",
-            className: "bg-amber-600 hover:bg-amber-700 text-white",
-          },
-          {
             action: "reject",
             label: "Reject Chapter",
             variant: "destructive",
@@ -89,12 +83,6 @@ export function ChapterSummary({
         ]
       : record.ai_status === "AI_WARN"
       ? [
-          {
-            action: "request_changes",
-            label: "Request Changes",
-            variant: "default",
-            className: "bg-amber-600 hover:bg-amber-700 text-white",
-          },
           {
             action: "approve",
             label: "Approve & Publish",
@@ -111,11 +99,6 @@ export function ChapterSummary({
             action: "approve",
             label: "Approve & Publish",
             variant: "default",
-          },
-          {
-            action: "request_changes",
-            label: "Request Changes",
-            variant: "outline",
           },
           {
             action: "reject",
@@ -206,8 +189,6 @@ export function ChapterSummary({
               <p className="text-sm text-muted-foreground">
                 {record.resolution_status === "APPROVED" &&
                   "This chapter was approved by a moderator and can remain published until the content changes again."}
-                {record.resolution_status === "CHANGES_REQUESTED" &&
-                  "A moderator requested revisions. The chapter should stay unpublished until the author updates it and moderation runs again."}
                 {record.resolution_status === "REJECTED" &&
                   "A moderator rejected the chapter for publication under the current content."}
               </p>
@@ -259,7 +240,7 @@ export function ChapterSummary({
               </p>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2">
               {actionConfigs.map((config) => (
                 <Button
                   key={config.action}
@@ -285,14 +266,11 @@ export function ChapterSummary({
             <AlertDialogTitle>
               {openDialog === "approve" && "Approve Chapter"}
               {openDialog === "reject" && "Reject Chapter"}
-              {openDialog === "request_changes" && "Request Changes"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {openDialog === "approve" && "This will publish the chapter to users."}
               {openDialog === "reject" &&
                 "This will reject the chapter and keep it unpublished."}
-              {openDialog === "request_changes" &&
-                "This will mark the chapter for revision before publication."}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -313,15 +291,12 @@ export function ChapterSummary({
               className={
                 openDialog === "reject"
                   ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  : openDialog === "request_changes"
-                  ? "bg-amber-600 text-white hover:bg-amber-700"
                   : ""
               }
               onClick={() => openDialog && handleDecision(openDialog)}
             >
               {openDialog === "approve" && "Approve Chapter"}
               {openDialog === "reject" && "Reject Chapter"}
-              {openDialog === "request_changes" && "Send Change Request"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

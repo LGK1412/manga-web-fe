@@ -89,9 +89,7 @@ export default function ModerationWorkspacePage() {
         message:
           action === "approve"
             ? "Chapter approved and published successfully."
-            : action === "reject"
-            ? "Chapter rejected successfully."
-            : "Change request has been saved successfully.",
+            : "Chapter rejected successfully.",
       });
       await load();
     } catch (e: any) {

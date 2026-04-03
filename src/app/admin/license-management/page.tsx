@@ -13,8 +13,6 @@ import {
 
 import { LicenseDetailCard } from "./components/license-detail-card";
 import { ModerationQueueCard } from "./components/moderation-queue-card";
-import { PublishingControlsCard } from "./components/publishing-controls-card";
-import { QuickFactsCard } from "./components/quick-facts-card";
 import { QueueMetricCard } from "./components/queue-metric-card";
 import {
   type ActionFeedback,
@@ -26,9 +24,7 @@ import {
   type QueueItem,
 } from "./license-management.types";
 import {
-  formatDateTime,
   getAssetCandidates,
-  getDecisionSummary,
 } from "./license-management.utils";
 
 export default function AdminStoryRightsModerationPage() {
@@ -57,7 +53,6 @@ export default function AdminStoryRightsModerationPage() {
   );
 
   const [rejectionReason, setRejectionReason] = useState("");
-  const [publishAfterApprove, setPublishAfterApprove] = useState(true);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 
   const apiBase = useMemo(() => {
@@ -85,7 +80,6 @@ export default function AdminStoryRightsModerationPage() {
       setSelected(res.data);
       setSelectedFileIndex(0);
       setRejectionReason("");
-      setPublishAfterApprove(true);
       setError(null);
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to load story detail.");
@@ -192,25 +186,9 @@ export default function AdminStoryRightsModerationPage() {
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const queueStart = items.length === 0 ? 0 : (page - 1) * limit + 1;
   const queueEnd = items.length === 0 ? 0 : queueStart + items.length - 1;
-  const selectedDecisionSummary = selected
-    ? getDecisionSummary(selected, selectedLatestRejectReason)
-    : null;
-  const selectedQueueIndex = selected
-    ? items.findIndex((item) => item._id === selected._id)
-    : -1;
-  const hasReviewPrevious = selectedQueueIndex > 0;
-  const hasReviewNext =
-    selectedQueueIndex >= 0 && selectedQueueIndex < items.length - 1;
-  const reviewPositionLabel =
-    selectedQueueIndex >= 0
-      ? `Review ${selectedQueueIndex + 1} of ${items.length} on this page`
-      : "Select a story to start reviewing";
   const selectedProofCount = selected?.licenseFiles?.length || 0;
-  const formattedSubmittedAt = formatDateTime(selected?.licenseSubmittedAt);
-  const formattedReviewedAt = formatDateTime(selected?.licenseReviewedAt);
   const isActionBusy = actionState !== null;
   const isReviewBusy = actionState === "approve" || actionState === "reject";
-  const isPublishBusy = actionState === "publish" || actionState === "unpublish";
 
   const handleReview = async (status: "approved" | "rejected") => {
     if (!selected) return;
@@ -233,7 +211,6 @@ export default function AdminStoryRightsModerationPage() {
       await api.patch(`/license/${selected._id}/review`, {
         status,
         rejectReason: status === "rejected" ? rejectionReason.trim() : "",
-        publishAfterApprove: status === "approved" ? publishAfterApprove : false,
       });
 
       await fetchQueue(page, {
@@ -263,42 +240,6 @@ export default function AdminStoryRightsModerationPage() {
     }
   };
 
-  const handleTogglePublish = async (nextPublish: boolean) => {
-    if (!selected) return;
-
-    try {
-      setActionState(nextPublish ? "publish" : "unpublish");
-      setActionFeedback(null);
-      setError(null);
-
-      await api.patch(`/manga/admin/story/${selected._id}/publish`, {
-        isPublish: nextPublish,
-      });
-
-      await fetchQueue(page, {
-        preferredSelectedId: selected._id,
-        forceDetailRefresh: true,
-      });
-
-      setActionFeedback({
-        tone: "success",
-        title: nextPublish ? "Story published" : "Story unpublished",
-        message: nextPublish
-          ? "Publishing was enabled successfully."
-          : "Publishing was turned off successfully.",
-      });
-    } catch (err: any) {
-      setActionFeedback({
-        tone: "error",
-        title: "Publish update failed",
-        message:
-          err?.response?.data?.message || "Failed to update publish status.",
-      });
-    } finally {
-      setActionState(null);
-    }
-  };
-
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -306,8 +247,8 @@ export default function AdminStoryRightsModerationPage() {
           <div>
             <h1 className="text-3xl font-bold">Story Rights Moderation</h1>
             <p className="text-sm text-gray-600">
-              Review proof documents, inspect rights metadata, and control
-              publishing with a clearer moderation flow.
+              Review proof documents and moderate story rights submissions with
+              a simpler review flow.
             </p>
           </div>
 
@@ -372,15 +313,6 @@ export default function AdminStoryRightsModerationPage() {
                 }
                 getCoverUrl={getCoverUrl}
               />
-
-              <QuickFactsCard />
-
-              <PublishingControlsCard
-                isPublished={selected?.isPublish}
-                isActionBusy={isActionBusy}
-                isPublishBusy={isPublishBusy}
-                onTogglePublish={() => handleTogglePublish(!selected?.isPublish)}
-              />
             </div>
 
             <LicenseDetailCard
@@ -388,39 +320,20 @@ export default function AdminStoryRightsModerationPage() {
               detailLoading={detailLoading}
               selectedLatestRejectReason={selectedLatestRejectReason}
               previousSelectedRejectReasons={previousSelectedRejectReasons}
-              selectedDecisionSummary={selectedDecisionSummary}
-              reviewPositionLabel={reviewPositionLabel}
-              hasReviewPrevious={hasReviewPrevious}
-              hasReviewNext={hasReviewNext}
               selectedProofCount={selectedProofCount}
-              formattedSubmittedAt={formattedSubmittedAt}
-              formattedReviewedAt={formattedReviewedAt}
               currentFile={currentFile}
               currentFileUrl={currentFileUrl}
               currentFileIsPdf={currentFileIsPdf}
               selectedFileIndex={selectedFileIndex}
               actionFeedback={actionFeedback}
               rejectionReason={rejectionReason}
-              publishAfterApprove={publishAfterApprove}
               actionState={actionState}
               isActionBusy={isActionBusy}
               isReviewBusy={isReviewBusy}
-              isPublishBusy={isPublishBusy}
               onSelectFileIndex={setSelectedFileIndex}
               onRejectionReasonChange={setRejectionReason}
-              onPublishAfterApproveChange={setPublishAfterApprove}
               onApprove={() => handleReview("approved")}
               onReject={() => handleReview("rejected")}
-              onReviewPrevious={
-                hasReviewPrevious
-                  ? () => fetchDetail(items[selectedQueueIndex - 1]._id)
-                  : undefined
-              }
-              onReviewNext={
-                hasReviewNext
-                  ? () => fetchDetail(items[selectedQueueIndex + 1]._id)
-                  : undefined
-              }
               getCoverUrl={getCoverUrl}
             />
           </div>

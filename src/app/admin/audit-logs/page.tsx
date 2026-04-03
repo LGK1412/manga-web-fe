@@ -516,6 +516,7 @@ export default function AuditLogsPage() {
       case "report_status_resolved":
         return "border border-emerald-200 bg-emerald-50 text-emerald-700"
       case "reject":
+      case "request_changes":
       case "report_status_rejected":
         return "border border-rose-200 bg-rose-50 text-rose-700"
       case "hide_content":
@@ -541,8 +542,6 @@ export default function AuditLogsPage() {
       case "admin_update_staff_status":
         return "border border-indigo-200 bg-indigo-50 text-indigo-700"
       case "admin_set_role":
-        return "border border-violet-200 bg-violet-50 text-violet-700"
-      case "request_changes":
         return "border border-violet-200 bg-violet-50 text-violet-700"
       case "auto_reject":
         return "border border-rose-200 bg-rose-50 text-rose-700"

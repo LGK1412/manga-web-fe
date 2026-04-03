@@ -55,6 +55,7 @@ function getActionTone(action: string) {
     case "report_status_resolved":
       return "border border-emerald-200 bg-emerald-50 text-emerald-700"
     case "reject":
+    case "request_changes":
     case "report_status_rejected":
     case "delete_comment":
     case "ban_user":
@@ -73,8 +74,6 @@ function getActionTone(action: string) {
     case "admin_update_staff_status":
       return "border border-indigo-200 bg-indigo-50 text-indigo-700"
     case "admin_set_role":
-      return "border border-violet-200 bg-violet-50 text-violet-700"
-    case "request_changes":
       return "border border-violet-200 bg-violet-50 text-violet-700"
     default:
       return "border border-slate-200 bg-slate-100 text-slate-700"

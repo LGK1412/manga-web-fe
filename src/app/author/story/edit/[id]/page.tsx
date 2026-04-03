@@ -15,7 +15,6 @@ import {
   Loader2,
   ShieldCheck,
   UploadCloud,
-  X,
 } from "lucide-react";
 
 import { Navbar } from "@/components/navbar";
@@ -132,17 +131,6 @@ function FieldHint({ children }: { children: React.ReactNode }) {
 function FieldError({ children }: { children?: React.ReactNode }) {
   if (!children) return null;
   return <p className="text-xs text-red-500">{children}</p>;
-}
-
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
 }
 
 function firstNonEmptyArray(value: any): any[] {
@@ -278,7 +266,7 @@ function getLicenseStatusMeta(status: NormalizedLicenseStatus) {
         badgeClass:
           "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300",
         helper:
-          "Your story rights setup has been approved. Publish eligibility still depends on the current rights data remaining valid.",
+          "Your proof submission has been approved. Publish eligibility still depends on the current review status remaining valid.",
       };
     case "pending":
       return {
@@ -286,7 +274,7 @@ function getLicenseStatusMeta(status: NormalizedLicenseStatus) {
         badgeClass:
           "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300",
         helper:
-          "Your rights submission is under review. Edit story metadata here, then use the Story Rights page for any legal or proof updates.",
+          "Your proof submission is under review. Edit story metadata here, then wait for Review Actions before uploading again.",
       };
     case "rejected":
       return {
@@ -294,7 +282,7 @@ function getLicenseStatusMeta(status: NormalizedLicenseStatus) {
         badgeClass:
           "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300",
         helper:
-          "Your previous rights submission was not approved. Review the feedback and fix it on the Story Rights page before publishing.",
+          "Your previous proof submission was not approved. Review the feedback and upload clearer proof images before publishing.",
       };
     default:
       return {
@@ -302,7 +290,7 @@ function getLicenseStatusMeta(status: NormalizedLicenseStatus) {
         badgeClass:
           "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-300",
         helper:
-          "No approved rights submission is on file yet. Use the Story Rights page to set up origin, proof, and declaration details.",
+          "No approved proof submission is on file yet. Use the proof upload page to submit your supporting images.",
       };
   }
 }
@@ -408,11 +396,6 @@ export default function EditStoryPage() {
   const [publishErrors, setPublishErrors] = useState<PublishErrors>({});
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const slugPreview = useMemo(
-    () => slugify(storyTitle || "your-story"),
-    [storyTitle],
-  );
 
   const filteredGenres = useMemo(() => {
     const keyword = genreSearch.trim().toLowerCase();
@@ -520,7 +503,7 @@ export default function EditStoryPage() {
           rightsError ||
           effectivePublishEligibility.reason ||
           rightsMeta.publishReason ||
-          "Complete the Story Rights page before publishing.",
+          "Complete the proof upload flow before publishing.",
         panelClass:
           "rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100",
         icon: AlertTriangle,
@@ -531,7 +514,7 @@ export default function EditStoryPage() {
       return {
         title: "Private by choice",
         description:
-          "Story Rights are ready. This story will stay private until you turn on public visibility and update the story.",
+          "Proof review is ready. This story will stay private until you turn on public visibility and update the story.",
         panelClass:
           "rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-900 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-100",
         icon: ShieldCheck,
@@ -541,7 +524,7 @@ export default function EditStoryPage() {
     return {
       title: "Ready to publish",
       description:
-        "Story Rights currently satisfy the publish checks for a public story update.",
+        "The current proof review status satisfies the publish checks for a public story update.",
       panelClass:
         "rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100",
       icon: ShieldCheck,
@@ -770,39 +753,6 @@ export default function EditStoryPage() {
     markTouched("genres");
   };
 
-  const resetMetadataChanges = () => {
-    if (!initialSnapshot) return;
-
-    setStoryTitle(initialSnapshot.title);
-    setStorySummary(initialSnapshot.summary);
-    setStoryStatus(initialSnapshot.status);
-    setIsPublish(initialSnapshot.isPublish);
-    setSelectedStyleId(initialSnapshot.styleId);
-    setSelectedGenreIds(initialSnapshot.genreIds);
-    setExistingCoverImage(initialSnapshot.coverImage);
-    setRightsError(null);
-    setPublishErrors({});
-    setTouched({
-      title: false,
-      summary: false,
-      cover: false,
-      genres: false,
-      style: false,
-      visibility: false,
-    });
-
-    if (coverPreview.startsWith("blob:")) {
-      URL.revokeObjectURL(coverPreview);
-    }
-
-    setCoverFile(null);
-    setCoverPreview(initialSnapshot.coverPreview);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
   const submitStory = async (mode: EditMode) => {
     setTouched({
       title: true,
@@ -819,12 +769,12 @@ export default function EditStoryPage() {
     if (mode === "publish" && !effectivePublishEligibility.canPublish) {
       setRightsError(
         effectivePublishEligibility.reason ||
-          "Story rights are incomplete for publishing.",
+          "Proof review is incomplete for publishing.",
       );
       toast({
         title: "Cannot publish yet",
         description:
-          effectivePublishEligibility.reason || "Story rights are incomplete.",
+          effectivePublishEligibility.reason || "Proof review is incomplete.",
         variant: "destructive",
       });
       return;
@@ -1088,44 +1038,47 @@ export default function EditStoryPage() {
                 <CardHeader className="border-b border-border/60">
                   <SectionHeader
                     title="Story Settings"
-                    description="Choose how the story is categorized and whether readers can see it."
+                    description="Choose how the story is categorized and organized."
                   />
                 </CardHeader>
 
                 <CardContent className="space-y-6 pt-6">
                   <div className="grid gap-6 md:grid-cols-2">
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <Label className="text-sm font-medium">
-                        Style
+                        Story Type
                         <RequiredMark />
                       </Label>
 
-                      <Select
-                        value={selectedStyleId}
-                        onValueChange={(value) => {
-                          setSelectedStyleId(value);
-                          markTouched("style");
-                        }}
-                      >
-                        <SelectTrigger
-                          className={`h-11 rounded-xl ${shouldShowError("style") && publishErrors.style
-                              ? "border-red-500 focus:ring-red-500"
-                              : ""
-                            }`}
-                        >
-                          <SelectValue placeholder="Choose a style" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableStyles.map((style) => (
-                            <SelectItem key={style._id} value={style._id}>
-                              {style.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {availableStyles.map((style) => {
+                            const isSelected = style._id === selectedStyleId;
+
+                            return (
+                              <button
+                                key={style._id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedStyleId(style._id);
+                                  markTouched("style");
+                                }}
+                                className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${
+                                  isSelected
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/40"
+                                }`}
+                              >
+                                <span>{style.name}</span>
+                                {isSelected ? <Check className="h-4 w-4" /> : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
 
                       <FieldHint>
-                        Select the main visual or narrative style for this story.
+                        Choose the primary format of your story.
                       </FieldHint>
                       <FieldError>
                         {shouldShowError("style") ? publishErrors.style : ""}
@@ -1159,58 +1112,6 @@ export default function EditStoryPage() {
                         Helps readers understand whether the story is still updating.
                       </FieldHint>
                     </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <Label className="text-sm font-medium">Visibility</Label>
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {isPublish ? "Public" : "Private"}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 rounded-2xl border border-border/70 bg-muted/20 p-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsPublish(false);
-                          markTouched("visibility");
-                        }}
-                        className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition ${!isPublish
-                            ? "bg-background text-foreground shadow-sm"
-                            : "text-muted-foreground hover:text-foreground"
-                          }`}
-                      >
-                        <Lock className="h-4 w-4" />
-                        Private
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsPublish(true);
-                          markTouched("visibility");
-                        }}
-                        className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition ${isPublish
-                            ? "bg-background text-foreground shadow-sm"
-                            : "text-muted-foreground hover:text-foreground"
-                          }`}
-                      >
-                        <Globe2 className="h-4 w-4" />
-                        Public
-                      </button>
-                    </div>
-
-                    <FieldHint>
-                      {isPublish
-                        ? "Readers can discover and read this story now."
-                        : "Keep this story hidden while you continue editing it."}
-                    </FieldHint>
-                    <FieldError>
-                      {shouldShowError("visibility")
-                        ? publishErrors.visibility
-                        : ""}
-                    </FieldError>
                   </div>
 
                   <div className="space-y-3">
@@ -1394,14 +1295,6 @@ export default function EditStoryPage() {
                     )}
                   </div>
 
-                  <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-3 py-2">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Story URL
-                    </p>
-                    <p className="mt-1 break-all text-sm text-foreground">
-                      /story/{slugPreview}
-                    </p>
-                  </div>
                 </CardContent>
               </Card>
 
@@ -1414,7 +1307,7 @@ export default function EditStoryPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-2">
                       <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Story Rights Status
+                        Proof Review Status
                       </p>
                       <div
                         className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${licenseStatusMeta.badgeClass}`}
@@ -1434,14 +1327,64 @@ export default function EditStoryPage() {
                     ) : null}
                   </div>
 
-                  <div className="grid gap-3 rounded-2xl border border-border/70 bg-background p-4">
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-muted-foreground">Visibility</span>
-                      <span className="font-medium">
+                  <div className="space-y-3 rounded-2xl border border-border/70 bg-background p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label className="text-sm font-medium">
+                        Visibility
+                        <RequiredMark />
+                      </Label>
+                      <span className="text-xs font-medium text-muted-foreground">
                         {isPublish ? "Public" : "Private"}
                       </span>
                     </div>
 
+                    <div className="grid grid-cols-2 rounded-2xl border border-border/70 bg-muted/20 p-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsPublish(false);
+                          markTouched("visibility");
+                        }}
+                        className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition ${
+                          !isPublish
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Lock className="h-4 w-4" />
+                        Private
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsPublish(true);
+                          markTouched("visibility");
+                        }}
+                        className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition ${
+                          isPublish
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Globe2 className="h-4 w-4" />
+                        Public
+                      </button>
+                    </div>
+
+                    <FieldHint>
+                      {isPublish
+                        ? "Readers can discover and read this story now."
+                        : "Keep this story hidden while you continue editing it."}
+                    </FieldHint>
+                    <FieldError>
+                      {shouldShowError("visibility")
+                        ? publishErrors.visibility
+                        : ""}
+                    </FieldError>
+                  </div>
+
+                  <div className="grid gap-3 rounded-2xl border border-border/70 bg-background p-4">
                     <div className="flex items-center justify-between gap-3 text-sm">
                       <span className="text-muted-foreground">
                         Publish eligibility
@@ -1498,18 +1441,9 @@ export default function EditStoryPage() {
                   <div className="flex flex-col gap-3">
                     <Button asChild variant="outline" className="rounded-xl">
                       <Link href={`/author/manga/${id}/license`}>
-                        Open Story Rights
+                        Open Proof Upload
                         <ExternalLink className="ml-2 h-4 w-4" />
                       </Link>
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      className="rounded-xl"
-                      onClick={resetMetadataChanges}
-                    >
-                      <X className="mr-2 h-4 w-4" />
-                      Reset unsaved changes
                     </Button>
                   </div>
                 </CardContent>

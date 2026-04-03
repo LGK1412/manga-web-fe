@@ -270,7 +270,6 @@ function hasAiAdvice(advice?: FindingAdvice): advice is FindingAdvice {
 
   return (
     (nextStep === "approve" ||
-      nextStep === "request_changes" ||
       nextStep === "reject" ||
       nextStep === "escalate") &&
     Boolean(moderatorReason) &&
@@ -281,7 +280,7 @@ function hasAiAdvice(advice?: FindingAdvice): advice is FindingAdvice {
 function mapNextStepToTone(
   nextStep: ModeratorNextStep
 ): FindingActionItem["tone"] {
-  if (nextStep === "request_changes" || nextStep === "reject") {
+  if (nextStep === "reject") {
     return "required";
   }
 
@@ -296,8 +295,6 @@ function mapNextStepToLabel(nextStep: ModeratorNextStep) {
   switch (nextStep) {
     case "approve":
       return "Approve if safe in context";
-    case "request_changes":
-      return "Request changes";
     case "reject":
       return "Reject chapter";
     case "escalate":
@@ -353,11 +350,13 @@ function buildModeratorGuidance(
   actions: FindingActionItem[]
 ): ModeratorGuidance {
   if (hasAiAdvice(finding.advice)) {
+    const nextStep = finding.advice.moderator.nextStep;
+
     return {
       source: "ai",
-      tone: mapNextStepToTone(finding.advice.moderator.nextStep),
-      nextStep: finding.advice.moderator.nextStep,
-      actionLabel: mapNextStepToLabel(finding.advice.moderator.nextStep),
+      tone: mapNextStepToTone(nextStep),
+      nextStep,
+      actionLabel: mapNextStepToLabel(nextStep),
       summary: String(finding.advice.moderator.reason || "").trim(),
       reviewCheckpoints: normalizeTextList(finding.advice.moderator.checks).slice(0, 4),
     };
@@ -371,7 +370,7 @@ function buildModeratorGuidance(
   return {
     source: "fallback",
     tone: primaryAction?.tone || "next",
-    nextStep: "request_changes",
+    nextStep: "reject",
     actionLabel: primaryAction?.label || "Review",
     summary: primaryAction?.detail || parsedReason,
     reviewCheckpoints:
@@ -494,7 +493,7 @@ export function getModeratorActions(
     return dedupeActions([
       makeAction(
         "required",
-        "Request changes before approval",
+        "Reject until revised",
         "Do not approve this chapter until the risky age-related context is revised or clarified."
       ),
       makeAction(
@@ -514,7 +513,7 @@ export function getModeratorActions(
     return dedupeActions([
       makeAction(
         "required",
-        "Request changes before approval",
+        "Reject until revised",
         "Keep the chapter unpublished until the flagged content is rewritten or removed."
       ),
       makeAction(
@@ -542,8 +541,8 @@ export function getModeratorActions(
       ),
       makeAction(
         "next",
-        "Request changes if it is direct abuse",
-        "Use request changes when the attack is explicit but the chapter may still be salvageable."
+        "Reject if it is direct abuse",
+        "Use reject when the attack is explicit and the chapter is not ready for publication."
       ),
       makeAction(
         "next",
@@ -562,8 +561,8 @@ export function getModeratorActions(
       ),
       makeAction(
         "next",
-        "Request changes if the wording can be softened",
-        "Use request changes when a rewrite can lower the risk without changing the story beat."
+        "Reject if the wording must be softened",
+        "Use reject when a rewrite is needed before the chapter can be published safely."
       ),
       makeAction(
         "next",

@@ -26,42 +26,28 @@ import {
 import {
   type ActionFeedback,
   type ActionState,
-  type DecisionSummary,
   type LicenseDetail,
 } from "../license-management.types";
-import { DetailMetric } from "./detail-metric";
-import { InfoBlock } from "./info-block";
 
 type LicenseDetailCardProps = {
   selected: LicenseDetail | null;
   detailLoading: boolean;
   selectedLatestRejectReason?: string | null;
   previousSelectedRejectReasons: string[];
-  selectedDecisionSummary: DecisionSummary | null;
-  reviewPositionLabel: string;
-  hasReviewPrevious: boolean;
-  hasReviewNext: boolean;
   selectedProofCount: number;
-  formattedSubmittedAt: string;
-  formattedReviewedAt: string;
   currentFile?: string;
   currentFileUrl?: string;
   currentFileIsPdf: boolean;
   selectedFileIndex: number;
   actionFeedback: ActionFeedback | null;
   rejectionReason: string;
-  publishAfterApprove: boolean;
   actionState: ActionState;
   isActionBusy: boolean;
   isReviewBusy: boolean;
-  isPublishBusy: boolean;
   onSelectFileIndex: (index: number) => void;
   onRejectionReasonChange: (value: string) => void;
-  onPublishAfterApproveChange: (value: boolean) => void;
   onApprove: () => void;
   onReject: () => void;
-  onReviewPrevious?: () => void;
-  onReviewNext?: () => void;
   getCoverUrl: (coverImage?: string) => string | undefined;
 };
 
@@ -70,31 +56,20 @@ export function LicenseDetailCard({
   detailLoading,
   selectedLatestRejectReason,
   previousSelectedRejectReasons,
-  selectedDecisionSummary,
-  reviewPositionLabel,
-  hasReviewPrevious,
-  hasReviewNext,
   selectedProofCount,
-  formattedSubmittedAt,
-  formattedReviewedAt,
   currentFile,
   currentFileUrl,
   currentFileIsPdf,
   selectedFileIndex,
   actionFeedback,
   rejectionReason,
-  publishAfterApprove,
   actionState,
   isActionBusy,
   isReviewBusy,
-  isPublishBusy,
   onSelectFileIndex,
   onRejectionReasonChange,
-  onPublishAfterApproveChange,
   onApprove,
   onReject,
-  onReviewPrevious,
-  onReviewNext,
   getCoverUrl,
 }: LicenseDetailCardProps) {
   if (detailLoading) {
@@ -103,7 +78,7 @@ export function LicenseDetailCard({
         <CardHeader>
           <CardTitle>Story Rights Detail</CardTitle>
           <CardDescription>
-            Review rights metadata, proof files, and publish controls.
+            Review proof files and moderate the current submission.
           </CardDescription>
         </CardHeader>
 
@@ -119,13 +94,13 @@ export function LicenseDetailCard({
     );
   }
 
-  if (!selected || !selectedDecisionSummary) {
+  if (!selected) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Story Rights Detail</CardTitle>
           <CardDescription>
-            Review rights metadata, proof files, and publish controls.
+            Review proof files and moderate the current submission.
           </CardDescription>
         </CardHeader>
 
@@ -139,13 +114,16 @@ export function LicenseDetailCard({
   }
 
   const coverUrl = getCoverUrl(selected.coverImage);
+  const currentFileLabel = currentFile
+    ? `File ${selectedFileIndex + 1}`
+    : "";
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Story Rights Detail</CardTitle>
         <CardDescription>
-          Review rights metadata, proof files, and publish controls.
+          Review proof files and moderate the current submission.
         </CardDescription>
       </CardHeader>
 
@@ -198,19 +176,6 @@ export function LicenseDetailCard({
                   </Badge>
                 ) : null}
               </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <InfoBlock label="Origin" value={selected.originType} />
-                <InfoBlock
-                  label="Monetization"
-                  value={selected.monetizationType}
-                />
-                <InfoBlock label="Rights basis" value={selected.rightsBasis} />
-                <InfoBlock
-                  label="Enforcement"
-                  value={selected.enforcementStatus || "normal"}
-                />
-              </div>
             </div>
           </div>
 
@@ -218,79 +183,36 @@ export function LicenseDetailCard({
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-6">
-              <div className="space-y-3">
-                <h3 className="text-base font-semibold">Rights Metadata</h3>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <InfoBlock
-                    label="Source title"
-                    value={selected.rights?.sourceTitle}
-                  />
-                  <InfoBlock
-                    label="Source URL"
-                    value={selected.rights?.sourceUrl}
-                    isLink
-                  />
-                  <InfoBlock
-                    label="License name"
-                    value={selected.rights?.licenseName}
-                  />
-                  <InfoBlock
-                    label="License URL"
-                    value={selected.rights?.licenseUrl}
-                    isLink
-                  />
-                  <InfoBlock
-                    label="Claim status"
-                    value={selected.rights?.claimStatus || "none"}
-                  />
-                  <InfoBlock
-                    label="Submitted at"
-                    value={selected.licenseSubmittedAt}
-                    isDate
-                  />
-                  <InfoBlock
-                    label="Reviewed at"
-                    value={selected.licenseReviewedAt}
-                    isDate
-                  />
-                  <InfoBlock
-                    label="Proof note"
-                    value={selected.rights?.proofNote || selected.licenseNote}
-                  />
-                </div>
-
-                {selectedLatestRejectReason ||
-                previousSelectedRejectReasons.length > 0 ? (
-                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                    <p className="font-medium">
-                      {selected.licenseStatus === "rejected"
-                        ? "Latest reject reason"
-                        : "Reject history"}
-                    </p>
-                    {selectedLatestRejectReason ? (
-                      <p className="mt-1">{selectedLatestRejectReason}</p>
-                    ) : null}
-                    {previousSelectedRejectReasons.length > 0 ? (
-                      <div className="mt-3 space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-red-700/80">
-                          Earlier review notes
-                        </p>
-                        <div className="space-y-2">
-                          {previousSelectedRejectReasons.map((reason, index) => (
-                            <div
-                              key={`${reason}-${index}`}
-                              className="rounded-lg border border-red-200/80 bg-white/70 px-3 py-2"
-                            >
-                              {reason}
-                            </div>
-                          ))}
-                        </div>
+              {selectedLatestRejectReason ||
+              previousSelectedRejectReasons.length > 0 ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  <p className="font-medium">
+                    {selected.licenseStatus === "rejected"
+                      ? "Latest reject reason"
+                      : "Reject history"}
+                  </p>
+                  {selectedLatestRejectReason ? (
+                    <p className="mt-1">{selectedLatestRejectReason}</p>
+                  ) : null}
+                  {previousSelectedRejectReasons.length > 0 ? (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-red-700/80">
+                        Earlier review notes
+                      </p>
+                      <div className="space-y-2">
+                        {previousSelectedRejectReasons.map((reason, index) => (
+                          <div
+                            key={`${reason}-${index}`}
+                            className="rounded-lg border border-red-200/80 bg-white/70 px-3 py-2"
+                          >
+                            {reason}
+                          </div>
+                        ))}
                       </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
@@ -305,8 +227,7 @@ export function LicenseDetailCard({
                     <div className="flex flex-wrap gap-2">
                       {selected.licenseFiles.map((file, index) => {
                         const active = index === selectedFileIndex;
-                        const fileLabel =
-                          file.split("/").pop() || `File ${index + 1}`;
+                        const fileLabel = `File ${index + 1}`;
 
                         return (
                           <button
@@ -332,7 +253,7 @@ export function LicenseDetailCard({
                       <div className="overflow-hidden rounded-xl border">
                         <div className="flex items-center justify-between gap-3 border-b bg-gray-50 px-4 py-2">
                           <div className="truncate text-sm font-medium">
-                            {currentFile?.split("/").pop()}
+                            {currentFileLabel}
                           </div>
                           <a
                             href={currentFileUrl}
@@ -372,42 +293,6 @@ export function LicenseDetailCard({
             </div>
 
             <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-              <div
-                className={`rounded-xl border p-4 ${selectedDecisionSummary.toneClassName}`}
-              >
-                <p className="text-xs font-semibold uppercase tracking-wide">
-                  Decision Summary
-                </p>
-                <p className="mt-2 text-base font-semibold">
-                  {selectedDecisionSummary.title}
-                </p>
-                <p className="mt-2 text-sm leading-6">
-                  {selectedDecisionSummary.description}
-                </p>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                  <DetailMetric
-                    label="Proof Files"
-                    value={String(selectedProofCount)}
-                    hint={
-                      selectedProofCount > 0
-                        ? "Open the attachments and confirm they match the claimed rights."
-                        : "No evidence uploaded yet."
-                    }
-                  />
-                  <DetailMetric
-                    label="Submitted"
-                    value={formattedSubmittedAt || "Not submitted"}
-                    hint="Use this to prioritize older pending cases first."
-                  />
-                  <DetailMetric
-                    label="Reviewed"
-                    value={formattedReviewedAt || "Not reviewed"}
-                    hint="Latest moderation timestamp for this story."
-                  />
-                </div>
-              </div>
-
               {actionFeedback ? (
                 <Alert
                   variant={
@@ -425,38 +310,6 @@ export function LicenseDetailCard({
               ) : null}
 
               <Card>
-                <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between lg:flex-col lg:items-stretch">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      Review Sequence
-                    </p>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {reviewPositionLabel}
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="flex-1 rounded-xl"
-                      onClick={onReviewPrevious}
-                      disabled={!hasReviewPrevious}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 rounded-xl"
-                      onClick={onReviewNext}
-                      disabled={!hasReviewNext}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
                 <CardHeader>
                   <CardTitle>Review Actions</CardTitle>
                   <CardDescription>
@@ -465,18 +318,6 @@ export function LicenseDetailCard({
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  <div className="rounded-xl border bg-gray-50 p-4">
-                    <div className="flex items-start gap-2 text-sm">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 text-orange-500" />
-                      <div>
-                        <p className="font-medium">Review carefully</p>
-                        <p className="mt-1 text-gray-600">
-                          Pending view: save to jump to the next case.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Reject reason</label>
                     <Textarea
@@ -487,23 +328,6 @@ export function LicenseDetailCard({
                       className="rounded-xl"
                     />
                   </div>
-
-                  <label className="flex items-start gap-3 rounded-xl border p-4">
-                    <input
-                      type="checkbox"
-                      checked={publishAfterApprove}
-                      onChange={(e) =>
-                        onPublishAfterApproveChange(e.target.checked)
-                      }
-                      className="mt-1"
-                    />
-                    <div>
-                      <p className="text-sm font-medium">Publish after approve</p>
-                      <p className="text-sm text-gray-600">
-                        Use only for immediate go-live.
-                      </p>
-                    </div>
-                  </label>
 
                   <div className="grid gap-3">
                     <Button
