@@ -227,11 +227,8 @@ async function fetchLatestPage(
 
 async function fetchFilters(signal?: AbortSignal) {
   const [genresRes, stylesRes] = await Promise.all([
-    axios.get(`${API_BASE}/api/genre/`, { withCredentials: true, signal }),
-    axios.get(`${API_BASE}/api/styles/active`, {
-      withCredentials: true,
-      signal,
-    }),
+    axios.get(`${API_BASE}/api/genre/`),
+    axios.get(`${API_BASE}/api/styles/active`),
   ]);
 
   const genres: Genre[] = Array.isArray(genresRes.data) ? genresRes.data : [];
