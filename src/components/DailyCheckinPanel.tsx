@@ -96,31 +96,31 @@ export default function DailyCheckinPanel({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
       <div className="absolute inset-0" onClick={onClose} />
-      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
-        <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+      <div className="relative w-full max-w-xl bg-background text-foreground border-border">
+        <div className="p-6 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-teal-50 text-teal-600 rounded-2xl">
               <Gift size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800">
+              <h2 className="text-xl font-bold text-foreground">
                 Daily Check-in
               </h2>
-              <p className="text-xs text-slate-500 font-medium">
+              <p className="text-xs text-muted-foreground font-medium">
                 Earn points every day with us!
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+            className="p-2 rounded-xl hover:bg-accent text-muted-foreground transition-colors"
           >
             <X size={20} />
           </button>
         </div>
 
         {!status ? (
-          <div className="p-20 text-center text-slate-400">
+          <div className="p-20 text-center text-muted-foreground">
             <p className="text-sm font-medium">Loading data...</p>
           </div>
         ) : (
@@ -139,10 +139,10 @@ export default function DailyCheckinPanel({
                     className={cn(
                       "flex flex-col items-center p-3 rounded-2xl border-2 transition-all duration-200",
                       isChecked
-                        ? "bg-teal-50 border-teal-100 text-teal-600 opacity-90"
+                        ? "bg-teal-500/10 border-teal-500/20 text-teal-600 dark:text-teal-400 opacity-90"
                         : isToday
-                          ? "bg-white border-teal-500 text-teal-600 ring-4 ring-teal-50 scale-105 z-10 shadow-md"
-                          : "bg-slate-50 border-slate-100 text-black opacity-60",
+                          ? "bg-background border-teal-500 text-teal-600 dark:text-teal-400 ring-4 ring-teal-500/15 scale-105 z-10 shadow-md"
+                          : "bg-muted/50 border-border text-muted-foreground opacity-60",
                     )}
                   >
                     <span
@@ -159,7 +159,7 @@ export default function DailyCheckinPanel({
                       ) : (
                         <Award
                           size={20}
-                          className={isToday ? "text-teal-500" : "text-black"}
+                          className={isToday ? "text-teal-500" : "text-muted-foreground"}
                         />
                       )}
                     </div>
@@ -182,7 +182,7 @@ export default function DailyCheckinPanel({
                 "w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-teal-500/10",
                 status.canCheckin
                   ? "bg-teal-600 hover:bg-teal-700 text-white"
-                  : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border border-slate-200",
+                  : "bg-muted text-muted-foreground cursor-not-allowed shadow-none border border-border",
               )}
             >
               {loading ? (
