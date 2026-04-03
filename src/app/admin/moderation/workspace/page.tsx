@@ -88,7 +88,7 @@ export default function ModerationWorkspacePage() {
         tone: "success",
         message:
           action === "approve"
-            ? "Chapter approved and published successfully."
+            ? "Chapter marked safe successfully."
             : "Chapter rejected successfully.",
       });
       await load();
@@ -140,8 +140,8 @@ export default function ModerationWorkspacePage() {
         <div className="space-y-1">
           <h1 className="text-2xl font-bold">Moderation Workspace</h1>
           <p className="text-sm text-muted-foreground">
-            Review AI findings, inspect flagged content, and decide whether this chapter is ready
-            for publication.
+            Review AI findings, inspect flagged content, and decide whether this chapter should be
+            marked safe or rejected.
           </p>
         </div>
 

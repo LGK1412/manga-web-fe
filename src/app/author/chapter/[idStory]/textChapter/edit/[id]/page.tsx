@@ -155,7 +155,6 @@ export default function EditChapterPage({
   // Loading state
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(true);
-  const [isToggling, setIsToggling] = useState(false);
   const [isAiRunning, setIsAiRunning] = useState(false);
 
   // Form state
@@ -298,39 +297,10 @@ export default function EditChapterPage({
     });
   }
 
-  // --- Toggle Công khai/Nháp
-async function handleTogglePublish() {
-    if (!isPublished) {
-      alert(
-        "Publishing is handled after moderation approval. Save your changes and wait for the moderation result.",
-      );
-      return;
-    }
-
-    const nextPublished = !isPublished;
-    try {
-      setIsToggling(true);
-      await api.patch(`/text-chapter/${chapterId}`, {
-        isPublished: nextPublished,
-        is_published: nextPublished,
-      });
-
-      setIsPublished(nextPublished);
-      setChapters((prev) =>
-        prev.map((c) =>
-          c.id === chapterId ? { ...c, isPublished: nextPublished } : c,
-        ),
-      );
-    } catch (err: any) {
-      console.error("Error toggling publish status", err);
-      const errorMessage =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Error toggling publish status";
-      alert(errorMessage);
-    } finally {
-      setIsToggling(false);
-    }
+  // --- Toggle publish state locally until Save Changes
+  function handleTogglePublish() {
+    setIsPublished((prev) => !prev);
+    setDirty(true);
   }
 
   // --- Xoá chương
@@ -556,7 +526,7 @@ async function handleTogglePublish() {
 
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-slate-600">
-                  Ch. {number} {isPublished ? "• Published" : "• Draft"}
+                  Ch. {number} {isPublished ? "• Publish on save" : "• Draft on save"}
                 </span>
                 {dirty && (
                   <span className="text-[11px] text-amber-600">• unsaved</span>
@@ -603,27 +573,16 @@ async function handleTogglePublish() {
 
                 <button
                   onClick={handleTogglePublish}
-                  disabled={isPending || !chapterId || isToggling || !isPublished}
                   className={clsx(
-                    "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-white shadow-sm",
-                    isPending || isToggling || !isPublished
-                      ? "bg-blue-400 cursor-not-allowed"
-                      : isPublished
-                        ? "bg-emerald-600 hover:bg-emerald-700"
-                        : "bg-blue-600 hover:bg-blue-700",
-                  )}
-                  title={
+                    "inline-flex items-center gap-2 rounded-lg border px-3 py-2",
                     isPublished
-                      ? "Unpublish"
-                      : "Publication happens after moderation approval"
-                  }
-                >
-                  {isToggling ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Check className="h-4 w-4" />
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      : "border-slate-200 bg-white text-slate-800 hover:bg-slate-50",
                   )}
-                  {isPublished ? "Unpublish" : "Await Moderation"}
+                  title="Choose whether Save Changes should publish this chapter"
+                >
+                  <Check className="h-4 w-4" />
+                  {isPublished ? "Will Publish" : "Keep Draft"}
                 </button>
               </div>
             </div>
@@ -744,6 +703,25 @@ async function handleTogglePublish() {
 
                       <div className="flex items-center gap-2">
                         <input
+                          id="publishOnSave"
+                          type="checkbox"
+                          checked={isPublished}
+                          onChange={(e) => {
+                            setIsPublished(e.target.checked);
+                            setDirty(true);
+                          }}
+                          className="h-4 w-4"
+                        />
+                        <label
+                          htmlFor="publishOnSave"
+                          className="text-sm text-slate-700"
+                        >
+                          Publish this chapter when saving changes
+                        </label>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <input
                           id="isCompleted"
                           type="checkbox"
                           checked={isCompleted}
@@ -786,7 +764,7 @@ async function handleTogglePublish() {
                       Translate
                     </button>
 
-                    <button
+                    <button hidden
                       onClick={handleAiCheck}
                       disabled={isAiRunning || !chapterId}
                       className={clsx(
@@ -827,9 +805,9 @@ async function handleTogglePublish() {
 
                       <div className="mt-2 flex items-center justify-between">
                         <p className="text-[11px] text-slate-500">
-                          Publication is handled after moderation approval. Use
-                          the top bar only to unpublish an already published
-                          chapter.
+                          You can keep this chapter as draft or publish it when
+                          saving. Content moderation may later mark it safe or
+                          reject it.
                         </p>
                         {dirty && (
                           <span className="text-[11px] text-amber-600">

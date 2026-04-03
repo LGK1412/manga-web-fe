@@ -28,6 +28,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   LICENSE_STATUS_META,
   getLatestRejectReason,
   normalizeLicenseStatus,
@@ -41,6 +51,21 @@ type MangaDetailResponse = {
   title: string;
   coverImage?: string;
 };
+
+const LICENSE_REFERENCE_LINKS = [
+  {
+    label: "Luật Sở hữu trí tuệ (VBHN 2025)",
+    href: "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/9/155-vbhn-vpqh.pdf",
+  },
+  {
+    label: "Nghị định 17/2023/NĐ-CP",
+    href: "https://datafiles.chinhphu.vn/cpp/files/vbpq/2023/5/17-cp.signed.pdf",
+  },
+  {
+    label: "WIPO Lex - Điều ước áp dụng tại Việt Nam",
+    href: "https://www.wipo.int/wipolex/en/members/profile/VN",
+  },
+] as const;
 
 function getAssetCandidates(apiBase: string, filePath?: string) {
   if (!filePath) return [];
@@ -91,7 +116,7 @@ function getReviewCopy(status: "none" | "pending" | "approved" | "rejected") {
       return {
         title: "No proof submitted",
         description:
-          "Upload proof images for this story to start the review process.",
+          "Upload proof images for this story if you want to start the review process.",
       };
   }
 }
@@ -254,8 +279,8 @@ export default function AuthorMangaLicensePage() {
     rightsPayload?.publishEligibility?.reason ||
     rightsPayload?.publishReason ||
     (canPublish
-      ? "This story currently satisfies the backend publish policy."
-      : "Upload proof images and wait for approval before publishing.");
+      ? "This story can be published now. Proof upload is optional."
+      : "Publishing is currently unavailable under the backend policy.");
   const selectedFilesSizeMb =
     files.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024;
   const submittedAt = formatDateTime(rightsPayload?.licenseSubmittedAt);
@@ -303,8 +328,8 @@ export default function AuthorMangaLicensePage() {
                 ) : null}
               </div>
               <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
-                Upload the images that prove you have permission to publish this
-                story. Review status and feedback will appear here.
+                Upload proof images if you want rights review or verification
+                for this story. Review status and feedback will appear here.
               </p>
             </div>
           </div>
@@ -372,13 +397,97 @@ export default function AuthorMangaLicensePage() {
 
             <Card className="rounded-2xl border-border/70 shadow-sm">
               <CardHeader className="border-b border-border/60 pb-5">
-                <CardTitle>Upload Proof Images</CardTitle>
-                <CardDescription>
-                  Only image files are allowed. Upload screenshots, contracts,
-                  chats, or other visual proof that supports your rights. After
-                  submission, re-upload is only available if moderators reject
-                  the current proof set.
-                </CardDescription>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1.5">
+                    <CardTitle>Upload Proof Images</CardTitle>
+                    <CardDescription>
+                      Only image files are allowed. Upload screenshots,
+                      contracts, chats, or other visual proof that supports
+                      your rights. After submission, re-upload is only
+                      available if moderators reject the current proof set.
+                    </CardDescription>
+                  </div>
+
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 rounded-full border-border/70 text-base font-semibold text-muted-foreground shadow-none hover:bg-muted/40"
+                        aria-label="View license requirements"
+                      >
+                        ?
+                      </Button>
+                    </DialogTrigger>
+
+                    <DialogContent className="sm:max-w-[560px]">
+                      <DialogHeader className="space-y-3">
+                        <DialogTitle className="pr-8">
+                          Xác nhận giấy phép đăng tải
+                        </DialogTitle>
+                        <DialogDescription>
+                          Thông tin tóm tắt để bạn chuẩn bị hồ sơ đúng trước khi
+                          gửi duyệt.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="space-y-4 text-sm leading-6 text-muted-foreground">
+                        <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 text-foreground">
+                          Bằng việc tải lên giấy phép hoặc văn bản ủy quyền, bạn
+                          xác nhận mình có quyền hợp pháp để đăng tải, phân
+                          phối hoặc khai thác tác phẩm trên nền tảng.
+                        </div>
+
+                        <p>
+                          Hồ sơ cần phù hợp với Luật Sở hữu trí tuệ Việt Nam,
+                          Nghị định 17/2023/NĐ-CP và các điều ước quốc tế áp
+                          dụng tại Việt Nam như Công ước Berne, TRIPS và WCT.
+                        </p>
+
+                        <p>
+                          Bạn tự chịu trách nhiệm về tính hợp lệ, phạm vi sử
+                          dụng và thời hạn hiệu lực của giấy phép. Hồ sơ không
+                          hợp lệ hoặc xâm phạm quyền của bên thứ ba có thể bị từ
+                          chối.
+                        </p>
+
+                        <div className="rounded-2xl border border-border/70 bg-background p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Tài liệu tham khảo
+                          </p>
+
+                          <div className="mt-3 flex flex-col gap-2">
+                            {LICENSE_REFERENCE_LINKS.map((link) => (
+                              <a
+                                key={link.href}
+                                href={link.href}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 text-sm font-medium text-foreground underline-offset-4 hover:underline"
+                              >
+                                <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                <span>{link.label}</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <DialogFooter className="gap-3 border-t border-border/60 pt-4 sm:justify-between">
+                        <p className="text-xs text-muted-foreground">
+                          Cần đúng chủ thể, đúng phạm vi và còn hiệu lực.
+                        </p>
+
+                        <DialogClose asChild>
+                          <Button type="button" className="rounded-xl">
+                            Tôi đã hiểu
+                          </Button>
+                        </DialogClose>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
 
               <CardContent className="space-y-5 pt-6">
@@ -579,7 +688,7 @@ export default function AuthorMangaLicensePage() {
               <CardHeader>
                 <CardTitle>Review Status</CardTitle>
                 <CardDescription>
-                  Keep track of approval progress and publish eligibility.
+                  Keep track of proof review progress and current publishing availability.
                 </CardDescription>
               </CardHeader>
 
@@ -603,7 +712,7 @@ export default function AuthorMangaLicensePage() {
                   }`}
                 >
                   <p className="font-medium">
-                    {canPublish ? "Eligible to publish" : "Cannot publish yet"}
+                    {canPublish ? "Publishing available" : "Publishing blocked"}
                   </p>
                   <p className="mt-1">{publishReason}</p>
                 </div>

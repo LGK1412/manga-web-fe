@@ -179,9 +179,9 @@ function getNextStep(story: Manga) {
 
   if (license === "rejected") {
     return {
-      title: "License needs update",
+      title: "Proof needs update",
       description:
-        "Open Story Rights, review the rejection, and upload stronger proof files.",
+        "Open Story Rights to review the rejection and upload stronger proof files whenever you want.",
       tone:
         "border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100",
     };
@@ -191,7 +191,7 @@ function getNextStep(story: Manga) {
     return {
       title: "Under review",
       description:
-        "Rights submission is in review. Keep writing chapters while waiting for approval.",
+        "Your proof submission is in review. You can keep writing and publishing while waiting for the result.",
       tone:
         "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100",
     };
@@ -199,9 +199,9 @@ function getNextStep(story: Manga) {
 
   if (license === "approved" && story.isDraft) {
     return {
-      title: "Ready to publish",
+      title: "Ready when you are",
       description:
-        "The license is approved. Finish metadata or chapters, then publish when ready.",
+        "This story can be published now. Finish metadata or chapters, then publish when ready.",
       tone:
         "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100",
     };
@@ -218,9 +218,9 @@ function getNextStep(story: Manga) {
   }
 
   return {
-    title: "Upload license to continue",
+    title: "Story Rights are optional",
     description:
-      "Add Story Rights information and proof documents so the story is ready for review.",
+      "Add Story Rights information and proof documents anytime if you want review support or verification.",
     tone:
       "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-100",
   };

@@ -542,7 +542,7 @@ export function getModeratorActions(
       makeAction(
         "next",
         "Reject if it is direct abuse",
-        "Use reject when the attack is explicit and the chapter is not ready for publication."
+        "Use reject when the attack is explicit and the chapter is not safe to keep live."
       ),
       makeAction(
         "next",

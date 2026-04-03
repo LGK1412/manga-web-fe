@@ -63,8 +63,8 @@ export function PublishingControlsCard({
                   </Button>
 
                   <p className="text-xs text-gray-500">
-                    The backend still enforces publish eligibility rules even if
-                    this toggle is used.
+                    The backend can still block publication for enforcement or
+                    copyright-claim cases even if this toggle is used.
                   </p>
                 </>
               ) : (

@@ -266,7 +266,7 @@ function getLicenseStatusMeta(status: NormalizedLicenseStatus) {
         badgeClass:
           "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300",
         helper:
-          "Your proof submission has been approved. Publish eligibility still depends on the current review status remaining valid.",
+          "Your proof submission has been approved. You can keep publishing and editing this story normally.",
       };
     case "pending":
       return {
@@ -274,7 +274,7 @@ function getLicenseStatusMeta(status: NormalizedLicenseStatus) {
         badgeClass:
           "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300",
         helper:
-          "Your proof submission is under review. Edit story metadata here, then wait for Review Actions before uploading again.",
+          "Your proof submission is under review. You can keep editing or publishing while waiting for the review result.",
       };
     case "rejected":
       return {
@@ -282,7 +282,7 @@ function getLicenseStatusMeta(status: NormalizedLicenseStatus) {
         badgeClass:
           "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300",
         helper:
-          "Your previous proof submission was not approved. Review the feedback and upload clearer proof images before publishing.",
+          "Your previous proof submission was not approved. Review the feedback and upload clearer proof images whenever you want.",
       };
     default:
       return {
@@ -290,7 +290,7 @@ function getLicenseStatusMeta(status: NormalizedLicenseStatus) {
         badgeClass:
           "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-300",
         helper:
-          "No approved proof submission is on file yet. Use the proof upload page to submit your supporting images.",
+          "No proof submission is on file yet. Use the proof upload page anytime if you want to submit supporting images.",
       };
   }
 }
@@ -503,7 +503,7 @@ export default function EditStoryPage() {
           rightsError ||
           effectivePublishEligibility.reason ||
           rightsMeta.publishReason ||
-          "Complete the proof upload flow before publishing.",
+          "Publishing is currently unavailable for this story.",
         panelClass:
           "rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100",
         icon: AlertTriangle,
@@ -514,7 +514,7 @@ export default function EditStoryPage() {
       return {
         title: "Private by choice",
         description:
-          "Proof review is ready. This story will stay private until you turn on public visibility and update the story.",
+          "This story will stay private until you turn on public visibility and update the story.",
         panelClass:
           "rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-900 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-100",
         icon: ShieldCheck,
@@ -524,7 +524,7 @@ export default function EditStoryPage() {
     return {
       title: "Ready to publish",
       description:
-        "The current proof review status satisfies the publish checks for a public story update.",
+        "This story can be published now. Proof upload is optional and can be managed separately.",
       panelClass:
         "rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100",
       icon: ShieldCheck,
@@ -583,7 +583,7 @@ export default function EditStoryPage() {
     if (mode === "publish" && !effectivePublishEligibility.canPublish) {
       setRightsError(
         effectivePublishEligibility.reason ||
-          "Story rights are incomplete for publishing.",
+          "Publishing is currently unavailable for this story.",
       );
     }
 
@@ -769,12 +769,13 @@ export default function EditStoryPage() {
     if (mode === "publish" && !effectivePublishEligibility.canPublish) {
       setRightsError(
         effectivePublishEligibility.reason ||
-          "Proof review is incomplete for publishing.",
+          "Publishing is currently unavailable for this story.",
       );
       toast({
-        title: "Cannot publish yet",
+        title: "Cannot publish right now",
         description:
-          effectivePublishEligibility.reason || "Proof review is incomplete.",
+          effectivePublishEligibility.reason ||
+          "Publishing is currently unavailable for this story.",
         variant: "destructive",
       });
       return;

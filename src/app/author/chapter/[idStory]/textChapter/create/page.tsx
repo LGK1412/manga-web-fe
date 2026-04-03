@@ -8,7 +8,6 @@ import axios from "axios";
 import {
   BookOpen,
   Plus,
-  Save,
   X,
   Check,
   ChevronRight,
@@ -152,6 +151,7 @@ export default function CreateChapterPage({
   }>({});
   const [dirty, setDirty] = useState(false);
   const [price, setPrice] = useState<number>(0);
+  const [isPublished, setIsPublished] = useState(false);
 
   // Word counter
   const liveWordCount = useMemo(() => countWords(content), [content]);
@@ -232,6 +232,7 @@ export default function CreateChapterPage({
         setNumber(chapters.length + 2);
         setContent("");
         setPrice(0);
+        setIsPublished(false);
         setDirty(false);
 
         router.push(`/author/chapter/${mangaId}/textChapter/create`);
@@ -244,7 +245,7 @@ export default function CreateChapterPage({
     });
   }
 
-  // Create chapter inside the moderation flow
+  // Create chapter
   async function handleCreate() {
     if (!validate()) return;
     startTransition(async () => {
@@ -253,11 +254,10 @@ export default function CreateChapterPage({
           title,
           order: number,
           price,
-          isPublished: true, // tạo & công khai
+          isPublished,
           content,
           manga_id: mangaId,
         };
-        payload.isPublished = false;
         const res = await api.post(`/text-chapter`, payload);
 
         const newChapter = res.data?.chapter;
@@ -280,6 +280,7 @@ export default function CreateChapterPage({
         setNumber(chapters.length + 2);
         setContent("");
         setPrice(0);
+        setIsPublished(false);
         setDirty(false);
 
         router.push(`/author/chapter/${mangaId}/textChapter/create`);
@@ -299,6 +300,7 @@ export default function CreateChapterPage({
     setNumber(chapters.length + 1);
     setContent("");
     setPrice(0);
+    setIsPublished(false);
     setDirty(false);
     setErrors({});
   }
@@ -319,7 +321,7 @@ export default function CreateChapterPage({
   async function handleAiCheckForCreate() {
     // Tại trang tạo chương: chưa có chapterId → yêu cầu lưu/tạo trước
     alert(
-      "Please Save draft or Create chapter first, then go to Edit page to run Policy (AI) check.",
+      "Please create the chapter first, then go to the Edit page to run Policy (AI) check.",
     );
   }
 
@@ -467,7 +469,7 @@ export default function CreateChapterPage({
               {/* Chapter meta + dirty */}
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-slate-600">
-                  Ch. {number}
+                  Ch. {number} {isPublished ? "• Publish on create" : "• Draft"}
                 </span>
                 {dirty && (
                   <span className="text-[11px] text-amber-600">• unsaved</span>
@@ -485,18 +487,14 @@ export default function CreateChapterPage({
                 </button>
 
                 <button
-                  onClick={handleSaveDraft}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 hover:bg-slate-50"
-                >
-                  <Save className="h-4 w-4" />
-                  Save Draft
-                </button>
-
-                <button
                   onClick={handleCreate}
                   disabled={isPending || !mangaId}
                   title={
-                    !mangaId ? "Add mangaId to URL first" : "Create chapter"
+                    !mangaId
+                      ? "Add mangaId to URL first"
+                      : isPublished
+                        ? "Create and publish chapter"
+                        : "Create draft chapter"
                   }
                   className={clsx(
                     "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-white shadow-sm",
@@ -511,7 +509,11 @@ export default function CreateChapterPage({
                   ) : (
                     <Check className="h-4 w-4" />
                   )}
-                  {isPending ? "Creating..." : "Create Chapter"}
+                  {isPending
+                    ? "Creating..."
+                    : isPublished
+                    ? "Create & Publish"
+                    : "Create Draft"}
                 </button>
               </div>
             </div>
@@ -616,6 +618,25 @@ export default function CreateChapterPage({
                       </p>
                     </div>
                   </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="publishOnCreate"
+                      type="checkbox"
+                      checked={isPublished}
+                      onChange={(e) => {
+                        setIsPublished(e.target.checked);
+                        setDirty(true);
+                      }}
+                      className="h-4 w-4"
+                    />
+                    <label
+                      htmlFor="publishOnCreate"
+                      className="text-sm text-slate-700"
+                    >
+                      Publish immediately after creating this chapter
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -646,7 +667,7 @@ export default function CreateChapterPage({
 
                   <div className="mt-2 flex items-center justify-between">
                     <p className="text-[11px] text-slate-500">
-                      You can edit later, then wait for moderation approval before publication.
+                      You can save as draft or publish immediately. Content moderation may later mark it safe or reject it.
                     </p>
                     {dirty && (
                       <span className="text-[11px] text-amber-600">

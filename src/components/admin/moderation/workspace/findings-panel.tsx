@@ -88,24 +88,6 @@ export function FindingsPanel({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <SummaryTile
-              label="High priority"
-              value={String(
-                actionableFindings.filter((finding) => finding.verdict === "block").length
-              )}
-            />
-            <SummaryTile
-              label="Needs context review"
-              value={String(
-                actionableFindings.filter((finding) => finding.verdict === "warn").length
-              )}
-            />
-            <SummaryTile
-              label="Clear checks"
-              value={String(passedFindings.length)}
-            />
-          </div>
         </div>
       </div>
 
@@ -367,15 +349,6 @@ function FindingCard({
         </div>
       </div>
     </button>
-  );
-}
-
-function SummaryTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border bg-background/80 px-3 py-3 shadow-sm">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-foreground">{value}</p>
-    </div>
   );
 }
 

@@ -447,55 +447,10 @@ export function evaluateClientPublishReadiness(
     };
   }
 
-  if (
-    rights.originType === "original" &&
-    rights.basis === "self_declaration" &&
-    rights.declarationAccepted
-  ) {
-    return {
-      canPublish: true,
-      requiresReview: false,
-      reason: null,
-    };
-  }
-
-  if (isStrictReviewCase(rights)) {
-    return {
-      canPublish: rights.reviewStatus === "approved",
-      requiresReview: true,
-      reason:
-        rights.reviewStatus === "approved"
-          ? null
-          : "Proof of rights must be approved before publishing.",
-    };
-  }
-
-  if (rights.originType === "cc_licensed") {
-    const ok = Boolean(
-      cleanOptionalText(rights.sourceUrl) && cleanOptionalText(rights.licenseUrl),
-    );
-
-    return {
-      canPublish: ok,
-      requiresReview: false,
-      reason: ok ? null : "Source URL and license URL are required.",
-    };
-  }
-
-  if (rights.originType === "public_domain") {
-    const ok = Boolean(cleanOptionalText(rights.sourceUrl));
-
-    return {
-      canPublish: ok,
-      requiresReview: false,
-      reason: ok ? null : "Source reference is required.",
-    };
-  }
-
   return {
-    canPublish: false,
+    canPublish: true,
     requiresReview: false,
-    reason: "Story rights information is incomplete.",
+    reason: null,
   };
 }
 

@@ -13,7 +13,6 @@ import {
   ChevronUp,
   Clock,
   Eye,
-  FileText,
   Mail,
   MessageSquare,
   Search,
@@ -22,11 +21,6 @@ import {
 import { toast } from "sonner";
 import AdminLayout from "../adminLayout/page";
 import ReportModal from "@/components/ui/report-modal";
-import {
-  formatRoleLabel,
-  getRoleColor,
-  getRoleIcon,
-} from "@/components/admin/users/user-management.utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,7 +67,12 @@ interface Report {
   };
   target_detail?: {
     title?: string;
-    target_human?: { username?: string; email?: string; avatar?: string };
+    target_human?: {
+      user_id?: string;
+      username?: string;
+      email?: string;
+      avatar?: string;
+    };
   };
   reason: string;
   description?: string;
@@ -84,14 +83,7 @@ interface Report {
   resolution_note?: string;
 }
 
-type ReportSortColumn =
-  | "reportCode"
-  | "reporter"
-  | "reportedAgainst"
-  | "targetType"
-  | "reason"
-  | "status"
-  | "createdAt";
+type ReportSortColumn = "reportedAgainst" | "reportCount";
 
 type SortDirection = "asc" | "desc";
 type QuickFilterKey =
@@ -101,6 +93,22 @@ type QuickFilterKey =
   | "resolved"
   | "comment"
   | "manga";
+
+type ReportedAgainstMeta = {
+  key: string;
+  userId?: string | null;
+  name: string;
+  email: string | null;
+  avatar?: string;
+};
+
+type ReportGroup = {
+  key: string;
+  meta: ReportedAgainstMeta;
+  reports: Report[];
+  primaryReport: Report;
+  reportCount: number;
+};
 
 function logAxiosError(tag: string, endpoint: string, err: any, extra?: any) {
   const status = err?.response?.status;
@@ -121,21 +129,6 @@ function logAxiosError(tag: string, endpoint: string, err: any, extra?: any) {
 
   if (extra) console.log("extra:", extra);
   console.groupEnd();
-}
-
-function hoverBorderByStatus(status: string) {
-  switch (status) {
-    case "new":
-      return "hover:border-l-red-500";
-    case "in-progress":
-      return "hover:border-l-orange-500";
-    case "resolved":
-      return "hover:border-l-green-500";
-    case "rejected":
-      return "hover:border-l-gray-500";
-    default:
-      return "hover:border-l-slate-400";
-  }
 }
 
 function isAbsoluteUrl(value: string) {
@@ -167,40 +160,6 @@ function compareDates(a?: string | null, b?: string | null) {
   const first = a ? new Date(a).getTime() : 0;
   const second = b ? new Date(b).getTime() : 0;
   return first - second;
-}
-
-function getReasonMeta(reason: string) {
-  const normalized = String(reason || "").toLowerCase();
-
-  if (normalized === "harassment" || normalized === "inappropriate") {
-    return {
-      priority: "High priority",
-      className: "border-red-200 bg-red-50 text-red-700",
-      icon: AlertTriangle,
-    };
-  }
-
-  if (normalized === "copyright" || normalized === "offense") {
-    return {
-      priority: "Needs review",
-      className: "border-amber-200 bg-amber-50 text-amber-700",
-      icon: FileText,
-    };
-  }
-
-  if (normalized === "spam") {
-    return {
-      priority: "Queue check",
-      className: "border-sky-200 bg-sky-50 text-sky-700",
-      icon: MessageSquare,
-    };
-  }
-
-  return {
-    priority: "General review",
-    className: "border-slate-200 bg-slate-100 text-slate-700",
-    icon: FileText,
-  };
 }
 
 function nextSortDirection(
@@ -246,18 +205,30 @@ function SortableHeader({
   );
 }
 
-function getReportedAgainstMeta(report: Report) {
+function getReportedAgainstMeta(report: Report): ReportedAgainstMeta {
+  const userId = report.target_detail?.target_human?.user_id || null;
+  const name =
+    report.target_detail?.target_human?.username ||
+    report.target_id?.authorId?.username ||
+    report.target_id?.user?.username ||
+    "Unknown user";
+  const email =
+    report.target_detail?.target_human?.email ||
+    report.target_id?.authorId?.email ||
+    report.target_id?.user?.email ||
+    null;
+
   return {
-    name:
-      report.target_detail?.target_human?.username ||
-      report.target_id?.authorId?.username ||
-      report.target_id?.user?.username ||
-      "Unknown user",
-    email:
-      report.target_detail?.target_human?.email ||
-      report.target_id?.authorId?.email ||
-      report.target_id?.user?.email ||
-      null,
+    key: userId
+      ? `user:${userId}`
+      : email
+      ? `email:${email.toLowerCase()}`
+      : name !== "Unknown user"
+      ? `name:${name.toLowerCase()}`
+      : `report:${report._id}`,
+    userId,
+    name,
+    email,
     avatar: report.target_detail?.target_human?.avatar,
   };
 }
@@ -287,9 +258,9 @@ export default function ReportsPage() {
   const [loadingReports, setLoadingReports] = useState(false);
   const [updatingReportId, setUpdatingReportId] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
-  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [highlightGroupKey, setHighlightGroupKey] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortColumn, setSortColumn] = useState<ReportSortColumn>("createdAt");
+  const [sortColumn, setSortColumn] = useState<ReportSortColumn>("reportCount");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -334,10 +305,6 @@ export default function ReportsPage() {
     deepLinkHandledRef.current = false;
     setStatusFilter("all");
     setTypeFilter("all");
-
-    if (linkedReportCode) {
-      setSearchTerm(linkedReportCode);
-    }
   }, [linkedReportCode, linkedReportId]);
 
   useEffect(() => {
@@ -419,10 +386,7 @@ export default function ReportsPage() {
       const reportedAgainstEmail = reportedAgainstMeta.email || "";
 
       const matchSearch =
-        report.reportCode?.toLowerCase().includes(term) ||
-        report.reason?.toLowerCase().includes(term) ||
-        report.reporter_id?.username?.toLowerCase().includes(term) ||
-        report.reporter_id?.email?.toLowerCase().includes(term) ||
+        term.length === 0 ||
         reportedAgainstUsername.toLowerCase().includes(term) ||
         reportedAgainstEmail.toLowerCase().includes(term);
 
@@ -439,48 +403,52 @@ export default function ReportsPage() {
     });
   }, [reports, searchTerm, statusFilter, typeFilter]);
 
-  const sortedReports = useMemo(() => {
-    const statusPriority: Record<string, number> = {
-      new: 0,
-      "in-progress": 1,
-      resolved: 2,
-      rejected: 3,
-    };
+  const groupedReports = useMemo(() => {
+    const groups = new Map<string, ReportGroup>();
 
-    const sorted = [...filteredReports];
+    filteredReports.forEach((report) => {
+      const meta = getReportedAgainstMeta(report);
+      const existing = groups.get(meta.key);
 
-    sorted.sort((first, second) => {
-      const firstReportedAgainst = getReportedAgainstMeta(first).name;
-      const secondReportedAgainst = getReportedAgainstMeta(second).name;
+      if (existing) {
+        existing.reports.push(report);
+        return;
+      }
 
+      groups.set(meta.key, {
+        key: meta.key,
+        meta,
+        reports: [report],
+        primaryReport: report,
+        reportCount: 1,
+      });
+    });
+
+    const rows = Array.from(groups.values()).map((group) => {
+      const reportsByNewest = [...group.reports].sort((first, second) =>
+        compareDates(
+          second.updatedAt || second.createdAt,
+          first.updatedAt || first.createdAt
+        )
+      );
+
+      return {
+        ...group,
+        reports: reportsByNewest,
+        primaryReport: reportsByNewest[0],
+        reportCount: reportsByNewest.length,
+      };
+    });
+
+    rows.sort((first, second) => {
       let result = 0;
 
       switch (sortColumn) {
-        case "reportCode":
-          result = compareStrings(first.reportCode, second.reportCode);
-          break;
-        case "reporter":
-          result = compareStrings(
-            first.reporter_id?.username,
-            second.reporter_id?.username
-          );
-          break;
         case "reportedAgainst":
-          result = compareStrings(firstReportedAgainst, secondReportedAgainst);
+          result = compareStrings(first.meta.name, second.meta.name);
           break;
-        case "targetType":
-          result = compareStrings(first.target_type, second.target_type);
-          break;
-        case "reason":
-          result = compareStrings(first.reason, second.reason);
-          break;
-        case "status":
-          result =
-            (statusPriority[first.status] ?? 999) -
-            (statusPriority[second.status] ?? 999);
-          break;
-        case "createdAt":
-          result = compareDates(first.createdAt, second.createdAt);
+        case "reportCount":
+          result = first.reportCount - second.reportCount;
           break;
         default:
           result = 0;
@@ -489,13 +457,13 @@ export default function ReportsPage() {
       return sortDirection === "asc" ? result : -result;
     });
 
-    return sorted;
+    return rows;
   }, [filteredReports, sortColumn, sortDirection]);
 
   const indexOfLast = currentPage * reportsPerPage;
   const indexOfFirst = indexOfLast - reportsPerPage;
-  const currentReports = sortedReports.slice(indexOfFirst, indexOfLast);
-  const totalPages = Math.ceil(sortedReports.length / reportsPerPage);
+  const currentReportGroups = groupedReports.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.ceil(groupedReports.length / reportsPerPage);
 
   const statusColor = (status: string) => {
     switch (status) {
@@ -512,44 +480,12 @@ export default function ReportsPage() {
     }
   };
 
-  const targetTypeBadge = (type: string) => {
-    switch (type) {
-      case "Manga":
-        return (
-          <Badge className="flex items-center gap-1 bg-violet-100 text-violet-800">
-            <BookOpen className="h-3.5 w-3.5" />
-            Manga
-          </Badge>
-        );
-      case "Chapter":
-        return (
-          <Badge className="flex items-center gap-1 bg-blue-100 text-blue-800">
-            <FileText className="h-3.5 w-3.5" />
-            Chapter
-          </Badge>
-        );
-      case "Comment":
-        return (
-          <Badge className="flex items-center gap-1 bg-green-100 text-green-800">
-            <MessageSquare className="h-3.5 w-3.5" />
-            Comment
-          </Badge>
-        );
-      case "Reply":
-        return (
-          <Badge className="flex items-center gap-1 bg-emerald-100 text-emerald-800">
-            <MessageSquare className="h-3.5 w-3.5" />
-            Reply
-          </Badge>
-        );
-      default:
-        return <Badge className="bg-gray-100 text-gray-700">{type}</Badge>;
-    }
-  };
-
-  const openModal = (report: Report) => {
+  const openModal = (report: Report, groupKey?: string) => {
     setSelectedReport(report);
     setIsModalOpen(true);
+    if (groupKey) {
+      setHighlightGroupKey(groupKey);
+    }
   };
 
   const closeModal = () => {
@@ -557,8 +493,8 @@ export default function ReportsPage() {
     setSelectedReport(null);
   };
 
-  const handleSendMail = (report: Report) => {
-    const reportedAgainstEmail = getReportedAgainstMeta(report).email || "";
+  const handleSendMail = (group: ReportGroup) => {
+    const reportedAgainstEmail = group.meta.email || "";
 
     if (!reportedAgainstEmail) {
       toast.error("Reported user email not found.");
@@ -567,7 +503,7 @@ export default function ReportsPage() {
 
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
 
-    setHighlightId(report._id);
+    setHighlightGroupKey(group.key);
 
     highlightTimerRef.current = setTimeout(() => {
       const params = new URLSearchParams({
@@ -678,43 +614,48 @@ export default function ReportsPage() {
 
   const selectedReportIndex = useMemo(() => {
     if (!selectedReport) return -1;
-    return sortedReports.findIndex((report) => report._id === selectedReport._id);
-  }, [selectedReport, sortedReports]);
+    const selectedGroupKey = getReportedAgainstMeta(selectedReport).key;
+    return groupedReports.findIndex((group) => group.key === selectedGroupKey);
+  }, [selectedReport, groupedReports]);
 
   const openModalByIndex = (index: number) => {
-    const report = sortedReports[index];
-    if (!report) return;
+    const group = groupedReports[index];
+    if (!group) return;
 
-    setSelectedReport(report);
+    setSelectedReport(group.primaryReport);
     setIsModalOpen(true);
+    setHighlightGroupKey(group.key);
     setCurrentPage(Math.floor(index / reportsPerPage) + 1);
   };
 
   useEffect(() => {
     if (loadingReports || deepLinkHandledRef.current) return;
     if (!linkedReportId && !linkedReportCode) return;
-    if (!sortedReports.length) return;
+    if (!reports.length || !groupedReports.length) return;
 
-    const targetIndex = sortedReports.findIndex((report) => {
+    const targetReport = reports.find((report) => {
       if (linkedReportId && report._id === linkedReportId) return true;
-      if (
+      return (
         linkedReportCode &&
         String(report.reportCode || "").toLowerCase() === linkedReportCode.toLowerCase()
-      ) {
-        return true;
-      }
-      return false;
+      );
     });
+
+    if (!targetReport) return;
+
+    const targetGroupKey = getReportedAgainstMeta(targetReport).key;
+    const targetIndex = groupedReports.findIndex(
+      (group) => group.key === targetGroupKey
+    );
 
     if (targetIndex < 0) return;
 
     deepLinkHandledRef.current = true;
-    const report = sortedReports[targetIndex];
-    setHighlightId(report._id);
-    setSelectedReport(report);
+    setHighlightGroupKey(targetGroupKey);
+    setSelectedReport(targetReport);
     setIsModalOpen(true);
     setCurrentPage(Math.floor(targetIndex / reportsPerPage) + 1);
-  }, [linkedReportCode, linkedReportId, loadingReports, sortedReports]);
+  }, [linkedReportCode, linkedReportId, loadingReports, reports, groupedReports]);
 
   const handlePreviousReport = () => {
     if (selectedReportIndex <= 0) return;
@@ -722,7 +663,7 @@ export default function ReportsPage() {
   };
 
   const handleNextReport = () => {
-    if (selectedReportIndex < 0 || selectedReportIndex >= sortedReports.length - 1) {
+    if (selectedReportIndex < 0 || selectedReportIndex >= groupedReports.length - 1) {
       return;
     }
     openModalByIndex(selectedReportIndex + 1);
@@ -804,9 +745,8 @@ export default function ReportsPage() {
                   Reports Queue
                 </CardTitle>
                 <CardDescription className="max-w-2xl text-sm leading-6">
-                  Triage incoming reports, review the target account quickly,
-                  and move each case through moderation without leaving the
-                  queue.
+                  Review the target account quickly and move each case through
+                  moderation without leaving the queue.
                 </CardDescription>
               </div>
             </div>
@@ -866,7 +806,7 @@ export default function ReportsPage() {
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by code, reporter, target, or reason..."
+                  placeholder="Search by reported account or email..."
                   className="pl-8"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
@@ -919,24 +859,6 @@ export default function ReportsPage() {
                   <TableRow>
                     <TableHead>
                       <SortableHeader
-                        column="reportCode"
-                        label="Report Code"
-                        activeColumn={sortColumn}
-                        direction={sortDirection}
-                        onSort={handleSort}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <SortableHeader
-                        column="reporter"
-                        label="Reporter"
-                        activeColumn={sortColumn}
-                        direction={sortDirection}
-                        onSort={handleSort}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <SortableHeader
                         column="reportedAgainst"
                         label="Reported Against"
                         activeColumn={sortColumn}
@@ -946,35 +868,8 @@ export default function ReportsPage() {
                     </TableHead>
                     <TableHead>
                       <SortableHeader
-                        column="targetType"
-                        label="Target Type"
-                        activeColumn={sortColumn}
-                        direction={sortDirection}
-                        onSort={handleSort}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <SortableHeader
-                        column="reason"
-                        label="Reason"
-                        activeColumn={sortColumn}
-                        direction={sortDirection}
-                        onSort={handleSort}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <SortableHeader
-                        column="status"
-                        label="Status"
-                        activeColumn={sortColumn}
-                        direction={sortDirection}
-                        onSort={handleSort}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <SortableHeader
-                        column="createdAt"
-                        label="Created"
+                        column="reportCount"
+                        label="Report Count"
                         activeColumn={sortColumn}
                         direction={sortDirection}
                         onSort={handleSort}
@@ -989,13 +884,13 @@ export default function ReportsPage() {
                 <TableBody>
                   {loadingReports ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-4 text-center">
+                      <TableCell colSpan={3} className="py-4 text-center">
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : listError && reports.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-8 text-center">
+                      <TableCell colSpan={3} className="py-8 text-center">
                         <div className="space-y-3">
                           <div>
                             <p className="text-sm font-semibold text-rose-700">
@@ -1014,88 +909,33 @@ export default function ReportsPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : currentReports.length === 0 ? (
+                  ) : currentReportGroups.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-4 text-center">
+                      <TableCell colSpan={3} className="py-4 text-center">
                         No reports found.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    currentReports.map((report) => {
-                      const reportedAgainstMeta = getReportedAgainstMeta(report);
-                      const reportedAgainst = reportedAgainstMeta.name;
-                      const reportedAgainstEmail = reportedAgainstMeta.email;
+                    currentReportGroups.map((group) => {
+                      const reportedAgainst = group.meta.name;
+                      const reportedAgainstEmail = group.meta.email;
                       const reportedAgainstAvatar = resolveAvatarUrl(
-                        reportedAgainstMeta.avatar,
+                        group.meta.avatar,
                         API
                       );
-                      const reporterAvatar = resolveAvatarUrl(
-                        report.reporter_id?.avatar,
-                        API
-                      );
-                      const reasonMeta = getReasonMeta(report.reason);
-                      const ReasonIcon = reasonMeta.icon;
-                      const isHighlighted = highlightId === report._id;
+                      const isHighlighted = highlightGroupKey === group.key;
 
                       const rowClass = [
                         "group cursor-default transition-all duration-150",
                         "hover:bg-slate-50 hover:shadow-sm",
-                        "hover:border-l-4",
-                        hoverBorderByStatus(report.status),
                         "focus-within:bg-slate-50 focus-within:shadow-sm",
-                        "focus-within:border-l-4 focus-within:border-l-blue-500",
                         isHighlighted
-                          ? "border-l-4 border-l-blue-500 bg-blue-50 ring-1 ring-blue-200 shadow-sm"
+                          ? "bg-blue-50 ring-1 ring-blue-200 shadow-sm"
                           : "",
                       ].join(" ");
 
                       return (
-                        <TableRow key={report._id} className={rowClass}>
-                          <TableCell className="group-hover:text-slate-900">
-                            {report.reportCode}
-                          </TableCell>
-
-                          <TableCell className="group-hover:text-slate-900">
-                            <div className="flex items-start gap-3">
-                              <Avatar className="h-10 w-10 border">
-                                <AvatarImage
-                                  src={reporterAvatar}
-                                  alt={
-                                    report.reporter_id?.username || "Reporter"
-                                  }
-                                  referrerPolicy="no-referrer"
-                                />
-                                <AvatarFallback>
-                                  {getInitial(report.reporter_id?.username)}
-                                </AvatarFallback>
-                              </Avatar>
-
-                              <div className="min-w-0">
-                                <div className="font-medium text-slate-900">
-                                  {report.reporter_id?.username ||
-                                    "Unknown reporter"}
-                                </div>
-                                <div className="truncate text-slate-500">
-                                  {report.reporter_id?.email || "No email"}
-                                </div>
-
-                                {report.reporter_id?.role ? (
-                                  <div className="mt-1.5 flex flex-wrap gap-2">
-                                    <Badge
-                                      variant="secondary"
-                                      className={`inline-flex items-center gap-1 border ${getRoleColor(
-                                        report.reporter_id.role
-                                      )}`}
-                                    >
-                                      {getRoleIcon(report.reporter_id.role)}
-                                      {formatRoleLabel(report.reporter_id.role)}
-                                    </Badge>
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-                          </TableCell>
-
+                        <TableRow key={group.key} className={rowClass}>
                           <TableCell className="group-hover:text-slate-900">
                             <div className="flex items-start gap-3">
                               <Avatar className="h-10 w-10 border">
@@ -1126,37 +966,18 @@ export default function ReportsPage() {
                             </div>
                           </TableCell>
 
-                          <TableCell>
-                            {targetTypeBadge(report.target_type)}
-                          </TableCell>
-
                           <TableCell className="group-hover:text-slate-900">
-                            <div className="space-y-1">
+                            <div className="flex items-center gap-3">
+                              <div className="text-2xl font-semibold text-slate-900">
+                                {group.reportCount}
+                              </div>
                               <Badge
                                 variant="secondary"
-                                className={`inline-flex items-center gap-1 border ${reasonMeta.className}`}
+                                className="border border-slate-200 bg-slate-100 text-slate-700"
                               >
-                                <ReasonIcon className="h-3.5 w-3.5" />
-                                {report.reason}
+                                total reports
                               </Badge>
-                              <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
-                                {reasonMeta.priority}
-                              </div>
                             </div>
-                          </TableCell>
-
-                          <TableCell>
-                            <Badge className={statusColor(report.status)}>
-                              {report.status}
-                            </Badge>
-                          </TableCell>
-
-                          <TableCell className="group-hover:text-slate-900">
-                            {report.createdAt
-                              ? new Date(report.createdAt).toLocaleDateString(
-                                  "en-GB"
-                                )
-                              : "N/A"}
                           </TableCell>
 
                           <TableCell className="align-middle">
@@ -1165,7 +986,9 @@ export default function ReportsPage() {
                                 variant="outline"
                                 size="sm"
                                 className="h-9 w-full rounded-xl border-sky-200 bg-sky-50 text-sky-700 shadow-none transition-colors hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800"
-                                onClick={() => openModal(report)}
+                                onClick={() =>
+                                  openModal(group.primaryReport, group.key)
+                                }
                               >
                                 <Eye className="h-4 w-4" />
                                 View
@@ -1179,7 +1002,7 @@ export default function ReportsPage() {
                                 onClick={(event) => {
                                   event.preventDefault();
                                   event.stopPropagation();
-                                  handleSendMail(report);
+                                  handleSendMail(group);
                                 }}
                                 disabled={!reportedAgainstEmail}
                                 title={
@@ -1234,7 +1057,7 @@ export default function ReportsPage() {
           hasPrevious={selectedReportIndex > 0}
           hasNext={
             selectedReportIndex >= 0 &&
-            selectedReportIndex < sortedReports.length - 1
+            selectedReportIndex < groupedReports.length - 1
           }
         />
       </div>

@@ -7,7 +7,9 @@ import Cookies from "js-cookie";
 import {
   Check,
   ChevronRight,
+  Globe2,
   Image as ImageIcon,
+  Lock,
   Loader2,
   UploadCloud,
   X,
@@ -46,7 +48,7 @@ type OptionItem = {
   name: string;
 };
 
-type CreateMode = "draft" | "license";
+type CreateMode = "create" | "license";
 
 type PublishErrors = {
   title?: string;
@@ -54,6 +56,7 @@ type PublishErrors = {
   cover?: string;
   genres?: string;
   style?: string;
+  visibility?: string;
 };
 
 const statusOptions = [
@@ -176,6 +179,7 @@ export default function CreateStoryPage() {
   const [storyStatus, setStoryStatus] = useState<
     "ongoing" | "completed" | "hiatus"
   >("ongoing");
+  const [isPublish, setIsPublish] = useState(false);
   const [selectedStyleId, setSelectedStyleId] = useState("");
   const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>([]);
   const [genreSearch, setGenreSearch] = useState("");
@@ -188,8 +192,8 @@ export default function CreateStoryPage() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const [loadingPage, setLoadingPage] = useState(true);
-  const [isContinuingToLicense, setIsContinuingToLicense] = useState(false);
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isOpeningStoryRights, setIsOpeningStoryRights] = useState(false);
+  const [isCreatingStory, setIsCreatingStory] = useState(false);
 
   const selectedStyleDoc =
     availableStyles.find((item) => item._id === selectedStyleId) || null;
@@ -213,7 +217,7 @@ export default function CreateStoryPage() {
     return Boolean(touched[field] && publishErrors[field]);
   };
 
-  const validateForm = (mode: CreateMode) => {
+  const validateForm = () => {
     const nextErrors: PublishErrors = {};
 
     if (!storyTitle.trim()) nextErrors.title = "Story title is required.";
@@ -343,20 +347,21 @@ export default function CreateStoryPage() {
       cover: true,
       genres: true,
       style: true,
+      visibility: true,
     });
 
-    const formOk = validateForm(mode);
+    const formOk = validateForm();
     if (!formOk) return;
 
-    if (mode === "license") setIsContinuingToLicense(true);
-    else setIsSavingDraft(true);
+    if (mode === "license") setIsOpeningStoryRights(true);
+    else setIsCreatingStory(true);
 
     try {
       const formData = new FormData();
       formData.append("title", storyTitle.trim());
       formData.append("summary", storySummary.trim());
       formData.append("status", storyStatus);
-      formData.append("isPublish", "false");
+      formData.append("isPublish", String(Boolean(isPublish)));
       formData.append("styles", selectedStyleId);
       selectedGenreIds.forEach((genreId) => formData.append("genres", genreId));
       if (coverFile) formData.append("coverImage", coverFile);
@@ -376,16 +381,29 @@ export default function CreateStoryPage() {
       }
 
       toast({
-        title: mode === "license" ? "Story created" : "Draft saved",
+        title:
+          mode === "license"
+            ? isPublish
+              ? "Story published"
+              : "Story created"
+            : isPublish
+              ? "Story published"
+              : "Draft created",
         description:
           mode === "license"
-            ? "Your story is ready. Upload proof images to continue the review flow."
-            : "Your story draft has been created.",
+            ? isPublish
+              ? "Your story has been published. Story Rights is opening so you can manage proof images if needed."
+              : "Your story has been created. Story Rights is opening so you can manage proof images if needed."
+            : isPublish
+              ? "Your story has been created and published."
+              : "Your story draft has been created.",
         variant: "success",
       });
 
       router.push(
-        mode === "license" ? `/author/manga/${storyId}/license` : "/author/dashboard",
+        mode === "license"
+          ? `/author/manga/${storyId}/license`
+          : "/author/dashboard",
       );
     } catch (err: any) {
       const rawMessage =
@@ -398,13 +416,13 @@ export default function CreateStoryPage() {
         title:
           mode === "license"
             ? "Failed to create story"
-            : "Failed to save draft",
+            : "Failed to create story",
         description: serverMessage,
         variant: "destructive",
       });
     } finally {
-      setIsContinuingToLicense(false);
-      setIsSavingDraft(false);
+      setIsOpeningStoryRights(false);
+      setIsCreatingStory(false);
     }
   };
 
@@ -441,8 +459,8 @@ export default function CreateStoryPage() {
               Create New Story
             </h1>
             <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
-              Set up your story details, cover, and categories, then continue
-              to proof image upload.
+              Set up your story details, cover, and categories. You can manage
+              story rights and proof images now or later.
             </p>
           </div>
         </div>
@@ -724,6 +742,63 @@ export default function CreateStoryPage() {
                         <FieldHint>Set the current release status.</FieldHint>
                       </div>
                     </div>
+
+                    <div className="space-y-3 rounded-2xl border border-border/70 bg-background p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label className="text-sm font-medium">
+                          Visibility
+                          <RequiredMark />
+                        </Label>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {isPublish ? "Public" : "Private"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 rounded-2xl border border-border/70 bg-muted/20 p-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsPublish(false);
+                            markTouched("visibility");
+                          }}
+                          className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition ${
+                            !isPublish
+                              ? "bg-background text-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          <Lock className="h-4 w-4" />
+                          Private
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsPublish(true);
+                            markTouched("visibility");
+                          }}
+                          className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition ${
+                            isPublish
+                              ? "bg-background text-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          <Globe2 className="h-4 w-4" />
+                          Public
+                        </button>
+                      </div>
+
+                      <FieldHint>
+                        {isPublish
+                          ? "Readers can discover this story right after creation."
+                          : "Keep this story hidden while you continue editing it."}
+                      </FieldHint>
+                      <FieldError>
+                        {shouldShowError("visibility")
+                          ? publishErrors.visibility
+                          : ""}
+                      </FieldError>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -732,7 +807,7 @@ export default function CreateStoryPage() {
                 <CardHeader className="border-b border-border/60 pb-5">
                   <SectionHeader
                     title="Next Step"
-                    description="Create the story now, then upload your proof images in the next screen."
+                    description="Create the story now, then optionally open Story Rights in the next screen."
                   />
                 </CardHeader>
 
@@ -748,8 +823,9 @@ export default function CreateStoryPage() {
                               }`}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Your story will be created as a draft first. You can
-                          upload proof images right after this.
+                          {isPublish
+                            ? "Your story will be created as public. You can open Story Rights right after this if you want to add proof images."
+                            : "Your story will be created as a draft. You can open Story Rights right after this if you want to add proof images."}
                         </p>
                       </div>
 
@@ -759,7 +835,7 @@ export default function CreateStoryPage() {
                           variant="outline"
                           className="rounded-xl"
                           onClick={() => router.push("/author/dashboard")}
-                          disabled={isContinuingToLicense || isSavingDraft}
+                          disabled={isOpeningStoryRights || isCreatingStory}
                         >
                           Cancel
                         </Button>
@@ -768,27 +844,33 @@ export default function CreateStoryPage() {
                           type="button"
                           variant="secondary"
                           className="rounded-xl"
-                          onClick={() => submitStory("draft")}
-                          disabled={isContinuingToLicense || isSavingDraft}
+                          onClick={() => submitStory("create")}
+                          disabled={isOpeningStoryRights || isCreatingStory}
                         >
-                          {isSavingDraft ? (
+                          {isCreatingStory ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           ) : null}
-                          Save Draft
+                          {isCreatingStory
+                            ? "Creating..."
+                            : isPublish
+                              ? "Create & Publish"
+                              : "Create Draft"}
                         </Button>
 
                         <Button
                           type="button"
                           className="rounded-xl px-6 shadow-sm"
                           onClick={() => submitStory("license")}
-                          disabled={isContinuingToLicense || isSavingDraft}
+                          disabled={isOpeningStoryRights || isCreatingStory}
                         >
-                          {isContinuingToLicense ? (
+                          {isOpeningStoryRights ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           ) : null}
-                          {isContinuingToLicense
+                          {isOpeningStoryRights
                             ? "Creating..."
-                            : "Create & Upload Proof"}
+                            : isPublish
+                              ? "Publish & Open Story Rights"
+                              : "Create Draft & Open Story Rights"}
                         </Button>
                       </div>
                     </div>
@@ -841,6 +923,15 @@ export default function CreateStoryPage() {
                     </span>
                     <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
                       {selectedStatusLabel}
+                    </span>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        isPublish
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {isPublish ? "Public" : "Private"}
                     </span>
                   </div>
 

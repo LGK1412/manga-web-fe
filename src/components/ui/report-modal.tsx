@@ -260,7 +260,6 @@ function getReasonMeta(reason: string) {
 
   if (normalized === "harassment" || normalized === "inappropriate") {
     return {
-      summary: "High-priority safety review",
       className: "border-red-200 bg-red-50 text-red-700",
       icon: AlertTriangle,
     }
@@ -268,7 +267,6 @@ function getReasonMeta(reason: string) {
 
   if (normalized === "copyright" || normalized === "offense") {
     return {
-      summary: "Needs policy validation",
       className: "border-amber-200 bg-amber-50 text-amber-700",
       icon: ShieldAlert,
     }
@@ -276,14 +274,12 @@ function getReasonMeta(reason: string) {
 
   if (normalized === "spam") {
     return {
-      summary: "Queue quality review",
       className: "border-sky-200 bg-sky-50 text-sky-700",
       icon: MessageSquare,
     }
   }
 
   return {
-    summary: "General moderation review",
     className: "border-slate-200 bg-slate-100 text-slate-700",
     icon: FileText,
   }
@@ -501,15 +497,7 @@ export default function ReportModal({
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-[22px] border border-slate-200/90 bg-white p-4 shadow-sm">
-              <p className="text-sm text-slate-500">Triage</p>
-              <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700">
-                <ReasonIcon className="h-4 w-4" />
-                {reasonMeta.summary}
-              </div>
-            </div>
-
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-[22px] border border-slate-200/90 bg-white p-4 shadow-sm">
               <p className="text-sm text-slate-500">Created</p>
               <div className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
@@ -549,27 +537,14 @@ export default function ReportModal({
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  Target owner
-                </p>
-                <p className="mt-1 text-sm font-medium text-slate-900">
-                  {reportedAgainstName}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">{reportedAgainstEmail}</p>
-              </div>
-
-              <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  Source context
-                </p>
-                <p className="mt-1 text-sm text-slate-700">
-                  {targetTitle
-                    ? targetTitle
-                    : "This report currently carries metadata only."}
-                </p>
-              </div>
+            <div className="mt-4 rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Target owner
+              </p>
+              <p className="mt-1 text-sm font-medium text-slate-900">
+                {reportedAgainstName}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">{reportedAgainstEmail}</p>
             </div>
 
             {renderedTargetContent ? (
@@ -577,11 +552,7 @@ export default function ReportModal({
                 className="prose prose-sm mt-4 max-w-none rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-slate-700 prose-p:leading-7 prose-img:inline-block prose-img:max-w-10 prose-img:align-middle"
                 dangerouslySetInnerHTML={{ __html: renderedTargetContent }}
               />
-            ) : (
-              <div className="mt-4 rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                No content snapshot was stored with this report.
-              </div>
-            )}
+            ) : null}
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">

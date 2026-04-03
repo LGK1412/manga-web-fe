@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, RefreshCcw, ShieldAlert, ShieldCheck, ShieldMinus } from "lucide-react";
+import { Loader2, RefreshCcw } from "lucide-react";
 
 export function ChapterSummary({
   record,
@@ -35,33 +35,6 @@ export function ChapterSummary({
   const [openDialog, setOpenDialog] = useState<Decision | null>(null);
   const [note, setNote] = useState("");
 
-  const moderationHint = useMemo(() => {
-    if (record.ai_status === "AI_BLOCK") {
-      return {
-        icon: <ShieldAlert className="h-4 w-4 text-red-500" />,
-        title: "High-risk result",
-        description:
-          "The current AI result suggests direct policy risk. Reject is safer than publishing.",
-      };
-    }
-
-    if (record.ai_status === "AI_WARN") {
-      return {
-        icon: <ShieldMinus className="h-4 w-4 text-yellow-500" />,
-        title: "Needs closer review",
-        description:
-          "The content may still be publishable, but it should usually be manually verified carefully before approval.",
-      };
-    }
-
-    return {
-      icon: <ShieldCheck className="h-4 w-4 text-green-500" />,
-      title: "Lower-risk result",
-      description:
-        "The AI result looks safer, but moderator review is still recommended before publishing.",
-    };
-  }, [record.ai_status]);
-
   const actionConfigs: Array<{
     action: Decision;
     label: string;
@@ -77,7 +50,7 @@ export function ChapterSummary({
           },
           {
             action: "approve",
-            label: "Approve & Publish",
+            label: "Mark Safe",
             variant: "outline",
           },
         ]
@@ -85,7 +58,7 @@ export function ChapterSummary({
       ? [
           {
             action: "approve",
-            label: "Approve & Publish",
+            label: "Mark Safe",
             variant: "outline",
           },
           {
@@ -97,7 +70,7 @@ export function ChapterSummary({
       : [
           {
             action: "approve",
-            label: "Approve & Publish",
+            label: "Mark Safe",
             variant: "default",
           },
           {
@@ -118,9 +91,6 @@ export function ChapterSummary({
       <Card className="p-6">
         <div className="mb-4">
           <h3 className="font-semibold">Chapter Information</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Key metadata for the moderator before reviewing the chapter content.
-          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -141,9 +111,6 @@ export function ChapterSummary({
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <h3 className="font-semibold">AI Analysis Result</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Review the AI outcome, then choose the moderator decision below.
-              </p>
             </div>
 
             <div className="flex items-center gap-2">
@@ -172,14 +139,6 @@ export function ChapterSummary({
             </div>
           </div>
 
-          <div className="rounded-xl border bg-muted/30 p-4">
-            <div className="mb-2 flex items-center gap-2">
-              {moderationHint.icon}
-              <p className="text-sm font-medium">{moderationHint.title}</p>
-            </div>
-            <p className="text-sm text-muted-foreground">{moderationHint.description}</p>
-          </div>
-
           {record.resolution_status !== "OPEN" && (
             <div className="rounded-xl border bg-muted/20 p-4">
               <div className="mb-2 flex items-center gap-2">
@@ -188,9 +147,9 @@ export function ChapterSummary({
               </div>
               <p className="text-sm text-muted-foreground">
                 {record.resolution_status === "APPROVED" &&
-                  "This chapter was approved by a moderator and can remain published until the content changes again."}
+                  "This chapter was marked safe by a moderator for the current version. The author's publish choice stays in effect until the content changes again."}
                 {record.resolution_status === "REJECTED" &&
-                  "A moderator rejected the chapter for publication under the current content."}
+                  "A moderator rejected the current version of this chapter. It stays unpublished until the author updates the content again."}
               </p>
               {record.resolution_note && (
                 <p className="mt-3 rounded-lg border bg-background/80 p-3 text-sm text-foreground/85">
@@ -205,30 +164,21 @@ export function ChapterSummary({
             <RiskMeter score={record.risk_score} />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border bg-muted/20 p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Detection Model
-              </p>
-              <p className="mt-1 text-sm font-medium">{record.ai_model || "-"}</p>
-            </div>
+          <div className="rounded-xl border bg-muted/20 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Detected Issues
+            </p>
 
-            <div className="rounded-xl border bg-muted/20 p-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Detected Issues
-              </p>
-
-              <div className="mt-2 flex flex-wrap gap-2">
-                {record.labels.length > 0 ? (
-                  record.labels.map((label) => (
-                    <Badge key={label} variant="secondary">
-                      {label}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-muted-foreground">No issues detected</span>
-                )}
-              </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {record.labels.length > 0 ? (
+                record.labels.map((label) => (
+                  <Badge key={label} variant="secondary">
+                    {label}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-sm text-muted-foreground">No issues detected</span>
+              )}
             </div>
           </div>
 
@@ -264,13 +214,14 @@ export function ChapterSummary({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {openDialog === "approve" && "Approve Chapter"}
+              {openDialog === "approve" && "Mark Chapter Safe"}
               {openDialog === "reject" && "Reject Chapter"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {openDialog === "approve" && "This will publish the chapter to users."}
+              {openDialog === "approve" &&
+                "This will record the current version as safe without changing the author's publish choice."}
               {openDialog === "reject" &&
-                "This will reject the chapter and keep it unpublished."}
+                "This will reject the current version and unpublish the chapter."}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -295,7 +246,7 @@ export function ChapterSummary({
               }
               onClick={() => openDialog && handleDecision(openDialog)}
             >
-              {openDialog === "approve" && "Approve Chapter"}
+              {openDialog === "approve" && "Mark Chapter Safe"}
               {openDialog === "reject" && "Reject Chapter"}
             </AlertDialogAction>
           </AlertDialogFooter>
