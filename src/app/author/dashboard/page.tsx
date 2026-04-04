@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import axios from "axios";
 import Cookies from "js-cookie";
@@ -10,6 +10,8 @@ import {
   BarChart,
   BookOpen,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Edit,
   Eye,
   FileCheck,
@@ -32,6 +34,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+} from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type MangaLicenseStatus =
@@ -45,6 +53,9 @@ type MangaLicenseStatus =
   | "REJECTED";
 
 type NormalizedLicenseStatus = "none" | "pending" | "approved" | "rejected";
+type StoryTab = "text" | "image";
+
+const STORIES_PER_PAGE = 9;
 
 interface Manga {
   _id: string;
@@ -61,6 +72,24 @@ interface Manga {
   coverImage?: string;
   isDeleted?: boolean;
   licenseStatus?: MangaLicenseStatus;
+}
+
+function getTotalPages(totalItems: number, pageSize: number) {
+  return Math.max(1, Math.ceil(totalItems / pageSize));
+}
+
+function buildPageWindow(currentPage: number, totalPages: number) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages = new Set<number>([1, totalPages, currentPage]);
+  if (currentPage - 1 > 1) pages.add(currentPage - 1);
+  if (currentPage + 1 < totalPages) pages.add(currentPage + 1);
+  if (currentPage - 2 > 1) pages.add(currentPage - 2);
+  if (currentPage + 2 < totalPages) pages.add(currentPage + 2);
+
+  return Array.from(pages).sort((a, b) => a - b);
 }
 
 function decodeUserCookie(): any | null {
@@ -93,35 +122,37 @@ function getLicenseBadge(value?: MangaLicenseStatus) {
   if (normalized === "approved") {
     return {
       status: normalized,
-      label: "License Approved",
+      icon: "shield" as const,
+      label: "Rights verified",
       className:
-        "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300",
+        "border-emerald-200/90 bg-white/95 text-emerald-700 shadow-sm backdrop-blur-sm dark:border-emerald-900/60 dark:bg-slate-950/85 dark:text-emerald-300",
     };
   }
 
   if (normalized === "pending") {
     return {
       status: normalized,
-      label: "Under Review",
-      className:
-        "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300",
+      icon: null,
+      label: "",
+      className: "",
     };
   }
 
   if (normalized === "rejected") {
     return {
       status: normalized,
-      label: "License Rejected",
+      icon: "alert" as const,
+      label: "Proof needs update",
       className:
-        "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300",
+        "border-red-200/90 bg-white/95 text-red-700 shadow-sm backdrop-blur-sm dark:border-red-900/60 dark:bg-slate-950/85 dark:text-red-300",
     };
   }
 
   return {
     status: normalized,
-    label: "No License",
-    className:
-      "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-300",
+    icon: null,
+    label: "",
+    className: "",
   };
 }
 
@@ -180,8 +211,6 @@ function getNextStep(story: Manga) {
   if (license === "rejected") {
     return {
       title: "Proof needs update",
-      description:
-        "Open Story Rights to review the rejection and upload stronger proof files whenever you want.",
       tone:
         "border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100",
     };
@@ -190,8 +219,6 @@ function getNextStep(story: Manga) {
   if (license === "pending") {
     return {
       title: "Under review",
-      description:
-        "Your proof submission is in review. You can keep writing and publishing while waiting for the result.",
       tone:
         "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100",
     };
@@ -210,8 +237,6 @@ function getNextStep(story: Manga) {
   if (license === "approved") {
     return {
       title: "Rights verified",
-      description:
-        "Story rights are approved. Continue editing content or managing chapters normally.",
       tone:
         "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100",
     };
@@ -219,10 +244,8 @@ function getNextStep(story: Manga) {
 
   return {
     title: "Story Rights are optional",
-    description:
-      "Add Story Rights information and proof documents anytime if you want review support or verification.",
     tone:
-      "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-100",
+      "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100",
   };
 }
 
@@ -245,7 +268,11 @@ function getCoverUrl(coverImage?: string) {
 export default function AuthorDashboard() {
   const [textStories, setTextStories] = useState<Manga[]>([]);
   const [imageStories, setImageStories] = useState<Manga[]>([]);
-  const [activeTab, setActiveTab] = useState<"text" | "image">("text");
+  const [activeTab, setActiveTab] = useState<StoryTab>("text");
+  const [storyPages, setStoryPages] = useState<Record<StoryTab, number>>({
+    text: 1,
+    image: 1,
+  });
   const [isFetching, setIsFetching] = useState(false);
   const [togglingStoryId, setTogglingStoryId] = useState<string | null>(null);
 
@@ -296,8 +323,23 @@ export default function AuthorDashboard() {
     fetchData();
   }, [toast]);
 
+  useEffect(() => {
+    setStoryPages((prev) => {
+      const next = {
+        text: Math.min(prev.text, getTotalPages(textStories.length, STORIES_PER_PAGE)),
+        image: Math.min(
+          prev.image,
+          getTotalPages(imageStories.length, STORIES_PER_PAGE),
+        ),
+      };
+
+      return next.text === prev.text && next.image === prev.image ? prev : next;
+    });
+  }, [imageStories.length, textStories.length]);
+
   const totalStories = textStories.length + imageStories.length;
   const currentStories = activeTab === "text" ? textStories : imageStories;
+  const currentPage = storyPages[activeTab];
   const publishedCount = useMemo(
     () => currentStories.filter((story) => !story.isDraft && story.isPublish).length,
     [currentStories],
@@ -360,7 +402,24 @@ export default function AuthorDashboard() {
     }
   };
 
-  const renderStories = (stories: Manga[], chapterPath: string) => {
+  const handlePageChange = (tab: StoryTab, page: number) => {
+    const total = getTotalPages(
+      tab === "text" ? textStories.length : imageStories.length,
+      STORIES_PER_PAGE,
+    );
+
+    setStoryPages((prev) => ({
+      ...prev,
+      [tab]: Math.min(Math.max(page, 1), total),
+    }));
+  };
+
+  const renderStories = (
+    stories: Manga[],
+    chapterPath: string,
+    page: number,
+    onPageChange: (page: number) => void,
+  ) => {
     if (isFetching) {
       return (
         <Card className="rounded-2xl border-border/70 shadow-sm">
@@ -395,201 +454,275 @@ export default function AuthorDashboard() {
       );
     }
 
+    const totalStoryPages = getTotalPages(stories.length, STORIES_PER_PAGE);
+    const safePage = Math.min(page, totalStoryPages);
+    const visibleStories = stories.slice(
+      (safePage - 1) * STORIES_PER_PAGE,
+      safePage * STORIES_PER_PAGE,
+    );
+    const rangeStart =
+      stories.length === 0 ? 0 : (safePage - 1) * STORIES_PER_PAGE + 1;
+    const rangeEnd = stories.length === 0 ? 0 : rangeStart + visibleStories.length - 1;
+    const pageWindow = buildPageWindow(safePage, totalStoryPages);
+
     return (
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {stories.map((story) => {
-          const publicationBadge = getPublicationBadge(story);
-          const licenseBadge = getLicenseBadge(story.licenseStatus);
-          const licenseStatus = normalizeLicenseStatus(story.licenseStatus);
-          const nextStep = getNextStep(story);
-          const licenseHref = `/author/manga/${story._id}/license`;
-          const isToggling = togglingStoryId === story._id;
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {visibleStories.map((story) => {
+            const publicationBadge = getPublicationBadge(story);
+            const licenseBadge = getLicenseBadge(story.licenseStatus);
+            const licenseStatus = normalizeLicenseStatus(story.licenseStatus);
+            const nextStep = getNextStep(story);
+            const licenseHref = `/author/manga/${story._id}/license`;
+            const isToggling = togglingStoryId === story._id;
 
-          return (
-            <Card
-              key={story._id}
-              className="group overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <div className="relative aspect-[2/1.35] overflow-hidden bg-muted/30">
-                {story.coverImage ? (
-                  <img
-                    src={getCoverUrl(story.coverImage)}
-                    alt={story.title}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                    No cover
-                  </div>
-                )}
-
-                <div className="absolute inset-x-0 top-0 flex flex-wrap gap-2 p-3">
-                  <Badge className={`border ${publicationBadge.className}`}>
-                    {publicationBadge.label}
-                  </Badge>
-                  <Badge className={`border ${licenseBadge.className}`}>
-                    {licenseBadge.label}
-                  </Badge>
-                </div>
-              </div>
-
-              <CardHeader className="space-y-4">
-                <div className="space-y-2">
-                  <CardTitle className="line-clamp-2 text-xl leading-snug">
-                    {story.title}
-                  </CardTitle>
-
-                  <CardDescription className="line-clamp-3 text-sm leading-6">
-                    {story.summary || "No summary yet."}
-                  </CardDescription>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-xl border border-border/70 bg-background px-3 py-2">
-                    <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                      <Eye className="h-3 w-3" />
-                      Views
+            return (
+              <Card
+                key={story._id}
+                className="group h-fit w-full self-start overflow-hidden rounded-2xl border border-border/70 bg-card pt-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="relative overflow-hidden bg-muted/30">
+                  {story.coverImage ? (
+                    <img
+                      src={getCoverUrl(story.coverImage)}
+                      alt={story.title}
+                      className="block h-auto w-full transition-transform duration-300 group-hover:scale-[1.02]"
+                    />
+                  ) : (
+                    <div className="flex min-h-[260px] items-center justify-center text-sm text-muted-foreground">
+                      No cover
                     </div>
-                    <p className="mt-1 text-sm font-semibold">
-                      {story.views?.toLocaleString() || 0}
-                    </p>
+                  )}
+
+                  <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                    <Badge className={`border ${publicationBadge.className}`}>
+                      {publicationBadge.label}
+                    </Badge>
                   </div>
 
-                  <div className="rounded-xl border border-border/70 bg-background px-3 py-2">
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      Story
+                  {licenseBadge.icon ? (
+                    <div className="absolute right-3 top-3">
+                      <div
+                        className={`flex h-10 w-10 items-center justify-center rounded-full border ${licenseBadge.className}`}
+                        title={licenseBadge.label}
+                      >
+                        {licenseBadge.icon === "shield" ? (
+                          <ShieldCheck className="h-5 w-5" />
+                        ) : (
+                          <AlertTriangle className="h-5 w-5" />
+                        )}
+                        <span className="sr-only">{licenseBadge.label}</span>
+                      </div>
                     </div>
-                    <p className="mt-1 text-sm font-semibold capitalize">
-                      {story.status}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-border/70 bg-background px-3 py-2">
-                    <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                      <CalendarDays className="h-3 w-3" />
-                      Updated
-                    </div>
-                    <p className="mt-1 text-sm font-semibold">
-                      {formatDate(story.updatedAt || story.createdAt)}
-                    </p>
-                  </div>
+                  ) : null}
                 </div>
 
-                {Array.isArray(story.genres) && story.genres.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {story.genres.slice(0, 3).map((genre: any) => {
-                      const key =
-                        typeof genre === "string"
-                          ? genre
-                          : genre._id || genre.name;
-                      const label =
-                        typeof genre === "string" ? genre : genre.name;
+                <CardHeader className="space-y-4">
+                  <div className="space-y-2">
+                    <CardTitle className="line-clamp-2 text-xl leading-snug">
+                      {story.title}
+                    </CardTitle>
 
-                      return (
-                        <Badge
-                          key={key}
-                          variant="secondary"
-                          className="rounded-full text-xs"
-                        >
-                          {label}
-                        </Badge>
-                      );
-                    })}
-
-                    {story.genres.length > 3 ? (
-                      <Badge variant="secondary" className="rounded-full text-xs">
-                        +{story.genres.length - 3}
-                      </Badge>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div className={`rounded-2xl border p-4 ${nextStep.tone}`}>
-                  <div className="flex items-start gap-3">
-                    {licenseStatus === "approved" ? (
-                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-                    ) : (
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                    )}
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold">{nextStep.title}</p>
-                      <p className="text-sm leading-6">{nextStep.description}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <Button asChild className="rounded-xl">
-                    <Link href={`/author/story/edit/${story._id}`}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit
-                    </Link>
-                  </Button>
-
-                  <Button asChild variant="outline" className="rounded-xl">
-                    <Link href={`/author/chapter/${story._id}/${chapterPath}`}>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Chapters
-                    </Link>
-                  </Button>
-                </div>
-
-                <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-background px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Story Rights
-                    </p>
-                    <p className="truncate text-sm font-medium">
-                      {getLicenseActionLabel(licenseStatus)}
-                    </p>
+                    <CardDescription className="line-clamp-3 text-sm leading-6">
+                      {story.summary || "No summary yet."}
+                    </CardDescription>
                   </div>
 
-                  <Button asChild variant="ghost" className="rounded-xl">
-                    <Link href={licenseHref}>
-                      <FileCheck className="mr-2 h-4 w-4" />
-                      Open
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                </div>
-
-                <div className="border-t border-border/70 pt-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Danger zone
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {story.isDeleted
-                          ? "Restore this story to make it active again."
-                          : "Soft-delete this story without removing it permanently."}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-xl border border-border/70 bg-background px-3 py-2">
+                      <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                        <Eye className="h-3 w-3" />
+                        Views
+                      </div>
+                      <p className="mt-1 text-sm font-semibold">
+                        {story.views?.toLocaleString() || 0}
                       </p>
                     </div>
 
-                    <Button
-                      variant={story.isDeleted ? "outline" : "destructive"}
-                      size="sm"
-                      onClick={() => handleToggleDelete(story._id)}
-                      disabled={Boolean(togglingStoryId)}
-                      className="rounded-xl"
-                    >
-                      {isToggling ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : story.isDeleted ? (
-                        <Undo className="mr-2 h-4 w-4" />
+                    <div className="rounded-xl border border-border/70 bg-background px-3 py-2">
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                        Story
+                      </div>
+                      <p className="mt-1 text-sm font-semibold capitalize">
+                        {story.status}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-border/70 bg-background px-3 py-2">
+                      <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                        <CalendarDays className="h-3 w-3" />
+                        Updated
+                      </div>
+                      <p className="mt-1 text-sm font-semibold">
+                        {formatDate(story.updatedAt || story.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className={`rounded-2xl border p-4 ${nextStep.tone}`}>
+                    <div className="flex items-start gap-3">
+                      {licenseStatus === "approved" ? (
+                        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
                       ) : (
-                        <Trash2 className="mr-2 h-4 w-4" />
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                       )}
-                      {story.isDeleted ? "Restore" : "Delete"}
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold">{nextStep.title}</p>
+                        {nextStep.description ? (
+                          <p className="text-sm leading-6">{nextStep.description}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Button asChild className="rounded-xl">
+                      <Link href={`/author/story/edit/${story._id}`}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </Link>
+                    </Button>
+
+                    <Button asChild variant="outline" className="rounded-xl">
+                      <Link href={`/author/chapter/${story._id}/${chapterPath}`}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Chapters
+                      </Link>
                     </Button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+
+                  <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-background px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Story Rights
+                      </p>
+                      <p className="truncate text-sm font-medium">
+                        {getLicenseActionLabel(licenseStatus)}
+                      </p>
+                    </div>
+
+                    <Button asChild variant="ghost" className="rounded-xl">
+                      <Link href={licenseHref}>
+                        <FileCheck className="mr-2 h-4 w-4" />
+                        Open
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </div>
+
+                  <div className="border-t border-border/70 pt-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Danger zone
+                        </p>
+                        {story.isDeleted ? (
+                          <p className="text-sm text-muted-foreground">
+                            Restore this story to make it active again.
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <Button
+                        variant={story.isDeleted ? "outline" : "destructive"}
+                        size="sm"
+                        onClick={() => handleToggleDelete(story._id)}
+                        disabled={Boolean(togglingStoryId)}
+                        className="rounded-xl"
+                      >
+                        {isToggling ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : story.isDeleted ? (
+                          <Undo className="mr-2 h-4 w-4" />
+                        ) : (
+                          <Trash2 className="mr-2 h-4 w-4" />
+                        )}
+                        {story.isDeleted ? "Restore" : "Delete"}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {totalStoryPages > 1 ? (
+          <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Showing{" "}
+              <span className="font-semibold text-foreground">
+                {rangeStart}-{rangeEnd}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-foreground">{stories.length}</span>{" "}
+              stories
+            </p>
+
+            <Pagination className="mx-0 w-full justify-start sm:w-auto sm:justify-end">
+              <PaginationContent className="flex-wrap">
+                <PaginationItem>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onPageChange(safePage - 1)}
+                    disabled={safePage === 1}
+                    className="rounded-xl"
+                  >
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    <span className="hidden sm:inline">Previous</span>
+                  </Button>
+                </PaginationItem>
+
+                {pageWindow.map((pageNumber, index) => {
+                  const previousPage = pageWindow[index - 1];
+                  const needsGap =
+                    typeof previousPage === "number" &&
+                    pageNumber - previousPage > 1;
+
+                  return (
+                    <Fragment key={pageNumber}>
+                      {needsGap ? (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : null}
+
+                      <PaginationItem>
+                        <Button
+                          type="button"
+                          variant={pageNumber === safePage ? "default" : "outline"}
+                          size="icon"
+                          onClick={() => onPageChange(pageNumber)}
+                          className="h-9 w-9 rounded-xl"
+                        >
+                          {pageNumber}
+                        </Button>
+                      </PaginationItem>
+                    </Fragment>
+                  );
+                })}
+
+                <PaginationItem>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onPageChange(safePage + 1)}
+                    disabled={safePage === totalStoryPages}
+                    className="rounded-xl"
+                  >
+                    <span className="hidden sm:inline">Next</span>
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -646,7 +779,7 @@ export default function AuthorDashboard() {
           <div className="mb-8">
             <Tabs
               value={activeTab}
-              onValueChange={(value) => setActiveTab(value as "text" | "image")}
+              onValueChange={(value) => setActiveTab(value as StoryTab)}
               className="w-full"
             >
               <TabsList className="grid w-full max-w-md grid-cols-2 rounded-xl">
@@ -661,8 +794,18 @@ export default function AuthorDashboard() {
           </div>
 
           {activeTab === "text"
-            ? renderStories(textStories, "textChapter/create")
-            : renderStories(imageStories, "imageChapter")}
+            ? renderStories(
+                textStories,
+                "textChapter/create",
+                currentPage,
+                (page) => handlePageChange("text", page),
+              )
+            : renderStories(
+                imageStories,
+                "imageChapter",
+                currentPage,
+                (page) => handlePageChange("image", page),
+              )}
         </div>
       </main>
     </div>
