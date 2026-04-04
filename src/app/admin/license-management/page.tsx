@@ -12,8 +12,14 @@ import {
 } from "@/lib/story-rights";
 
 import { LicenseDetailCard } from "./components/license-detail-card";
+import { CaseGuideCard } from "./components/case-guide-card";
+import { LicenseExamplesCard } from "./components/license-examples-card";
 import { ModerationQueueCard } from "./components/moderation-queue-card";
 import { QueueMetricCard } from "./components/queue-metric-card";
+import {
+  deriveLicenseReviewContext,
+  getLicenseCaseGuide,
+} from "./license-knowledge.utils";
 import {
   type ActionFeedback,
   type ActionState,
@@ -189,6 +195,14 @@ export default function AdminStoryRightsModerationPage() {
   const selectedProofCount = selected?.licenseFiles?.length || 0;
   const isActionBusy = actionState !== null;
   const isReviewBusy = actionState === "approve" || actionState === "reject";
+  const derivedContext = useMemo(
+    () => deriveLicenseReviewContext(selected),
+    [selected],
+  );
+  const caseGuide = useMemo(
+    () => getLicenseCaseGuide(derivedContext),
+    [derivedContext],
+  );
 
   const handleReview = async (status: "approved" | "rejected") => {
     if (!selected) return;
@@ -313,6 +327,9 @@ export default function AdminStoryRightsModerationPage() {
                 }
                 getCoverUrl={getCoverUrl}
               />
+
+              <CaseGuideCard context={derivedContext} guide={caseGuide} />
+              <LicenseExamplesCard />
             </div>
 
             <LicenseDetailCard

@@ -6,6 +6,12 @@ import {
 } from "@/lib/story-rights";
 
 export type MangaLicenseStatus = "none" | "pending" | "approved" | "rejected";
+export type AdminRightsBasis =
+  | RightsBasis
+  | "open_license"
+  | "public_domain"
+  | (string & {});
+export type AdminClaimStatus = "none" | "open" | "resolved" | (string & {});
 
 export type QueueItem = {
   _id: string;
@@ -24,7 +30,7 @@ export type QueueItem = {
   rightsStatus: RightsReviewStatus;
   originType: StoryOriginType;
   monetizationType: StoryMonetizationType;
-  rightsBasis: RightsBasis;
+  rightsBasis: AdminRightsBasis;
   verifiedBadge: boolean;
 };
 
@@ -36,12 +42,16 @@ export type LicenseDetail = QueueItem & {
   licenseReviewedAt?: string;
   enforcementReason?: string;
   rights?: {
+    originType?: StoryOriginType;
+    basis?: AdminRightsBasis;
+    monetizationType?: StoryMonetizationType;
     sourceTitle?: string;
     sourceUrl?: string;
     licenseName?: string;
     licenseUrl?: string;
     proofNote?: string;
-    claimStatus?: "none" | "open" | "resolved";
+    proofFiles?: string[];
+    claimStatus?: AdminClaimStatus;
   };
 };
 
