@@ -38,6 +38,7 @@ export type ModerationRecordFromBE = {
   policy_version: string;
   ai_findings: ModerationRecord["ai_findings"];
   ai_model?: string;
+  createdAt?: string;
   updatedAt: string;
   chapterTitle?: string;
   mangaTitle?: string;
@@ -97,6 +98,7 @@ export async function fetchModerationRecord(chapterId: string): Promise<Moderati
     policy_version: row.policy_version ?? "",
     ai_findings: Array.isArray(row.ai_findings) ? row.ai_findings : [],
     ai_model: row.ai_model,
+    createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     chapterTitle: row.chapterTitle ?? "Untitled",
     mangaTitle: row.mangaTitle ?? "-",

@@ -30,6 +30,7 @@ export function mapModerationRecord(m: ModerationRecordFromBE): ModerationRecord
     policy_version: m.policy_version,
     ai_findings: m.ai_findings ?? [],
     ai_model: m.ai_model,
+    createdAt: m.createdAt,
     updatedAt: m.updatedAt,
     chapterTitle: m.chapterTitle ?? "Untitled",
     mangaTitle: m.mangaTitle ?? "-",

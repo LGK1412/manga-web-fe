@@ -53,6 +53,7 @@ export interface ModerationRecord {
   policy_version: string;
   ai_findings: Finding[];
   ai_model?: string;
+  createdAt?: string;
   updatedAt: string;
 
   chapterTitle?: string;

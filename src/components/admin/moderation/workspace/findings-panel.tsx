@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   buildAuthorRevisionDraft,
-  type FindingMatchStrategy,
   type ProcessedFinding,
 } from "@/lib/moderation-findings";
 import { cn } from "@/lib/utils";
@@ -77,15 +76,6 @@ export function FindingsPanel({
                 viewer.
               </p>
             </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className="bg-background/80">
-                Needs review: {actionableFindings.length}
-              </Badge>
-              <Badge variant="outline" className="bg-background/80">
-                Passed: {passedFindings.length}
-              </Badge>
-            </div>
           </div>
 
         </div>
@@ -100,10 +90,6 @@ export function FindingsPanel({
                   <Mail className="h-4 w-4" />
                   Suggested Author Note
                 </div>
-                <p className="mt-1 text-sm text-sky-800/80">
-                  Focused on <strong>{authorDraft.focusTitle}</strong> and ready to copy into a
-                  rejection note if you want a quick starting point.
-                </p>
               </div>
 
               <Button
@@ -259,26 +245,12 @@ function FindingCard({
                   Finding {index}
                 </span>
                 <Badge className={verdictMeta.badgeClass}>{verdictMeta.label}</Badge>
-                <Badge variant="outline" className="bg-background/80 text-foreground">
-                  {finding.primaryAction}
-                </Badge>
               </div>
 
               <h4 className="mt-2 text-sm font-semibold leading-6 text-foreground sm:text-base">
                 {finding.displayTitle}
               </h4>
 
-              <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                <MetaPill label={finding.locationLabel} />
-                <MetaPill label={matchLabelOf(finding.matchStrategy)} />
-                <MetaPill
-                  label={
-                    finding.moderatorGuidance.source === "ai"
-                      ? "AI-backed guidance"
-                      : "Fallback guidance"
-                  }
-                />
-              </div>
             </div>
           </div>
 
@@ -412,15 +384,6 @@ function Checklist({
   );
 }
 
-function MetaPill({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border bg-muted/20 px-2.5 py-1 text-xs text-muted-foreground">
-      <span className="h-1.5 w-1.5 rounded-full bg-current/60" />
-      {label}
-    </span>
-  );
-}
-
 function toneBadgeClassOf(tone: ProcessedFinding["moderatorGuidance"]["tone"]) {
   switch (tone) {
     case "required":
@@ -440,19 +403,6 @@ function toneLabelOf(tone: ProcessedFinding["moderatorGuidance"]["tone"]) {
       return "Needs rewrite";
     default:
       return "Next step";
-  }
-}
-
-function matchLabelOf(strategy: FindingMatchStrategy) {
-  switch (strategy) {
-    case "span":
-      return "Exact span match";
-    case "excerpt":
-      return "Excerpt match";
-    case "fragment":
-      return "Fragment match";
-    default:
-      return "Manual context review";
   }
 }
 

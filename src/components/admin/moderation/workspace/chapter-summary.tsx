@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, RefreshCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, RefreshCcw } from "lucide-react";
 
 export function ChapterSummary({
   record,
@@ -32,13 +32,14 @@ export function ChapterSummary({
   loading?: boolean;
 }) {
   const [isRunningAI, setIsRunningAI] = useState(false);
+  const [sectionsCollapsed, setSectionsCollapsed] = useState(false);
   const [openDialog, setOpenDialog] = useState<Decision | null>(null);
   const [note, setNote] = useState("");
 
   const actionConfigs: Array<{
     action: Decision;
     label: string;
-    variant: "default" | "outline" | "destructive";
+    variant: "default" | "outline" | "destructive" | "success";
     className?: string;
   }> =
     record.ai_status === "AI_BLOCK"
@@ -51,7 +52,9 @@ export function ChapterSummary({
           {
             action: "approve",
             label: "Mark Safe",
-            variant: "outline",
+            variant: "success",
+            className:
+              "bg-emerald-500 text-white shadow-sm shadow-emerald-200 hover:bg-emerald-600",
           },
         ]
       : record.ai_status === "AI_WARN"
@@ -59,7 +62,9 @@ export function ChapterSummary({
           {
             action: "approve",
             label: "Mark Safe",
-            variant: "outline",
+            variant: "success",
+            className:
+              "bg-emerald-500 text-white shadow-sm shadow-emerald-200 hover:bg-emerald-600",
           },
           {
             action: "reject",
@@ -71,7 +76,9 @@ export function ChapterSummary({
           {
             action: "approve",
             label: "Mark Safe",
-            variant: "default",
+            variant: "success",
+            className:
+              "bg-emerald-500 text-white shadow-sm shadow-emerald-200 hover:bg-emerald-600",
           },
           {
             action: "reject",
@@ -86,125 +93,182 @@ export function ChapterSummary({
     setNote("");
   };
 
+  const toggleSections = () => {
+    setSectionsCollapsed((previous) => !previous);
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
       <Card className="p-6">
-        <div className="mb-4">
-          <h3 className="font-semibold">Chapter Information</h3>
-        </div>
+        <button
+          type="button"
+          onClick={toggleSections}
+          className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100"
+          aria-expanded={!sectionsCollapsed}
+        >
+          <div>
+            <h3 className="font-semibold text-slate-900">Chapter Information</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {sectionsCollapsed ? "Expand section" : "Collapse section"}
+            </p>
+          </div>
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm">
+            {sectionsCollapsed ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronUp className="h-4 w-4" />
+            )}
+          </span>
+        </button>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <InfoItem label="Title" value={record.chapterTitle ?? "Untitled"} />
-          <InfoItem label="Series" value={record.mangaTitle ?? "-"} />
-          <InfoItem label="Author" value={record.authorName ?? "-"} />
-          <InfoItem label="Author Email" value={record.authorEmail || "-"} />
-          <InfoItem
-            label="Updated"
-            value={new Date(record.updatedAt).toLocaleString()}
-          />
-          <InfoItem label="Policy Version" value={record.policy_version || "-"} />
-        </div>
+        {!sectionsCollapsed && (
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="space-y-4">
+              <InfoItem label="Title" value={record.chapterTitle ?? "Untitled"} />
+              <InfoItem label="Manga" value={record.mangaTitle ?? "-"} />
+            </div>
+
+            <div className="space-y-4">
+              <InfoItem label="Author" value={record.authorName ?? "-"} />
+              <InfoItem label="Author Email" value={record.authorEmail || "-"} />
+            </div>
+
+            <div className="space-y-4">
+              <InfoItem
+                label="Created"
+                value={
+                  record.createdAt
+                    ? new Date(record.createdAt).toLocaleString()
+                    : "-"
+                }
+              />
+              <InfoItem
+                label="Updated"
+                value={new Date(record.updatedAt).toLocaleString()}
+              />
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card className="p-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div>
-              <h3 className="font-semibold">AI Analysis Result</h3>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <StatusBadge status={record.ai_status ?? "AI_PENDING"} />
-              <ResolutionBadge status={record.resolution_status ?? "OPEN"} />
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isRunningAI || loading}
-                onClick={async () => {
-                  setIsRunningAI(true);
-                  try {
-                    await onRecheck();
-                  } finally {
-                    setIsRunningAI(false);
-                  }
-                }}
-              >
-                {isRunningAI ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCcw className="mr-2 h-4 w-4" />
-                )}
-                Recheck with AI
-              </Button>
-            </div>
-          </div>
-
-          {record.resolution_status !== "OPEN" && (
-            <div className="rounded-xl border bg-muted/20 p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <p className="text-sm font-medium">Current Moderator Resolution</p>
-                <ResolutionBadge status={record.resolution_status} />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {record.resolution_status === "APPROVED" &&
-                  "This chapter was marked safe by a moderator for the current version. The author's publish choice stays in effect until the content changes again."}
-                {record.resolution_status === "REJECTED" &&
-                  "A moderator rejected the current version of this chapter. It stays unpublished until the author updates the content again."}
-              </p>
-              {record.resolution_note && (
-                <p className="mt-3 rounded-lg border bg-background/80 p-3 text-sm text-foreground/85">
-                  {record.resolution_note}
-                </p>
-              )}
-            </div>
-          )}
-
+        <button
+          type="button"
+          onClick={toggleSections}
+          className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100"
+          aria-expanded={!sectionsCollapsed}
+        >
           <div>
-            <p className="mb-2 text-sm text-muted-foreground">Risk Score</p>
-            <RiskMeter score={record.risk_score} />
-          </div>
-
-          <div className="rounded-xl border bg-muted/20 p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Detected Issues
+            <h3 className="font-semibold text-slate-900">AI Analysis Result</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {sectionsCollapsed ? "Expand section" : "Collapse section"}
             </p>
-
-            <div className="mt-2 flex flex-wrap gap-2">
-              {record.labels.length > 0 ? (
-                record.labels.map((label) => (
-                  <Badge key={label} variant="secondary">
-                    {label}
-                  </Badge>
-                ))
-              ) : (
-                <span className="text-sm text-muted-foreground">No issues detected</span>
-              )}
-            </div>
           </div>
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm">
+            {sectionsCollapsed ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronUp className="h-4 w-4" />
+            )}
+          </span>
+        </button>
 
-          <div className="border-t pt-4">
-            <div className="mb-3">
-              <p className="font-medium">Moderator Action</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Pick the next step based on the AI result and the reviewed content.
-              </p>
-            </div>
+        {!sectionsCollapsed && (
+          <div className="mt-4 flex flex-col gap-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="flex items-center gap-2">
+                <StatusBadge status={record.ai_status ?? "AI_PENDING"} />
+                <ResolutionBadge status={record.resolution_status ?? "OPEN"} />
+              </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              {actionConfigs.map((config) => (
+              <div className="flex items-center gap-2">
                 <Button
-                  key={config.action}
-                  variant={config.variant}
-                  className={`w-full ${config.className || ""}`}
-                  disabled={loading}
-                  onClick={() => setOpenDialog(config.action)}
+                  variant="outline"
+                  size="sm"
+                  disabled={isRunningAI || loading}
+                  onClick={async () => {
+                    setIsRunningAI(true);
+                    try {
+                      await onRecheck();
+                    } finally {
+                      setIsRunningAI(false);
+                    }
+                  }}
                 >
-                  {config.label}
+                  {isRunningAI ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                  )}
+                  Recheck with AI
                 </Button>
-              ))}
+              </div>
+            </div>
+
+            {record.resolution_status !== "OPEN" && (
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <p className="text-sm font-medium">Current Moderator Resolution</p>
+                  <ResolutionBadge status={record.resolution_status} />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {record.resolution_status === "APPROVED" &&
+                    "This chapter was marked safe by a moderator for the current version. The author's publish choice stays in effect until the content changes again."}
+                  {record.resolution_status === "REJECTED" &&
+                    "A moderator rejected the current version of this chapter. It stays unpublished until the author updates the content again."}
+                </p>
+                {record.resolution_note && (
+                  <p className="mt-3 rounded-lg border bg-background/80 p-3 text-sm text-foreground/85">
+                    {record.resolution_note}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">Risk Score</p>
+              <RiskMeter score={record.risk_score} />
+            </div>
+
+            <div className="rounded-xl border bg-muted/20 p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Detected Issues
+              </p>
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                {record.labels.length > 0 ? (
+                  record.labels.map((label) => (
+                    <Badge key={label} variant="secondary">
+                      {label}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No issues detected</span>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <div className="mb-3">
+                <p className="font-medium">Moderator Action</p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {actionConfigs.map((config) => (
+                  <Button
+                    key={config.action}
+                    variant={config.variant}
+                    className={`w-full ${config.className || ""}`}
+                    disabled={loading}
+                    onClick={() => setOpenDialog(config.action)}
+                  >
+                    {config.label}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </Card>
 
       <AlertDialog
@@ -242,7 +306,7 @@ export function ChapterSummary({
               className={
                 openDialog === "reject"
                   ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  : ""
+                  : "bg-emerald-500 text-white hover:bg-emerald-600"
               }
               onClick={() => openDialog && handleDecision(openDialog)}
             >

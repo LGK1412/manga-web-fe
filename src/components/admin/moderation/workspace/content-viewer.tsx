@@ -1,22 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import { ScanSearch } from "lucide-react";
+
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { buildHighlightedHtml, type ProcessedFinding } from "@/lib/moderation-findings";
-import { Eye, Highlighter, ScanSearch } from "lucide-react";
+import {
+  buildHighlightedHtml,
+  type ProcessedFinding,
+} from "@/lib/moderation-findings";
 
 export function ContentViewer({
-  title,
-  author,
   html,
-  updatedAt,
   activeFinding,
 }: {
-  title: string;
-  author: string;
   html: string;
-  updatedAt?: string;
   activeFinding?: ProcessedFinding | null;
 }) {
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -50,31 +47,7 @@ export function ContentViewer({
       <div className="border-b bg-background/95 px-6 py-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h3 className="text-lg font-semibold">{title}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Author: {author}
-              {updatedAt ? ` · ${new Date(updatedAt).toLocaleString()}` : ""}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline" className="gap-1">
-              <Eye className="h-3.5 w-3.5" />
-              Reader View
-            </Badge>
-
-            {activeFinding && (
-              <Badge variant="outline" className="gap-1">
-                <Highlighter className="h-3.5 w-3.5" />
-                {highlighted.matched
-                  ? highlighted.strategy === "span"
-                    ? "Precise span highlight"
-                    : highlighted.strategy === "fragment"
-                    ? `${highlighted.matchedCount} fragments highlighted`
-                    : "Evidence highlight"
-                  : "Manual review needed"}
-              </Badge>
-            )}
+            <h3 className="text-lg font-semibold">Chapter Content</h3>
           </div>
         </div>
 
@@ -85,9 +58,10 @@ export function ContentViewer({
               highlighted.matched ? (
                 highlighted.matchedCount > 1 ? (
                   <span>
-                    <strong>{highlighted.matchedCount}</strong> related fragments were highlighted
-                    from <strong>{activeFinding.displayTitle}</strong>. This is a best-effort
-                    evidence match, so review the surrounding lines as well.
+                    <span className="text-base font-semibold text-foreground">
+                      {highlighted.matchedCount} related fragments
+                    </span>{" "}
+                    were highlighted from <strong>{activeFinding.displayTitle}</strong>.
                   </span>
                 ) : (
                   <span>
