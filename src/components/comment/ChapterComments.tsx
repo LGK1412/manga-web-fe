@@ -28,6 +28,26 @@ function resolveCommentOwnerId(comment: any) {
   );
 }
 
+function resolveReportOwnerId(target: any) {
+  return (
+    target?.user?._id ||
+    target?.user_id?._id ||
+    target?.user_id ||
+    null
+  );
+}
+
+function resolveReportTargetType(target: any): "Comment" | "Reply" {
+  return target?.__reportTargetType === "Reply" ? "Reply" : "Comment";
+}
+
+function resolveReportTargetLabel(target: any) {
+  const kind = resolveReportTargetType(target);
+  const username =
+    target?.user?.username || target?.user_id?.username || "Unknown user";
+  return `${kind} by ${username}`;
+}
+
 export default function ChapterComments() {
   const params = useParams();
   const chapter_id = params.id as string;
@@ -313,19 +333,23 @@ export default function ChapterComments() {
     if (!reportTarget?._id) {
       toast({
         title: "Missing report target",
-        description: "Comment to report not found.",
+        description: `${resolveReportTargetType(reportTarget)} to report not found.`,
         variant: "destructive",
       });
       return;
     }
+
+    const targetType = resolveReportTargetType(reportTarget);
+    const targetOwnerId = resolveReportOwnerId(reportTarget);
+
     if (
       user?.user_id &&
-      resolveCommentOwnerId(reportTarget) &&
-      String(user.user_id) === String(resolveCommentOwnerId(reportTarget))
+      targetOwnerId &&
+      String(user.user_id) === String(targetOwnerId)
     ) {
       toast({
         title: "Action not allowed",
-        description: "You cannot report your own comment.",
+        description: `You cannot report your own ${targetType.toLowerCase()}.`,
         variant: "destructive",
       });
       return;
@@ -336,7 +360,7 @@ export default function ChapterComments() {
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
         {
-          target_type: "Comment",
+          target_type: targetType,
           target_id: reportTarget._id,
           reason,
           description,
@@ -402,7 +426,10 @@ export default function ChapterComments() {
                         type="button"
                         className="h-8 rounded-lg border-rose-200 bg-rose-50 px-2.5 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
                         onClick={() => {
-                          setReportTarget(c);
+                          setReportTarget({
+                            ...c,
+                            __reportTargetType: "Comment",
+                          });
                           setReportDialogOpen(true);
                         }}
                         title={`Report comment from ${username}`}
@@ -481,6 +508,13 @@ export default function ChapterComments() {
                     user={user}
                     messageSent={messageSent}
                     setMessageSent={setMessageSent}
+                    onReportReply={(reply) => {
+                      setReportTarget({
+                        ...reply,
+                        __reportTargetType: "Reply",
+                      });
+                      setReportDialogOpen(true);
+                    }}
                   />
                 )}
               </div>
@@ -528,12 +562,8 @@ export default function ChapterComments() {
         <ReportSubmitDialog
           open={reportDialogOpen}
           onOpenChange={handleReportDialogChange}
-          targetTypeLabel="Comment"
-          targetName={
-            reportTarget?.user?.username || reportTarget?.user_id?.username
-              ? `Comment by ${reportTarget?.user?.username || reportTarget?.user_id?.username}`
-              : "Comment"
-          }
+          targetTypeLabel={resolveReportTargetType(reportTarget)}
+          targetName={reportTarget ? resolveReportTargetLabel(reportTarget) : undefined}
           submitting={isSubmittingReport}
           onSubmit={handleSubmitReport}
         />

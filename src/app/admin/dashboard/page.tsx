@@ -10,6 +10,8 @@ import {
   Eye,
   TrendingUp,
   ArrowRight,
+  FileText,
+  ShieldCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,8 +37,6 @@ import AdminLayout from "../adminLayout/page";
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
   AreaChart,
   Area,
   XAxis,
@@ -45,11 +45,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { fetchQueue } from "@/lib/moderation";
-import type { QueueItem } from "@/lib/typesLogs";
+import { buildHumanMessage, prettyAction, prettyRole } from "@/lib/audit-ui";
 import { cn } from "@/lib/utils";
 
-// ===== Types
 type UserSummary = { total: number; deltaPctMoM: number };
 type UsersWeeklyPoint = { week: string; new: number };
 type RecentUserRow = {
@@ -67,44 +65,83 @@ type MangaSummary = {
   byStatus: Record<string, number>;
 };
 type MangaGrowthPoint = { month: string; stories: number };
-type TopStory = {
-  id: string;
+
+type PolicyStatus = "Draft" | "Active" | "Archived";
+type PolicyRecord = {
+  _id: string;
   title: string;
-  views: number;
-  author: string;
-  status: string;
+  slug: string;
+  status: PolicyStatus;
+  isPublic: boolean;
+  updatedAt: string;
 };
 
-type ReportSummary = { open: number; new7d: number };
+type PolicyDashboardSummary = {
+  total: number;
+  active: number;
+  draft: number;
+  archived: number;
+};
 
-//  Notification stats from BE
 type NotiStats = { total: number; unread: number; read: number };
 
-//  Moderation chart type
-type ModerationWeekPoint = { week: string; chapters: number; avgRisk: number };
+type AuditDashboardSummary = {
+  total: number;
+  unseen: number;
+  pendingApproval: number;
+  highRisk: number;
+};
+
+type AuditLogApiRow = {
+  _id?: string;
+  id?: string;
+  createdAt?: string;
+  actor_id?: { username?: string; email?: string; role?: string };
+  actor_name?: string;
+  actor_email?: string;
+  actor_role?: string;
+  action?: string;
+  summary?: string;
+  target_id?: string;
+  target_type?: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+};
+
+type AuditLogsResponse = {
+  rows?: AuditLogApiRow[];
+  summary?: Partial<AuditDashboardSummary>;
+};
+
+type RecentAuditItem = {
+  id: string;
+  time: string;
+  actorName: string;
+  actorRole: string;
+  actionLabel: string;
+  summary: string;
+};
 
 type DashboardLoadingState = {
   summary: boolean;
   weekly: boolean;
   recent: boolean;
-  report: boolean;
+  policies: boolean;
+  audit: boolean;
   mangaSummary: boolean;
   mangaGrowth: boolean;
-  topStories: boolean;
   notiStats: boolean;
-  modWeekly: boolean;
 };
 
 type DashboardErrorState = {
   summary?: string;
   weekly?: string;
   recent?: string;
-  report?: string;
+  policies?: string;
+  audit?: string;
   mangaSummary?: string;
   mangaGrowth?: string;
-  topStories?: string;
   notiStats?: string;
-  modWeekly?: string;
 };
 
 type DataMessageTone = "default" | "danger";
@@ -132,13 +169,10 @@ type SnapshotCardProps = {
   error?: string;
 };
 
-type ChartStateProps = {
-  loading: boolean;
-  error?: string;
-  hasData: boolean;
-  emptyTitle: string;
-  emptyDescription: string;
-  children: React.ReactNode;
+type GovernanceMetric = {
+  label: string;
+  value: string;
+  tone?: "default" | "good" | "warn" | "danger";
 };
 
 const surfaceCardClass =
@@ -148,59 +182,47 @@ const initialLoading: DashboardLoadingState = {
   summary: true,
   weekly: true,
   recent: true,
-  report: true,
+  policies: true,
+  audit: true,
   mangaSummary: true,
   mangaGrowth: true,
-  topStories: true,
   notiStats: true,
-  modWeekly: true,
 };
 
-// ===== Helper: updatedAt -> week label (Monday of that week)
-function getWeekLabel(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return "Unknown";
-
-  const day = d.getDay(); // 0 = Sun, 1 = Mon, ...
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // move to Monday
-  const monday = new Date(d.setDate(diff));
-
-  // format YYYY-MM-DD
-  return monday.toLocaleDateString("en-CA");
-}
-
-function formatWeekTick(value: string) {
-  if (!value || value === "Unknown") return value;
-
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-  }).format(date);
-}
+const emptyAuditSummary: AuditDashboardSummary = {
+  total: 0,
+  unseen: 0,
+  pendingApproval: 0,
+  highRisk: 0,
+};
 
 function formatMonthTick(value: string) {
   if (!value) return "Unknown";
-
-  const parsedValue = /^\d{4}-\d{2}$/.test(value)
-    ? `${value}-01T00:00:00`
-    : value;
-  const date = new Date(parsedValue);
+  const parsed = /^\d{4}-\d{2}$/.test(value) ? `${value}-01T00:00:00` : value;
+  const date = new Date(parsed);
   if (Number.isNaN(date.getTime())) return value;
-
   return new Intl.DateTimeFormat("en-US", { month: "short" }).format(date);
 }
 
 function formatReadableDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
+  }).format(date);
+}
+
+function formatReadableDateTime(value?: string) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   }).format(date);
 }
 
@@ -209,27 +231,15 @@ function formatDelta(value: number) {
 }
 
 function formatRoleLabel(value: string) {
-  return value
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function dataMessagePalette(tone: DataMessageTone) {
-  if (tone === "danger") {
-    return {
-      container:
-        "border-red-200/80 bg-red-50/80 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200",
-      icon: "text-red-500 dark:text-red-300",
-      title: "text-red-900 dark:text-red-50",
-    };
-  }
-
-  return {
-    container:
-      "border-slate-200/80 bg-slate-50/80 text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300",
-    icon: "text-slate-400 dark:text-slate-500",
-    title: "text-slate-900 dark:text-slate-100",
-  };
+function clipText(value: string, limit = 120) {
+  const safeValue = String(value || "").trim();
+  if (!safeValue) return "-";
+  return safeValue.length > limit
+    ? `${safeValue.slice(0, limit - 1).trimEnd()}...`
+    : safeValue;
 }
 
 function roleBadgeClass(role: string) {
@@ -250,12 +260,29 @@ function roleBadgeClass(role: string) {
   return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200";
 }
 
-function storyStatusBadgeClass(status: string) {
-  if (status.toLowerCase() === "ongoing") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200";
-  }
+function summarizePolicies(policies: PolicyRecord[]): PolicyDashboardSummary {
+  return policies.reduce<PolicyDashboardSummary>(
+    (accumulator, policy) => {
+      accumulator.total += 1;
+      if (policy.status === "Active") accumulator.active += 1;
+      if (policy.status === "Draft") accumulator.draft += 1;
+      if (policy.status === "Archived") accumulator.archived += 1;
+      return accumulator;
+    },
+    { total: 0, active: 0, draft: 0, archived: 0 },
+  );
+}
 
-  return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200";
+function mapRecentAuditRows(rows: AuditLogApiRow[]) {
+  return rows.map<RecentAuditItem>((row, index) => ({
+    id: String(row._id || row.id || `audit-row-${index}`),
+    time: formatReadableDateTime(row.createdAt),
+    actorName:
+      row.actor_id?.username || row.actor_name || row.actor_email || "System",
+    actorRole: String(row.actor_role || row.actor_id?.role || "system"),
+    actionLabel: prettyAction(row.action),
+    summary: clipText(buildHumanMessage(row)),
+  }));
 }
 
 function DataStateMessage({
@@ -267,7 +294,20 @@ function DataStateMessage({
   description: string;
   tone?: DataMessageTone;
 }) {
-  const palette = dataMessagePalette(tone);
+  const palette =
+    tone === "danger"
+      ? {
+          container:
+            "border-red-200/80 bg-red-50/80 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200",
+          icon: "text-red-500 dark:text-red-300",
+          title: "text-red-900 dark:text-red-50",
+        }
+      : {
+          container:
+            "border-slate-200/80 bg-slate-50/80 text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300",
+          icon: "text-slate-400 dark:text-slate-500",
+          title: "text-slate-900 dark:text-slate-100",
+        };
 
   return (
     <div
@@ -283,23 +323,23 @@ function DataStateMessage({
   );
 }
 
-function ChartSkeletonState() {
+function TableStateRow({
+  colSpan,
+  title,
+  description,
+  tone = "default",
+}: {
+  colSpan: number;
+  title: string;
+  description: string;
+  tone?: DataMessageTone;
+}) {
   return (
-    <div className="flex h-full flex-col justify-end gap-4 rounded-xl border border-slate-200/80 bg-slate-50/70 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/50">
-      <div className="flex items-end gap-3">
-        <Skeleton className="h-16 w-full rounded-xl" />
-        <Skeleton className="h-24 w-full rounded-xl" />
-        <Skeleton className="h-12 w-full rounded-xl" />
-        <Skeleton className="h-32 w-full rounded-xl" />
-        <Skeleton className="h-20 w-full rounded-xl" />
-      </div>
-      <div className="flex justify-between gap-2">
-        <Skeleton className="h-3 w-12" />
-        <Skeleton className="h-3 w-12" />
-        <Skeleton className="h-3 w-12" />
-        <Skeleton className="h-3 w-12" />
-      </div>
-    </div>
+    <TableRow>
+      <TableCell colSpan={colSpan} className="py-10">
+        <DataStateMessage title={title} description={description} tone={tone} />
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -310,8 +350,33 @@ function ChartState({
   emptyTitle,
   emptyDescription,
   children,
-}: ChartStateProps) {
-  if (loading) return <ChartSkeletonState />;
+}: {
+  loading: boolean;
+  error?: string;
+  hasData: boolean;
+  emptyTitle: string;
+  emptyDescription: string;
+  children: React.ReactNode;
+}) {
+  if (loading) {
+    return (
+      <div className="flex h-full flex-col justify-end gap-4 rounded-xl border border-slate-200/80 bg-slate-50/70 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/50">
+        <div className="flex items-end gap-3">
+          <Skeleton className="h-16 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-32 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+        </div>
+        <div className="flex justify-between gap-2">
+          <Skeleton className="h-3 w-12" />
+          <Skeleton className="h-3 w-12" />
+          <Skeleton className="h-3 w-12" />
+          <Skeleton className="h-3 w-12" />
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -333,37 +398,6 @@ function ChartState({
   }
 
   return <>{children}</>;
-}
-
-function TableStateRow({
-  colSpan,
-  title,
-  description,
-  tone = "default",
-}: {
-  colSpan: number;
-  title: string;
-  description: string;
-  tone?: DataMessageTone;
-}) {
-  const palette = dataMessagePalette(tone);
-
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="py-10">
-        <div
-          className={cn(
-            "mx-auto flex max-w-md flex-col items-center rounded-xl border border-dashed px-4 py-6 text-center",
-            palette.container,
-          )}
-        >
-          <AlertCircle className={cn("mb-2 h-4 w-4", palette.icon)} />
-          <p className={cn("text-sm font-semibold", palette.title)}>{title}</p>
-          <p className="mt-1 text-sm">{description}</p>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
 }
 
 function AttentionCard({
@@ -508,28 +542,107 @@ function SnapshotCard({
   );
 }
 
+function GovernancePanel({
+  title,
+  description,
+  metrics,
+  loading,
+  error,
+  isEmpty,
+  emptyTitle,
+  emptyDescription,
+}: {
+  title: string;
+  description: string;
+  metrics: GovernanceMetric[];
+  loading: boolean;
+  error?: string;
+  isEmpty: boolean;
+  emptyTitle: string;
+  emptyDescription: string;
+}) {
+  const toneClass = (tone?: GovernanceMetric["tone"]) => {
+    switch (tone) {
+      case "good":
+        return "border-emerald-200/80 bg-emerald-50/70 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200";
+      case "warn":
+        return "border-amber-200/80 bg-amber-50/75 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200";
+      case "danger":
+        return "border-red-200/80 bg-red-50/75 text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200";
+      default:
+        return "border-slate-200/80 bg-slate-50/80 text-slate-800 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200";
+    }
+  };
+
+  return (
+    <Card className={surfaceCardClass}>
+      <CardHeader className="space-y-2">
+        <CardTitle className="text-base text-slate-950 dark:text-slate-50">
+          {title}
+        </CardTitle>
+        <CardDescription className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+          {description}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={`${title}-skeleton-${index}`}
+                className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60"
+              >
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="mt-4 h-8 w-16" />
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <DataStateMessage
+            title="Unable to load this section"
+            description={error}
+            tone="danger"
+          />
+        ) : isEmpty ? (
+          <DataStateMessage
+            title={emptyTitle}
+            description={emptyDescription}
+          />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {metrics.map((metric) => (
+              <div
+                key={metric.label}
+                className={cn("rounded-xl border p-4", toneClass(metric.tone))}
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-80">
+                  {metric.label}
+                </p>
+                <p className="mt-3 text-3xl font-semibold tracking-tight">
+                  {metric.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminDashboard() {
   const API = process.env.NEXT_PUBLIC_API_URL;
 
-  // ===== User states
   const [summary, setSummary] = useState<UserSummary | null>(null);
   const [weeklyNew, setWeeklyNew] = useState<UsersWeeklyPoint[]>([]);
   const [recentUsers, setRecentUsers] = useState<RecentUserRow[]>([]);
-
-  // ===== Report state
-  const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
-
-  // ===== MANGA states
+  const [policies, setPolicies] = useState<PolicyRecord[]>([]);
+  const [auditSummary, setAuditSummary] =
+    useState<AuditDashboardSummary>(emptyAuditSummary);
+  const [recentAuditLogs, setRecentAuditLogs] = useState<RecentAuditItem[]>([]);
   const [mangaSummary, setMangaSummary] = useState<MangaSummary | null>(null);
   const [mangaGrowth, setMangaGrowth] = useState<MangaGrowthPoint[]>([]);
-  const [topStories, setTopStories] = useState<TopStory[]>([]);
-
-  //  Notification stats
   const [notiStats, setNotiStats] = useState<NotiStats | null>(null);
-
-  // ===== Moderation (queue -> weekly chart)
-  const [modWeekly, setModWeekly] = useState<ModerationWeekPoint[]>([]);
-
   const [loading, setLoading] = useState<DashboardLoadingState>(initialLoading);
   const [error, setError] = useState<DashboardErrorState>({});
 
@@ -537,236 +650,179 @@ export default function AdminDashboard() {
     let mounted = true;
 
     if (!API) {
-      const missingApiMessage = "Missing NEXT_PUBLIC_API_URL.";
-      if (mounted) {
-        setError({
-          summary: missingApiMessage,
-          weekly: missingApiMessage,
-          recent: missingApiMessage,
-          report: missingApiMessage,
-          mangaSummary: missingApiMessage,
-          mangaGrowth: missingApiMessage,
-          topStories: missingApiMessage,
-          notiStats: missingApiMessage,
-          modWeekly: missingApiMessage,
-        });
-        setLoading({
-          summary: false,
-          weekly: false,
-          recent: false,
-          report: false,
-          mangaSummary: false,
-          mangaGrowth: false,
-          topStories: false,
-          notiStats: false,
-          modWeekly: false,
-        });
-      }
-
+      const message = "Missing NEXT_PUBLIC_API_URL.";
+      setError({
+        summary: message,
+        weekly: message,
+        recent: message,
+        policies: message,
+        audit: message,
+        mangaSummary: message,
+        mangaGrowth: message,
+        notiStats: message,
+      });
+      setLoading({
+        summary: false,
+        weekly: false,
+        recent: false,
+        policies: false,
+        audit: false,
+        mangaSummary: false,
+        mangaGrowth: false,
+        notiStats: false,
+      });
       return () => {
         mounted = false;
       };
     }
 
-    // ====== Users
-    const fetchSummary = async () => {
+    const load = async <T,>(
+      key: keyof DashboardLoadingState,
+      task: () => Promise<T>,
+      onSuccess: (value: T) => void,
+    ) => {
       try {
-        const res = await axios.get<UserSummary>(`${API}/api/user/admin/summary`, {
-          withCredentials: true,
+        const result = await task();
+        if (mounted) onSuccess(result);
+      } catch (e: any) {
+        if (mounted) {
+          setError((state) => ({ ...state, [key]: e?.message || "Error" }));
+        }
+      } finally {
+        if (mounted) {
+          setLoading((state) => ({ ...state, [key]: false }));
+        }
+      }
+    };
+
+    load(
+      "summary",
+      () =>
+        axios
+          .get<UserSummary>(`${API}/api/user/admin/summary`, {
+            withCredentials: true,
+          })
+          .then((response) => response.data),
+      setSummary,
+    );
+
+    load(
+      "weekly",
+      () =>
+        axios
+          .get<UsersWeeklyPoint[]>(
+            `${API}/api/user/admin/charts/weekly-new?weeks=4`,
+            { withCredentials: true },
+          )
+          .then((response) => response.data || []),
+      setWeeklyNew,
+    );
+
+    load(
+      "recent",
+      () =>
+        axios
+          .get<RecentUserRow[]>(`${API}/api/user/admin/recent?limit=5`, {
+            withCredentials: true,
+          })
+          .then((response) => response.data || []),
+      setRecentUsers,
+    );
+
+    load(
+      "policies",
+      () =>
+        axios
+          .get<PolicyRecord[]>(`${API}/api/policies`, {
+            withCredentials: true,
+          })
+          .then((response) => (Array.isArray(response.data) ? response.data : [])),
+      setPolicies,
+    );
+
+    load(
+      "audit",
+      () =>
+        axios
+          .get<AuditLogsResponse>(`${API}/api/audit-logs`, {
+            params: { page: 1, limit: 5 },
+            withCredentials: true,
+          })
+          .then((response) => response.data),
+      (data) => {
+        const rows = Array.isArray(data?.rows) ? data.rows : [];
+        const nextSummary = data?.summary ?? emptyAuditSummary;
+        setRecentAuditLogs(mapRecentAuditRows(rows));
+        setAuditSummary({
+          total: Number(nextSummary.total ?? 0),
+          unseen: Number(nextSummary.unseen ?? 0),
+          pendingApproval: Number(nextSummary.pendingApproval ?? 0),
+          highRisk: Number(nextSummary.highRisk ?? 0),
         });
-        if (mounted) setSummary(res.data);
-      } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, summary: e?.message || "Error" }));
-      } finally {
-        if (mounted) setLoading((s) => ({ ...s, summary: false }));
-      }
-    };
+      },
+    );
 
-    const fetchWeekly = async () => {
-      try {
-        const res = await axios.get<UsersWeeklyPoint[]>(
-          `${API}/api/user/admin/charts/weekly-new?weeks=4`,
-          { withCredentials: true }
-        );
-        if (mounted) setWeeklyNew(res.data || []);
-      } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, weekly: e?.message || "Error" }));
-      } finally {
-        if (mounted) setLoading((s) => ({ ...s, weekly: false }));
-      }
-    };
+    load(
+      "mangaSummary",
+      () =>
+        axios
+          .get<MangaSummary>(`${API}/api/manga/admin/summary`, {
+            withCredentials: true,
+          })
+          .then((response) => response.data),
+      setMangaSummary,
+    );
 
-    const fetchRecent = async () => {
-      try {
-        const res = await axios.get<RecentUserRow[]>(
-          `${API}/api/user/admin/recent?limit=5`,
-          { withCredentials: true }
-        );
-        if (mounted) setRecentUsers(res.data || []);
-      } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, recent: e?.message || "Error" }));
-      } finally {
-        if (mounted) setLoading((s) => ({ ...s, recent: false }));
-      }
-    };
+    load(
+      "mangaGrowth",
+      () =>
+        axios
+          .get<MangaGrowthPoint[]>(
+            `${API}/api/manga/admin/charts/monthly-growth?months=6`,
+            { withCredentials: true },
+          )
+          .then((response) => response.data || []),
+      setMangaGrowth,
+    );
 
-    // ====== Reports
-    const fetchReportSummary = async () => {
-      try {
-        const res = await axios.get<ReportSummary>(`${API}/api/reports/admin/summary`, {
-          withCredentials: true,
-        });
-        if (mounted) setReportSummary(res.data);
-      } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, report: e?.message || "Error" }));
-      } finally {
-        if (mounted) setLoading((s) => ({ ...s, report: false }));
-      }
-    };
-
-    // ====== MANGA
-    const fetchMangaSummary = async () => {
-      try {
-        const res = await axios.get<MangaSummary>(`${API}/api/manga/admin/summary`, {
-          withCredentials: true,
-        });
-        if (mounted) setMangaSummary(res.data);
-      } catch (e: any) {
-        if (mounted)
-          setError((s) => ({
-            ...s,
-            mangaSummary: e?.message || "Error",
-          }));
-      } finally {
-        if (mounted) setLoading((s) => ({ ...s, mangaSummary: false }));
-      }
-    };
-
-    const fetchMangaGrowth = async () => {
-      try {
-        const res = await axios.get<MangaGrowthPoint[]>(
-          `${API}/api/manga/admin/charts/monthly-growth?months=6`,
-          { withCredentials: true }
-        );
-        if (mounted) setMangaGrowth(res.data || []);
-      } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, mangaGrowth: e?.message || "Error" }));
-      } finally {
-        if (mounted) setLoading((s) => ({ ...s, mangaGrowth: false }));
-      }
-    };
-
-    const fetchTopStories = async () => {
-      try {
-        const res = await axios.get<TopStory[]>(`${API}/api/manga/admin/top?limit=5&by=views`, {
-          withCredentials: true,
-        });
-        if (mounted) setTopStories(res.data || []);
-      } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, topStories: e?.message || "Error" }));
-      } finally {
-        if (mounted) setLoading((s) => ({ ...s, topStories: false }));
-      }
-    };
-
-    //  Notifications stats
-    const fetchNotiStats = async () => {
-      try {
-        const res = await axios.get<NotiStats>(`${API}/api/admin/notifications/stats`, {
-          withCredentials: true,
-        });
-        if (mounted) setNotiStats(res.data);
-      } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, notiStats: e?.message || "Error" }));
-      } finally {
-        if (mounted) setLoading((s) => ({ ...s, notiStats: false }));
-      }
-    };
-
-    // ====== Moderation weekly (from queue)
-    const fetchModWeekly = async () => {
-      try {
-        const rows: QueueItem[] = await fetchQueue({ limit: 200 });
-        if (!mounted) return;
-
-        const buckets: Record<string, { totalRisk: number; count: number }> = {};
-
-        rows.forEach((item) => {
-          const key = getWeekLabel(item.updatedAt);
-          if (!buckets[key]) buckets[key] = { totalRisk: 0, count: 0 };
-          buckets[key].totalRisk += item.risk_score ?? 0;
-          buckets[key].count += 1;
-        });
-
-        const list: ModerationWeekPoint[] = Object.entries(buckets)
-          .map(([week, { totalRisk, count }]) => ({
-            week,
-            chapters: count,
-            avgRisk: count ? Math.round(totalRisk / count) : 0,
-          }))
-          .sort((a, b) => a.week.localeCompare(b.week));
-
-        setModWeekly(list);
-      } catch (e: any) {
-        if (mounted) setError((s) => ({ ...s, modWeekly: e?.message || "Error" }));
-      } finally {
-        if (mounted) setLoading((s) => ({ ...s, modWeekly: false }));
-      }
-    };
-
-    // run all fetchers
-    fetchSummary();
-    fetchWeekly();
-    fetchRecent();
-    fetchReportSummary();
-    fetchMangaSummary();
-    fetchMangaGrowth();
-    fetchTopStories();
-    fetchNotiStats();
-    fetchModWeekly();
+    load(
+      "notiStats",
+      () =>
+        axios
+          .get<NotiStats>(`${API}/api/admin/notifications/stats`, {
+            withCredentials: true,
+          })
+          .then((response) => response.data),
+      setNotiStats,
+    );
 
     return () => {
       mounted = false;
     };
   }, [API]);
 
+  const policySummary = useMemo(() => summarizePolicies(policies), [policies]);
   const weeklyNewChartData = useMemo(
     () =>
       weeklyNew.map((point) => ({
-        week: point.week,
-        label: formatWeekTick(point.week),
+        label: formatReadableDate(`${point.week}T00:00:00`),
         newUsers: point.new,
       })),
     [weeklyNew],
   );
-
   const storiesGrowthChartData = useMemo(
     () =>
       mangaGrowth.map((point) => ({
-        month: point.month,
         label: formatMonthTick(point.month),
         stories: point.stories,
       })),
     [mangaGrowth],
   );
 
-  const moderationChartData = useMemo(
-    () =>
-      modWeekly.map((point) => ({
-        week: point.week,
-        label: formatWeekTick(point.week),
-        chapters: point.chapters,
-        avgRisk: point.avgRisk,
-      })),
-    [modWeekly],
-  );
-
-  const latestModerationPoint = modWeekly[modWeekly.length - 1];
   const unpublishedStories = Math.max(
     0,
     (mangaSummary?.total ?? 0) - (mangaSummary?.published ?? 0),
   );
-
   const totalUsers = loading.summary ? "0" : (summary?.total ?? 0).toLocaleString();
   const totalStories = loading.mangaSummary
     ? "0"
@@ -774,29 +830,36 @@ export default function AdminDashboard() {
   const publishedStories = loading.mangaSummary
     ? "0"
     : (mangaSummary?.published ?? 0).toLocaleString();
-  const pendingReports = loading.report ? "0" : (reportSummary?.open ?? 0).toString();
-  const newReports7d = loading.report ? "0" : (reportSummary?.new7d ?? 0).toString();
+  const totalPolicies = loading.policies
+    ? "0"
+    : policySummary.total.toLocaleString();
+  const activePolicies = loading.policies
+    ? "0"
+    : policySummary.active.toLocaleString();
+  const draftPolicies = loading.policies
+    ? "0"
+    : policySummary.draft.toLocaleString();
+  const archivedPolicies = loading.policies
+    ? "0"
+    : policySummary.archived.toLocaleString();
+  const unseenAuditLogs = loading.audit
+    ? "0"
+    : auditSummary.unseen.toLocaleString();
+  const pendingAuditApprovals = loading.audit
+    ? "0"
+    : auditSummary.pendingApproval.toLocaleString();
+  const highRiskAuditLogs = loading.audit
+    ? "0"
+    : auditSummary.highRisk.toLocaleString();
+  const totalAuditLogs = loading.audit
+    ? "0"
+    : auditSummary.total.toLocaleString();
   const unreadNotifications = loading.notiStats
     ? "0"
     : (notiStats?.unread ?? 0).toString();
   const readNotifications = loading.notiStats
     ? "0"
     : (notiStats?.read ?? 0).toString();
-  const moderationLatestCount = loading.modWeekly
-    ? "0"
-    : (latestModerationPoint?.chapters ?? 0).toString();
-  const moderationLatestDetail = latestModerationPoint
-    ? `Avg risk ${latestModerationPoint.avgRisk}/100 in the week of ${formatWeekTick(latestModerationPoint.week)}`
-    : "No reviewed chapters captured yet.";
-  const totalUsersDetail = loading.summary
-    ? "Loading user totals..."
-    : `${formatDelta(summary?.deltaPctMoM ?? 0)} from last month`;
-  const totalStoriesDetail = loading.mangaSummary
-    ? "Loading story totals..."
-    : `${formatDelta(mangaSummary?.deltaPctMoM ?? 0)} from last month`;
-  const outsidePublishDetail = loading.mangaSummary
-    ? "Loading publication split..."
-    : `${publishedStories} already published`;
 
   return (
     <AdminLayout>
@@ -808,39 +871,39 @@ export default function AdminDashboard() {
             </p>
             <div className="space-y-1">
               <h2 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
-                Start with the queues that can block moderation and publishing
+                Start with governance, audit visibility, and admin follow-up
               </h2>
               <p className="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                This dashboard prioritizes operational risk first, then follows with the
-                trends and activity that support the next decision.
+                This dashboard keeps policy upkeep, audit oversight, and notification
+                follow-up aligned with what administrators can actually access.
               </p>
             </div>
           </div>
 
           <div className="grid gap-4 xl:grid-cols-3">
             <AttentionCard
-              title="Pending reports"
-              subtitle="Open cases that still need triage or resolution."
-              value={pendingReports}
-              detail={`${newReports7d} new reports in the last 7 days`}
-              href="/admin/report"
-              actionLabel="Open report workspace"
-              icon={AlertCircle}
-              tone="danger"
-              loading={loading.report}
-              error={error.report}
+              title="Policy library"
+              subtitle="Track the current policy set and review drafts before they go live."
+              value={totalPolicies}
+              detail={`${activePolicies} active, ${draftPolicies} draft`}
+              href="/admin/policies"
+              actionLabel="Open policy library"
+              icon={FileText}
+              tone="info"
+              loading={loading.policies}
+              error={error.policies}
             />
             <AttentionCard
-              title="Moderation review"
-              subtitle="Latest chapter reviews from the moderation queue."
-              value={moderationLatestCount}
-              detail={moderationLatestDetail}
-              href="/admin/moderation/queue"
-              actionLabel="Open moderation queue"
-              icon={Eye}
-              tone="amber"
-              loading={loading.modWeekly}
-              error={error.modWeekly}
+              title="Audit review"
+              subtitle="Keep recent admin-visible activity and compliance follow-up in view."
+              value={unseenAuditLogs}
+              detail={`${pendingAuditApprovals} pending approval, ${highRiskAuditLogs} high risk`}
+              href="/admin/audit-logs"
+              actionLabel="Open audit logs"
+              icon={ShieldCheck}
+              tone="danger"
+              loading={loading.audit}
+              error={error.audit}
             />
             <AttentionCard
               title="Unread notifications"
@@ -850,7 +913,7 @@ export default function AdminDashboard() {
               href="/admin/notifications"
               actionLabel="Open notifications center"
               icon={Bell}
-              tone="info"
+              tone="amber"
               loading={loading.notiStats}
               error={error.notiStats}
             />
@@ -871,7 +934,11 @@ export default function AdminDashboard() {
             <SnapshotCard
               title="Total users"
               value={totalUsers}
-              detail={totalUsersDetail}
+              detail={
+                loading.summary
+                  ? "Loading user totals..."
+                  : `${formatDelta(summary?.deltaPctMoM ?? 0)} from last month`
+              }
               icon={Users}
               loading={loading.summary}
               error={error.summary}
@@ -879,7 +946,11 @@ export default function AdminDashboard() {
             <SnapshotCard
               title="Total stories"
               value={totalStories}
-              detail={totalStoriesDetail}
+              detail={
+                loading.mangaSummary
+                  ? "Loading story totals..."
+                  : `${formatDelta(mangaSummary?.deltaPctMoM ?? 0)} from last month`
+              }
               icon={BookOpen}
               loading={loading.mangaSummary}
               error={error.mangaSummary}
@@ -887,7 +958,11 @@ export default function AdminDashboard() {
             <SnapshotCard
               title="Outside publish"
               value={loading.mangaSummary ? "0" : unpublishedStories.toLocaleString()}
-              detail={outsidePublishDetail}
+              detail={
+                loading.mangaSummary
+                  ? "Loading publication split..."
+                  : `${publishedStories} already published`
+              }
               icon={TrendingUp}
               loading={loading.mangaSummary}
               error={error.mangaSummary}
@@ -914,41 +989,12 @@ export default function AdminDashboard() {
                 emptyDescription="New registrations will appear here once the API returns weekly data."
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={weeklyNewChartData}
-                    margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
-                  >
+                  <LineChart data={weeklyNewChartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                     <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: "#64748b", fontSize: 12 }}
-                    />
-                    <YAxis
-                      allowDecimals={false}
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: "#64748b", fontSize: 12 }}
-                    />
-                    <Tooltip
-                      cursor={{ stroke: "#cbd5e1", strokeDasharray: "4 4" }}
-                      contentStyle={{
-                        borderRadius: 16,
-                        borderColor: "#e2e8f0",
-                        boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
-                      }}
-                      labelFormatter={(label) => `Week of ${label}`}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="newUsers"
-                      name="New users"
-                      stroke="#2563eb"
-                      strokeWidth={2.5}
-                      dot={false}
-                      activeDot={{ r: 5, fill: "#2563eb" }}
-                    />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                    <Tooltip contentStyle={{ borderRadius: 16, borderColor: "#e2e8f0", boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)" }} />
+                    <Line type="monotone" dataKey="newUsers" name="New users" stroke="#2563eb" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: "#2563eb" }} />
                   </LineChart>
                 </ResponsiveContainer>
               </ChartState>
@@ -970,13 +1016,10 @@ export default function AdminDashboard() {
                 error={error.mangaGrowth}
                 hasData={storiesGrowthChartData.length > 0}
                 emptyTitle="No story growth trend yet"
-                emptyDescription="Story growth will show here once monthly reporting data is available."
+                emptyDescription="Story growth will show here once monthly growth data is available."
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={storiesGrowthChartData}
-                    margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
-                  >
+                  <AreaChart data={storiesGrowthChartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="stories-growth-fill" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.38} />
@@ -984,33 +1027,10 @@ export default function AdminDashboard() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: "#64748b", fontSize: 12 }}
-                    />
-                    <YAxis
-                      allowDecimals={false}
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: "#64748b", fontSize: 12 }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: 16,
-                        borderColor: "#e2e8f0",
-                        boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="stories"
-                      name="Stories"
-                      stroke="#0f766e"
-                      strokeWidth={2.5}
-                      fill="url(#stories-growth-fill)"
-                    />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                    <Tooltip contentStyle={{ borderRadius: 16, borderColor: "#e2e8f0", boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)" }} />
+                    <Area type="monotone" dataKey="stories" name="Stories" stroke="#0f766e" strokeWidth={2.5} fill="url(#stories-growth-fill)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </ChartState>
@@ -1018,67 +1038,48 @@ export default function AdminDashboard() {
           </Card>
         </section>
 
-        <section>
-          <Card className={surfaceCardClass}>
-            <CardHeader className="space-y-2">
-              <CardTitle className="text-base text-slate-950 dark:text-slate-50">
-                Moderation review by week
-              </CardTitle>
-              <CardDescription className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                Weekly review volume and average risk score from the moderation queue.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="h-[320px]">
-              <ChartState
-                loading={loading.modWeekly}
-                error={error.modWeekly}
-                hasData={moderationChartData.length > 0}
-                emptyTitle="No moderation trend yet"
-                emptyDescription="Reviewed chapters will appear here after moderation activity is recorded."
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={moderationChartData}
-                    margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
-                    barGap={10}
-                  >
-                    <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: "#64748b", fontSize: 12 }}
-                    />
-                    <YAxis
-                      allowDecimals={false}
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: "#64748b", fontSize: 12 }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: 16,
-                        borderColor: "#e2e8f0",
-                        boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
-                      }}
-                    />
-                    <Bar
-                      dataKey="chapters"
-                      name="Reviewed chapters"
-                      fill="#334155"
-                      radius={[10, 10, 0, 0]}
-                    />
-                    <Bar
-                      dataKey="avgRisk"
-                      name="Average risk"
-                      fill="#f59e0b"
-                      radius={[10, 10, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartState>
-            </CardContent>
-          </Card>
+        <section className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
+              Governance Snapshot
+            </p>
+            <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+              Policy lifecycle and audit log health
+            </h3>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <GovernancePanel
+              title="Policy lifecycle"
+              description="See how many policy records are active, still in draft, or already archived."
+              metrics={[
+                { label: "Total", value: totalPolicies },
+                { label: "Active", value: activePolicies, tone: "good" },
+                { label: "Draft", value: draftPolicies, tone: "warn" },
+                { label: "Archived", value: archivedPolicies, tone: "danger" },
+              ]}
+              loading={loading.policies}
+              error={error.policies}
+              isEmpty={!loading.policies && !error.policies && policySummary.total === 0}
+              emptyTitle="No policies yet"
+              emptyDescription="Policy counts will appear here once the policy library has records."
+            />
+            <GovernancePanel
+              title="Audit log health"
+              description="Keep admin-visible log volume, unseen entries, and approval follow-up in one place."
+              metrics={[
+                { label: "Total", value: totalAuditLogs },
+                { label: "Unseen", value: unseenAuditLogs, tone: "warn" },
+                { label: "Pending Approval", value: pendingAuditApprovals, tone: "warn" },
+                { label: "High Risk", value: highRiskAuditLogs, tone: "danger" },
+              ]}
+              loading={loading.audit}
+              error={error.audit}
+              isEmpty={!loading.audit && !error.audit && auditSummary.total === 0 && recentAuditLogs.length === 0}
+              emptyTitle="No audit activity yet"
+              emptyDescription="Recent audit summaries will appear here once audit log data is available."
+            />
+          </div>
         </section>
 
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
@@ -1113,18 +1114,10 @@ export default function AdminDashboard() {
                   {loading.recent &&
                     Array.from({ length: 3 }).map((_, index) => (
                       <TableRow key={`recent-skeleton-${index}`}>
-                        <TableCell>
-                          <Skeleton className="h-4 w-28 rounded-md" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-40 rounded-md" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-6 w-24 rounded-full" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-24 rounded-md" />
-                        </TableCell>
+                        <TableCell><Skeleton className="h-4 w-28 rounded-md" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-40 rounded-md" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24 rounded-md" /></TableCell>
                       </TableRow>
                     ))}
 
@@ -1179,16 +1172,16 @@ export default function AdminDashboard() {
             <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-2">
                 <CardTitle className="text-base text-slate-950 dark:text-slate-50">
-                  Top stories by views
+                  Recent audit activity
                 </CardTitle>
                 <CardDescription className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                  High-traffic titles worth checking for performance and moderation context.
+                  The latest admin-visible audit entries captured by the compliance trail.
                 </CardDescription>
               </div>
               <Button asChild variant="outline" size="sm" className="rounded-xl">
-                <Link href="/admin/manga">
+                <Link href="/admin/audit-logs">
                   <Eye className="mr-2 h-4 w-4" />
-                  View all stories
+                  View audit logs
                 </Link>
               </Button>
             </CardHeader>
@@ -1196,73 +1189,70 @@ export default function AdminDashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Author</TableHead>
-                    <TableHead>Views</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Actor</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Summary</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loading.topStories &&
+                  {loading.audit &&
                     Array.from({ length: 3 }).map((_, index) => (
-                      <TableRow key={`top-story-skeleton-${index}`}>
-                        <TableCell>
-                          <Skeleton className="h-4 w-32 rounded-md" />
-                        </TableCell>
+                      <TableRow key={`audit-skeleton-${index}`}>
+                        <TableCell><Skeleton className="h-4 w-20 rounded-md" /></TableCell>
                         <TableCell>
                           <Skeleton className="h-4 w-24 rounded-md" />
+                          <Skeleton className="mt-2 h-6 w-20 rounded-full" />
                         </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-16 rounded-md" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-6 w-20 rounded-full" />
-                        </TableCell>
+                        <TableCell><Skeleton className="h-4 w-28 rounded-md" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-full rounded-md" /></TableCell>
                       </TableRow>
                     ))}
 
-                  {!loading.topStories && error.topStories && (
+                  {!loading.audit && error.audit && (
                     <TableStateRow
                       colSpan={4}
-                      title="Unable to load top stories"
-                      description={error.topStories}
+                      title="Unable to load recent audit activity"
+                      description={error.audit}
                       tone="danger"
                     />
                   )}
 
-                  {!loading.topStories && !error.topStories && topStories.length === 0 && (
+                  {!loading.audit && !error.audit && recentAuditLogs.length === 0 && (
                     <TableStateRow
                       colSpan={4}
-                      title="No top stories yet"
-                      description="Top-viewed stories will appear here once the analytics endpoint returns data."
+                      title="No audit activity yet"
+                      description="Recent audit entries will appear here once audit log data is available."
                     />
                   )}
 
-                  {!loading.topStories &&
-                    !error.topStories &&
-                    topStories.map((story) => (
-                      <TableRow key={story.id}>
-                        <TableCell className="font-medium text-slate-900 dark:text-slate-100">
-                          {story.title}
-                        </TableCell>
+                  {!loading.audit &&
+                    !error.audit &&
+                    recentAuditLogs.map((log) => (
+                      <TableRow key={log.id}>
                         <TableCell className="text-sm text-slate-600 dark:text-slate-300">
-                          {story.author}
+                          {log.time}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                            <TrendingUp className="h-4 w-4 text-emerald-500" />
-                            {story.views.toLocaleString()}
+                          <div className="space-y-2">
+                            <p className="font-medium text-slate-900 dark:text-slate-100">
+                              {log.actorName}
+                            </p>
+                            <Badge
+                              className={cn(
+                                "rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                                roleBadgeClass(log.actorRole),
+                              )}
+                            >
+                              {prettyRole(log.actorRole)}
+                            </Badge>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <Badge
-                            className={cn(
-                              "rounded-full border px-2.5 py-1 text-[11px] font-medium",
-                              storyStatusBadgeClass(story.status),
-                            )}
-                          >
-                            {formatRoleLabel(story.status)}
-                          </Badge>
+                        <TableCell className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                          {clipText(log.actionLabel, 40)}
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600 dark:text-slate-300">
+                          {log.summary}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1282,21 +1272,21 @@ export default function AdminDashboard() {
                 Jump into the admin workspaces you use most
               </h3>
               <p className="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                These shortcuts keep the main operational flows one click away when you
-                are moving between reports, moderation, notifications, and catalog work.
+                These shortcuts keep user operations, policy upkeep, audit review,
+                and notification follow-up one click away from the main admin dashboard.
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Button asChild variant="outline" className="h-11 rounded-xl px-4">
-                <Link href="/admin/report">
-                  Report workspace
+                <Link href="/admin/policies">
+                  Policy library
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
               <Button asChild variant="outline" className="h-11 rounded-xl px-4">
-                <Link href="/admin/moderation/queue">
-                  Moderation queue
+                <Link href="/admin/audit-logs">
+                  Audit logs
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -1307,8 +1297,8 @@ export default function AdminDashboard() {
                 </Link>
               </Button>
               <Button asChild variant="outline" className="h-11 rounded-xl px-4">
-                <Link href="/admin/manga">
-                  Manga management
+                <Link href="/admin/user">
+                  User operations
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -1319,4 +1309,3 @@ export default function AdminDashboard() {
     </AdminLayout>
   );
 }
-

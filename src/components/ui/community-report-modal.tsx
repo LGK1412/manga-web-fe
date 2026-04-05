@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Ban,
-  BookOpen,
   CalendarClock,
   CheckCircle,
   Clock3,
   FileText,
   Loader2,
   MessageSquare,
+  Reply,
   ShieldAlert,
 } from "lucide-react";
 
@@ -26,15 +26,15 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
-  formatReportDateTime,
+  CommunityReportAgainstGroup,
+  ReportResolutionAction,
+  ReportStatus,
+  MergedReportItem,
   formatReasonLabel,
+  formatReportDateTime,
   getAllowedResolutionActions,
   getInitial,
   getPageNumbers,
-  MergedReportItem,
-  ReportAgainstGroup,
-  ReportResolutionAction,
-  ReportStatus,
   resolveAvatarUrl,
 } from "@/lib/report-workspace";
 import {
@@ -43,9 +43,9 @@ import {
   getRoleIcon,
 } from "@/components/admin/users/user-management.utils";
 
-type ReportModalProps = {
+type CommunityReportModalProps = {
   open: boolean;
-  group: ReportAgainstGroup | null;
+  group: CommunityReportAgainstGroup | null;
   busyKey: string | null;
   focusReportId?: string | null;
   onClose: () => void;
@@ -76,52 +76,22 @@ function getStatusClass(status: string) {
 
 function getReasonMeta(reason: string) {
   const normalized = String(reason || "").toLowerCase();
-
   if (normalized === "harassment" || normalized === "inappropriate") {
     return {
       className: "border-rose-200 bg-rose-50 text-rose-700",
       icon: ShieldAlert,
     };
   }
-
-  if (normalized === "copyright" || normalized === "offense") {
-    return {
-      className: "border-amber-200 bg-amber-50 text-amber-700",
-      icon: ShieldAlert,
-    };
-  }
-
   if (normalized === "spam") {
     return {
       className: "border-sky-200 bg-sky-50 text-sky-700",
       icon: MessageSquare,
     };
   }
-
   return {
     className: "border-slate-200 bg-slate-100 text-slate-700",
     icon: FileText,
   };
-}
-
-function findFocusLocation(group: ReportAgainstGroup, reportId?: string | null) {
-  if (!reportId) return null;
-
-  for (const manga of group.mangaBuckets) {
-    for (const target of manga.targetBuckets) {
-      for (const item of target.mergedItems) {
-        if (item.reports.some((report) => report._id === reportId)) {
-          return {
-            mangaId: manga.mangaId,
-            targetKey: target.key,
-            itemKey: item.key,
-          };
-        }
-      }
-    }
-  }
-
-  return null;
 }
 
 function getActionMeta(action: ReportResolutionAction) {
@@ -133,35 +103,164 @@ function getActionMeta(action: ReportResolutionAction) {
         className: "rounded-xl",
         icon: Ban,
       };
-    case "user_muted":
-      return {
-        label: "Mute User & Resolve",
-        variant: "outline" as const,
-        className:
-          "rounded-xl border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800",
-        icon: Ban,
-      };
     default:
       return null;
   }
 }
 
-export default function ReportModal({
+function sanitizeContent(content: string, apiUrl?: string) {
+  if (typeof window === "undefined") return "";
+
+  const normalizedApi = (apiUrl || "").replace(/\/+$/, "");
+  const hasHtml = /<\/?[a-z][\s\S]*>/i.test(content);
+  let html = hasHtml
+    ? content
+    : String(content || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\n/g, "<br />");
+
+  html = html.replace(/<div><br\s*\/?><\/div>/gi, "<br />");
+
+  if (normalizedApi) {
+    html = html.replace(/https?:\/\/localhost:\d+/gi, normalizedApi);
+    html = html.replace(
+      /src=(['"])\/(assets\/emoji\/[^'"]+)\1/gi,
+      `src=$1${normalizedApi}/$2$1`
+    );
+    html = html.replace(
+      /src=(['"])(assets\/emoji\/[^'"]+)\1/gi,
+      `src=$1${normalizedApi}/$2$1`
+    );
+  }
+
+  const allowedTags = new Set([
+    "a",
+    "b",
+    "blockquote",
+    "br",
+    "div",
+    "em",
+    "i",
+    "img",
+    "li",
+    "ol",
+    "p",
+    "span",
+    "strong",
+    "u",
+    "ul",
+  ]);
+  const blockedTags = new Set(["iframe", "object", "embed", "script", "style", "link", "meta"]);
+  const parser = new window.DOMParser();
+  const doc = parser.parseFromString(`<div>${html}</div>`, "text/html");
+  const root = doc.body.firstElementChild;
+
+  if (!root) return "";
+
+  const sanitizeNode = (node: Node, ownerDocument: Document): Node | null => {
+    if (node.nodeType === window.Node.TEXT_NODE) {
+      return ownerDocument.createTextNode(node.textContent || "");
+    }
+
+    if (node.nodeType !== window.Node.ELEMENT_NODE) return null;
+
+    const element = node as HTMLElement;
+    const tag = element.tagName.toLowerCase();
+
+    if (blockedTags.has(tag)) return null;
+
+    if (!allowedTags.has(tag)) {
+      const fragment = ownerDocument.createDocumentFragment();
+      Array.from(element.childNodes).forEach((child) => {
+        const safeChild = sanitizeNode(child, ownerDocument);
+        if (safeChild) fragment.appendChild(safeChild);
+      });
+      return fragment;
+    }
+
+    const safeElement = ownerDocument.createElement(tag);
+
+    if (tag === "a") {
+      const href = String(element.getAttribute("href") || "").trim();
+      if (/^(https?:|mailto:|\/)/i.test(href)) {
+        safeElement.setAttribute("href", href);
+        safeElement.setAttribute("target", "_blank");
+        safeElement.setAttribute("rel", "noreferrer noopener");
+      }
+    }
+
+    if (tag === "img") {
+      const rawSrc = String(element.getAttribute("src") || "").trim();
+      if (rawSrc) {
+        safeElement.setAttribute("src", rawSrc);
+        safeElement.setAttribute("alt", String(element.getAttribute("alt") || ""));
+        safeElement.setAttribute("referrerpolicy", "no-referrer");
+      } else {
+        return null;
+      }
+    }
+
+    Array.from(element.childNodes).forEach((child) => {
+      const safeChild = sanitizeNode(child, ownerDocument);
+      if (safeChild) safeElement.appendChild(safeChild);
+    });
+
+    return safeElement;
+  };
+
+  const safeRoot = document.createElement("div");
+  Array.from(root.childNodes).forEach((child) => {
+    const safeChild = sanitizeNode(child, document);
+    if (safeChild) safeRoot.appendChild(safeChild);
+  });
+
+  return safeRoot.innerHTML;
+}
+
+function findFocusLocation(
+  group: CommunityReportAgainstGroup,
+  reportId?: string | null
+) {
+  if (!reportId) return null;
+
+  for (const section of group.sections) {
+    for (const target of section.targetBuckets) {
+      for (const item of target.mergedItems) {
+        if (item.reports.some((report) => report._id === reportId)) {
+          return {
+            sectionKey: section.key,
+            targetKey: target.key,
+            itemKey: item.key,
+          };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+export default function CommunityReportModal({
   open,
   group,
   busyKey,
   focusReportId,
   onClose,
   onSubmitItemAction,
-}: ReportModalProps) {
+}: CommunityReportModalProps) {
   const API = process.env.NEXT_PUBLIC_API_URL;
-  const [selectedMangaId, setSelectedMangaId] = useState("");
+  const [selectedSectionKey, setSelectedSectionKey] = useState<"comment" | "reply">(
+    "comment"
+  );
   const [selectedTargetKey, setSelectedTargetKey] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [highlightedItemKey, setHighlightedItemKey] = useState<string | null>(
     null
   );
+  const [renderedTargetContent, setRenderedTargetContent] = useState("");
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -172,23 +271,21 @@ export default function ReportModal({
 
     setNoteDrafts((previous) => {
       const next: Record<string, string> = {};
-
-      group.mangaBuckets.forEach((manga) => {
-        manga.targetBuckets.forEach((target) => {
+      group.sections.forEach((section) => {
+        section.targetBuckets.forEach((target) => {
           target.mergedItems.forEach((item) => {
             next[item.key] =
               previous[item.key] ?? item.latestResolutionNote ?? "";
           });
         });
       });
-
       return next;
     });
   }, [group]);
 
   useEffect(() => {
     if (!group) {
-      setSelectedMangaId("");
+      setSelectedSectionKey("comment");
       setSelectedTargetKey("");
       setCurrentPage(1);
       setHighlightedItemKey(null);
@@ -196,19 +293,21 @@ export default function ReportModal({
     }
 
     const focusLocation = findFocusLocation(group, focusReportId);
-    const fallbackManga = group.mangaBuckets[0];
-    const nextMangaId = focusLocation?.mangaId || fallbackManga?.mangaId || "";
-    const nextManga =
-      group.mangaBuckets.find((manga) => manga.mangaId === nextMangaId) ||
-      fallbackManga;
+    const fallbackSection =
+      group.sections.find((section) => section.key === "comment") ||
+      group.sections[0];
+    const nextSectionKey = focusLocation?.sectionKey || fallbackSection?.key || "comment";
+    const nextSection =
+      group.sections.find((section) => section.key === nextSectionKey) ||
+      fallbackSection;
     const nextTargetKey =
-      focusLocation?.targetKey || nextManga?.targetBuckets[0]?.key || "";
+      focusLocation?.targetKey || nextSection?.targetBuckets[0]?.key || "";
 
-    setSelectedMangaId(nextMangaId);
+    setSelectedSectionKey(nextSectionKey);
     setSelectedTargetKey(nextTargetKey);
     setHighlightedItemKey(focusLocation?.itemKey || null);
 
-    const focusedTarget = nextManga?.targetBuckets.find(
+    const focusedTarget = nextSection?.targetBuckets.find(
       (target) => target.key === nextTargetKey
     );
     const focusedIndex = focusLocation?.itemKey
@@ -222,38 +321,34 @@ export default function ReportModal({
     );
   }, [group, focusReportId]);
 
-  const selectedManga = useMemo(() => {
+  const selectedSection = useMemo(() => {
     if (!group) return null;
-
     return (
-      group.mangaBuckets.find((manga) => manga.mangaId === selectedMangaId) ||
-      group.mangaBuckets[0] ||
+      group.sections.find((section) => section.key === selectedSectionKey) ||
+      group.sections[0] ||
       null
     );
-  }, [group, selectedMangaId]);
+  }, [group, selectedSectionKey]);
 
   useEffect(() => {
-    if (!selectedManga) return;
-
-    if (!selectedManga.targetBuckets.some((target) => target.key === selectedTargetKey)) {
-      setSelectedTargetKey(selectedManga.targetBuckets[0]?.key || "");
+    if (!selectedSection) return;
+    if (!selectedSection.targetBuckets.some((target) => target.key === selectedTargetKey)) {
+      setSelectedTargetKey(selectedSection.targetBuckets[0]?.key || "");
       setCurrentPage(1);
     }
-  }, [selectedManga, selectedTargetKey]);
+  }, [selectedSection, selectedTargetKey]);
 
   const selectedTarget = useMemo(() => {
-    if (!selectedManga) return null;
-
+    if (!selectedSection) return null;
     return (
-      selectedManga.targetBuckets.find((target) => target.key === selectedTargetKey) ||
-      selectedManga.targetBuckets[0] ||
+      selectedSection.targetBuckets.find((target) => target.key === selectedTargetKey) ||
+      selectedSection.targetBuckets[0] ||
       null
     );
-  }, [selectedManga, selectedTargetKey]);
+  }, [selectedSection, selectedTargetKey]);
 
   const paginatedItems = useMemo(() => {
     if (!selectedTarget) return [];
-
     const start = (currentPage - 1) * itemsPerPage;
     return selectedTarget.mergedItems.slice(start, start + itemsPerPage);
   }, [currentPage, selectedTarget]);
@@ -262,6 +357,14 @@ export default function ReportModal({
     ? Math.max(1, Math.ceil(selectedTarget.mergedItems.length / itemsPerPage))
     : 1;
   const pageNumbers = getPageNumbers(totalPages, currentPage);
+  useEffect(() => {
+    if (!selectedTarget?.content) {
+      setRenderedTargetContent("");
+      return;
+    }
+
+    setRenderedTargetContent(sanitizeContent(selectedTarget.content, API));
+  }, [API, selectedTarget?.content]);
 
   if (!group) return null;
 
@@ -277,10 +380,10 @@ export default function ReportModal({
           <div className="space-y-4">
             <div className="space-y-1">
               <SheetTitle className="text-xl text-slate-900">
-                Content Report Workspace
+                Community Report Workspace
               </SheetTitle>
               <SheetDescription className="max-w-3xl text-sm leading-6 text-slate-500">
-                Review grouped manga and chapter reports for one reported
+                Review grouped comment and reply reports for one reported
                 account and resolve cases from the same workspace.
               </SheetDescription>
             </div>
@@ -296,7 +399,6 @@ export default function ReportModal({
                     />
                     <AvatarFallback>{getInitial(group.meta.name)}</AvatarFallback>
                   </Avatar>
-
                   <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                       Report Against
@@ -323,13 +425,13 @@ export default function ReportModal({
                         variant="secondary"
                         className="border border-slate-200 bg-white text-slate-700"
                       >
-                        {group.doneCount}/{group.totalCount} cases done
+                        {group.commentCount} comments
                       </Badge>
                       <Badge
                         variant="secondary"
                         className="border border-slate-200 bg-white text-slate-700"
                       >
-                        {group.mangaCount} manga
+                        {group.replyCount} replies
                       </Badge>
                     </div>
                   </div>
@@ -351,45 +453,36 @@ export default function ReportModal({
 
         <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
           <section className="space-y-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Select manga</p>
-              <p className="mt-1 text-xs text-slate-500">
-                Only manga that currently have reports are shown here.
-              </p>
-            </div>
             <div className="flex flex-wrap gap-2">
-              {group.mangaBuckets.map((manga) => (
+              {group.sections.map((section) => (
                 <Button
-                  key={manga.mangaId}
+                  key={section.key}
                   type="button"
-                  variant={manga.mangaId === selectedManga?.mangaId ? "default" : "outline"}
-                  className="h-auto max-w-full rounded-full px-4 py-2 text-left"
+                  variant={section.key === selectedSection?.key ? "default" : "outline"}
+                  className="rounded-full"
                   onClick={() => {
-                    setSelectedMangaId(manga.mangaId);
+                    setSelectedSectionKey(section.key);
+                    setSelectedTargetKey(section.targetBuckets[0]?.key || "");
                     setCurrentPage(1);
                     setHighlightedItemKey(null);
                   }}
                 >
-                  <span className="block max-w-[240px] truncate">
-                    {manga.mangaTitle}
+                  {section.key === "reply" ? (
+                    <Reply className="h-4 w-4" />
+                  ) : (
+                    <MessageSquare className="h-4 w-4" />
+                  )}
+                  {section.label}
+                  <span className="rounded-full bg-white/80 px-2 py-0.5 text-xs text-slate-700">
+                    {section.targetCount}
                   </span>
                 </Button>
               ))}
             </div>
-          </section>
 
-          {selectedManga ? (
-            <section className="space-y-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">
-                  Target options
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Only targets with reports are listed.
-                </p>
-              </div>
+            {selectedSection ? (
               <div className="flex flex-wrap gap-2">
-                {selectedManga.targetBuckets.map((target) => (
+                {selectedSection.targetBuckets.map((target) => (
                   <Button
                     key={target.key}
                     type="button"
@@ -401,36 +494,34 @@ export default function ReportModal({
                       setHighlightedItemKey(null);
                     }}
                   >
-                    <span className="block max-w-[260px] truncate">
-                      {target.label}
-                      {target.subtitle ? ` - ${target.subtitle}` : ""}
+                    <span className="block max-w-[300px] truncate">
+                      {target.label}: {target.excerpt}
                     </span>
                   </Button>
                 ))}
               </div>
-            </section>
-          ) : null}
+            ) : null}
+          </section>
 
           {selectedTarget ? (
             <section className="space-y-4">
               <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">Selected target</p>
-                    <h3 className="mt-1 text-xl font-semibold text-slate-900">
-                      {selectedTarget.kind === "manga"
-                        ? selectedTarget.mangaTitle
-                        : `${selectedTarget.label}${
-                            selectedTarget.subtitle
-                              ? ` - ${selectedTarget.subtitle}`
-                              : ""
-                          }`}
-                    </h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {selectedTarget.kind === "manga"
-                        ? "Grouped manga-level reports only."
-                        : `Part of ${selectedTarget.mangaTitle}.`}
-                    </p>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-slate-500">Selected target</p>
+                      <h3 className="mt-1 text-xl font-semibold text-slate-900">
+                        {selectedTarget.label}
+                      </h3>
+                    </div>
+                    <div
+                      className="rounded-[20px] border border-slate-200 bg-slate-50/90 p-4 text-sm leading-7 text-slate-700 break-words shadow-inner [&_a]:text-sky-700 [&_a]:underline [&_div]:mb-2 [&_div:last-child]:mb-0 [&_img]:mx-0 [&_img]:my-1 [&_img]:inline-block [&_img]:h-8 [&_img]:w-8 [&_img]:align-middle [&_p]:mb-2 [&_p:last-child]:mb-0 [&_span]:align-middle"
+                      dangerouslySetInnerHTML={{
+                        __html:
+                          renderedTargetContent ||
+                          "<span class='text-slate-400'>Content unavailable.</span>",
+                      }}
+                    />
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -445,12 +536,12 @@ export default function ReportModal({
                       variant="secondary"
                       className="border border-slate-200 bg-slate-50 text-slate-700"
                     >
-                      {selectedTarget.kind === "manga" ? (
-                        <BookOpen className="h-3.5 w-3.5" />
+                      {selectedTarget.kind === "reply" ? (
+                        <Reply className="h-3.5 w-3.5" />
                       ) : (
-                        <FileText className="h-3.5 w-3.5" />
+                        <MessageSquare className="h-3.5 w-3.5" />
                       )}
-                      {selectedTarget.kind === "manga" ? "Manga" : "Chapter"}
+                      {selectedTarget.kind === "reply" ? "Reply" : "Comment"}
                     </Badge>
                   </div>
                 </div>
@@ -467,7 +558,9 @@ export default function ReportModal({
                       noteDrafts[item.key] ?? item.latestResolutionNote ?? "";
                     const resolutionActions = getAllowedResolutionActions(
                       item.reports
-                    ).filter((action) => action !== "none");
+                    ).filter(
+                      (action) => action !== "none" && action !== "user_muted"
+                    );
 
                     return (
                       <article
@@ -493,7 +586,6 @@ export default function ReportModal({
                                   {getInitial(item.reporter.name)}
                                 </AvatarFallback>
                               </Avatar>
-
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold text-slate-900">
                                   {item.reporter.name}

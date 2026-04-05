@@ -187,7 +187,7 @@ export default function EmojiInputBox({ onChange, clear }: EmojiInputBoxProps) {
     }, [showPicker])
 
     return (
-        <div className="relative w-full  z-[999999]">
+        <div className="relative w-full">
             {/* Box nhập nội dung */}
             <div
                 ref={inputRef}
@@ -222,7 +222,7 @@ export default function EmojiInputBox({ onChange, clear }: EmojiInputBoxProps) {
                     setShowPicker((s) => !s)
                 }}
                 onMouseDown={(e) => e.preventDefault()}
-                className="absolute bottom-2 right-0 hover:bg-gray-200 hover:text-gray-950 p-2 rounded-full shadow z-[999999]"
+                className="absolute bottom-2 right-0 z-10 rounded-full p-2 shadow hover:bg-gray-200 hover:text-gray-950"
             >
                 <Smile className="w-5 h-5" />
             </button>
@@ -231,7 +231,7 @@ export default function EmojiInputBox({ onChange, clear }: EmojiInputBoxProps) {
             {showPicker && (
                 <div
                     ref={pickerRef}
-                    className="fixed z-[999999]"
+                    className="fixed z-[60]"
                     style={{
                         top: "65%",
                         left: "87.5%",

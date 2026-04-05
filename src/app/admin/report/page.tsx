@@ -1,26 +1,35 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import axios from "axios";
 import {
   AlertTriangle,
-  ArrowUpDown,
-  BellRing,
   BookOpen,
-  CheckCircle,
-  ChevronDown,
-  ChevronUp,
-  Clock,
+  CheckCircle2,
+  Clock3,
   Eye,
-  Mail,
+  Loader2,
   MessageSquare,
   Search,
+  ShieldCheck,
 } from "lucide-react";
 
 import { toast } from "sonner";
 import AdminLayout from "../adminLayout/page";
 import ReportModal from "@/components/ui/report-modal";
+import CommunityReportModal from "@/components/ui/community-report-modal";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,68 +56,63 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  buildContentReportGroups,
+  buildCommunityReportGroups,
+  CommunityReportAgainstGroup,
+  findCommunityReportLocation,
+  findReportLocation,
+  formatReportDateTime,
+  getInitial,
+  getPageNumbers,
+  isCommunityReport,
+  isContentReport,
+  isDoneStatus,
+  MergedReportItem,
+  ReportAgainstGroup,
+  ReportResolutionAction,
+  ReportStatus,
+  resolveAvatarUrl,
+  WorkspaceReport,
+} from "@/lib/report-workspace";
 
-interface Report {
-  _id: string;
-  reportCode?: string;
-  reporter_id?: {
-    username: string;
-    email: string;
-    role?: string;
-    avatar?: string;
-  };
-  target_type: string;
-  target_id?: {
-    _id?: string;
-    title?: string;
-    content?: string;
-    authorId?: { username?: string; email?: string };
-    user?: { username?: string; email?: string };
-  };
-  target_detail?: {
-    title?: string;
-    target_human?: {
-      user_id?: string;
-      username?: string;
-      email?: string;
-      avatar?: string;
-    };
-  };
-  reason: string;
-  description?: string;
-  status: string;
-  createdAt?: string;
-  updatedAt?: string;
-  resolver_id?: string;
-  resolution_note?: string;
+type StaffRole = "admin" | "content_moderator" | "community_manager" | null;
+type WorkspaceTab = "content" | "community";
+type GroupStatusFilter = "all" | "needs-review" | "done";
+
+type WorkspaceViewState = {
+  searchTerm: string;
+  statusFilter: GroupStatusFilter;
+  currentPage: number;
+  selectedGroupKey: string | null;
+  focusReportId: string | null;
+  isModalOpen: boolean;
+  confirmGroupKey: string | null;
+};
+
+const GROUPS_PER_PAGE = 10;
+const INITIAL_VIEW_STATE: WorkspaceViewState = {
+  searchTerm: "",
+  statusFilter: "all",
+  currentPage: 1,
+  selectedGroupKey: null,
+  focusReportId: null,
+  isModalOpen: false,
+  confirmGroupKey: null,
+};
+
+function normalizeRole(value: unknown): StaffRole {
+  const normalized = String(value || "").toLowerCase().trim();
+  if (
+    normalized === "admin" ||
+    normalized === "content_moderator" ||
+    normalized === "community_manager"
+  ) {
+    return normalized;
+  }
+  return null;
 }
-
-type ReportSortColumn = "reportedAgainst" | "reportCount";
-
-type SortDirection = "asc" | "desc";
-type QuickFilterKey =
-  | "all"
-  | "new"
-  | "in-progress"
-  | "resolved"
-  | "comment"
-  | "manga";
-
-type ReportedAgainstMeta = {
-  key: string;
-  userId?: string | null;
-  name: string;
-  email: string | null;
-  avatar?: string;
-};
-
-type ReportGroup = {
-  key: string;
-  meta: ReportedAgainstMeta;
-  reports: Report[];
-  primaryReport: Report;
-  reportCount: number;
-};
 
 function logAxiosError(tag: string, endpoint: string, err: any, extra?: any) {
   const status = err?.response?.status;
@@ -121,119 +125,12 @@ function logAxiosError(tag: string, endpoint: string, err: any, extra?: any) {
   console.log("data:", data);
   console.log("data (stringify):", JSON.stringify(data, null, 2));
   console.log("message:", message);
-
-  if (!err?.response) {
-    console.log("No response object -> maybe network/CORS/server down?");
-    console.log("err.request:", err?.request);
-  }
-
+  if (!err?.response) console.log("err.request:", err?.request);
   if (extra) console.log("extra:", extra);
   console.groupEnd();
 }
 
-function isAbsoluteUrl(value: string) {
-  return /^(?:[a-z]+:)?\/\//i.test(value) || value.startsWith("data:");
-}
-
-function resolveAvatarUrl(rawAvatar?: string, apiUrl?: string) {
-  if (!rawAvatar) return undefined;
-  if (isAbsoluteUrl(rawAvatar)) return rawAvatar;
-  if (!apiUrl) return undefined;
-
-  const normalizedApi = apiUrl.replace(/\/+$/, "");
-  const normalizedAvatar = rawAvatar.replace(/^\/+/, "");
-  return `${normalizedApi}/assets/avatars/${normalizedAvatar}`;
-}
-
-function getInitial(value?: string) {
-  return value?.trim()?.charAt(0)?.toUpperCase() || "U";
-}
-
-function compareStrings(a?: string | null, b?: string | null) {
-  return String(a || "").localeCompare(String(b || ""), undefined, {
-    numeric: true,
-    sensitivity: "base",
-  });
-}
-
-function compareDates(a?: string | null, b?: string | null) {
-  const first = a ? new Date(a).getTime() : 0;
-  const second = b ? new Date(b).getTime() : 0;
-  return first - second;
-}
-
-function nextSortDirection(
-  activeColumn: ReportSortColumn,
-  currentColumn: ReportSortColumn,
-  currentDirection: SortDirection
-): SortDirection {
-  if (activeColumn !== currentColumn) return "asc";
-  return currentDirection === "asc" ? "desc" : "asc";
-}
-
-function SortableHeader({
-  column,
-  label,
-  activeColumn,
-  direction,
-  onSort,
-}: {
-  column: ReportSortColumn;
-  label: string;
-  activeColumn: ReportSortColumn;
-  direction: SortDirection;
-  onSort: (column: ReportSortColumn) => void;
-}) {
-  const isActive = activeColumn === column;
-
-  return (
-    <button
-      type="button"
-      onClick={() => onSort(column)}
-      className="inline-flex items-center gap-1 font-medium text-slate-700 transition-colors hover:text-slate-900"
-    >
-      <span>{label}</span>
-
-      {!isActive ? (
-        <ArrowUpDown className="h-4 w-4 text-slate-400" />
-      ) : direction === "desc" ? (
-        <ChevronDown className="h-4 w-4 text-slate-500" />
-      ) : (
-        <ChevronUp className="h-4 w-4 text-slate-500" />
-      )}
-    </button>
-  );
-}
-
-function getReportedAgainstMeta(report: Report): ReportedAgainstMeta {
-  const userId = report.target_detail?.target_human?.user_id || null;
-  const name =
-    report.target_detail?.target_human?.username ||
-    report.target_id?.authorId?.username ||
-    report.target_id?.user?.username ||
-    "Unknown user";
-  const email =
-    report.target_detail?.target_human?.email ||
-    report.target_id?.authorId?.email ||
-    report.target_id?.user?.email ||
-    null;
-
-  return {
-    key: userId
-      ? `user:${userId}`
-      : email
-      ? `email:${email.toLowerCase()}`
-      : name !== "Unknown user"
-      ? `name:${name.toLowerCase()}`
-      : `report:${report._id}`,
-    userId,
-    name,
-    email,
-    avatar: report.target_detail?.target_human?.avatar,
-  };
-}
-
-function getReportFetchErrorMessage(err: any) {
+function getErrorMessage(err: any) {
   return (
     err?.response?.data?.message ||
     err?.response?.data?.error ||
@@ -242,30 +139,85 @@ function getReportFetchErrorMessage(err: any) {
   );
 }
 
+function getGroupStatusMeta(group: { doneCount: number; totalCount: number }) {
+  if (group.doneCount === group.totalCount && group.totalCount > 0) {
+    return {
+      label: "Done",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    };
+  }
+
+  return {
+    label: "In progress",
+    className: "border-amber-200 bg-amber-50 text-amber-700",
+  };
+}
+
+function getEditableItemReportIds(
+  item: MergedReportItem,
+  mode: "note" | "status"
+) {
+  const unresolved = item.reports
+    .filter((report) => !isDoneStatus(report.status))
+    .map((report) => report._id);
+
+  if (unresolved.length > 0) return unresolved;
+  if (mode === "note" && item.reports[0]?._id) return [item.reports[0]._id];
+  return [];
+}
+
 export default function ReportsPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const API = process.env.NEXT_PUBLIC_API_URL;
   const linkedReportId = searchParams.get("reportId")?.trim() || "";
   const linkedReportCode = searchParams.get("reportCode")?.trim() || "";
+  const linkedTab = searchParams.get("tab")?.trim().toLowerCase() || "";
 
-  const [reports, setReports] = useState<Report[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [role, setRole] = useState<StaffRole>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
+  const [reports, setReports] = useState<WorkspaceReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(false);
-  const [updatingReportId, setUpdatingReportId] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
-  const [highlightGroupKey, setHighlightGroupKey] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sortColumn, setSortColumn] = useState<ReportSortColumn>("reportCount");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("content");
+  const [views, setViews] = useState<Record<WorkspaceTab, WorkspaceViewState>>({
+    content: { ...INITIAL_VIEW_STATE },
+    community: { ...INITIAL_VIEW_STATE },
+  });
 
-  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deepLinkHandledRef = useRef(false);
-  const reportsPerPage = 10;
+
+  const patchView = useCallback(
+    (tab: WorkspaceTab, patch: Partial<WorkspaceViewState>) => {
+      setViews((previous) => ({
+        ...previous,
+        [tab]: {
+          ...previous[tab],
+          ...patch,
+        },
+      }));
+    },
+    []
+  );
+
+  const fetchRole = useCallback(async () => {
+    if (!API) {
+      setRoleError("Missing NEXT_PUBLIC_API_URL.");
+      setRole(null);
+      return;
+    }
+
+    try {
+      const response = await axios.get(`${API}/api/auth/me`, {
+        withCredentials: true,
+      });
+      setRole(normalizeRole(response.data?.role || response.data?.user?.role));
+      setRoleError(null);
+    } catch (err: any) {
+      setRoleError(getErrorMessage(err));
+      setRole(null);
+    }
+  }, [API]);
 
   const fetchReports = useCallback(async () => {
     if (!API) {
@@ -278,625 +230,736 @@ export default function ReportsPage() {
 
     setLoadingReports(true);
     setListError(null);
+
     try {
-      const res = await axios.get(endpoint, { withCredentials: true });
-      setReports(Array.isArray(res.data) ? res.data : []);
+      const response = await axios.get(endpoint, { withCredentials: true });
+      setReports(Array.isArray(response.data) ? response.data : []);
     } catch (err: any) {
       logAxiosError("[Admin Reports]", endpoint, err);
-      setListError(getReportFetchErrorMessage(err));
+      setListError(getErrorMessage(err));
+      setReports([]);
     } finally {
       setLoadingReports(false);
     }
   }, [API]);
 
   useEffect(() => {
+    fetchRole();
     fetchReports();
-  }, [fetchReports]);
+  }, [fetchReports, fetchRole]);
 
   useEffect(() => {
-    return () => {
-      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!linkedReportId && !linkedReportCode) return;
-
+    if (!linkedReportId && !linkedReportCode && !linkedTab) return;
     deepLinkHandledRef.current = false;
-    setStatusFilter("all");
-    setTypeFilter("all");
-  }, [linkedReportCode, linkedReportId]);
+  }, [linkedReportCode, linkedReportId, linkedTab]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter, typeFilter, sortColumn, sortDirection]);
+  const availableTabs = useMemo<WorkspaceTab[]>(() => {
+    if (role === "content_moderator") return ["content"];
+    if (role === "community_manager") return ["community"];
+    return ["content", "community"];
+  }, [role]);
 
-  const handleUpdateStatus = async (
-    id: string,
-    newStatus?: string,
-    note?: string
-  ) => {
-    if (!API) {
-      console.error("Missing NEXT_PUBLIC_API_URL");
-      return;
-    }
-
-    const endpoint = `${API}/api/reports/${id}/moderate`;
-
-    try {
-      setUpdatingReportId(id);
-
-      const payload: any = {};
-      if (newStatus) payload.status = newStatus;
-      if (note !== undefined) payload.resolution_note = note;
-
-      console.log("[Admin Update Report] REQUEST", { url: endpoint, payload });
-
-      await axios.put(endpoint, payload, { withCredentials: true });
-
-      console.log("[Admin Update Report] SUCCESS");
-
-      const nextStatus = newStatus ?? selectedReport?.status;
-
-      setReports((prev) =>
-        prev.map((report) =>
-          report._id === id
-            ? {
-                ...report,
-                status: newStatus ?? report.status,
-                resolution_note: note ?? report.resolution_note,
-                updatedAt: new Date().toISOString(),
-              }
-            : report
-        )
-      );
-      setSelectedReport((prev) =>
-        prev && prev._id === id
-          ? {
-              ...prev,
-              status: newStatus ?? prev.status,
-              resolution_note: note ?? prev.resolution_note,
-              updatedAt: new Date().toISOString(),
-            }
-          : prev
-      );
-
-      toast.success(
-        newStatus
-          ? `Report marked ${nextStatus?.replace("-", " ")}`
-          : "Resolution note saved"
-      );
-    } catch (err: any) {
-      logAxiosError("[Admin Update Report]", endpoint, err, {
-        id,
-        newStatus,
-        note,
-      });
-      toast.error("Update failed");
-    } finally {
-      setUpdatingReportId(null);
-    }
-  };
-
-  const filteredReports = useMemo(() => {
-    return reports.filter((report) => {
-      const term = searchTerm.toLowerCase();
-      const reportedAgainstMeta = getReportedAgainstMeta(report);
-      const reportedAgainstUsername = reportedAgainstMeta.name || "";
-      const reportedAgainstEmail = reportedAgainstMeta.email || "";
-
-      const matchSearch =
-        term.length === 0 ||
-        reportedAgainstUsername.toLowerCase().includes(term) ||
-        reportedAgainstEmail.toLowerCase().includes(term);
-
-      const matchStatus =
-        statusFilter === "all" || report.status === statusFilter;
-      const matchType =
-        typeFilter === "all"
-          ? true
-          : typeFilter === "conversation"
-          ? report.target_type === "Comment" || report.target_type === "Reply"
-          : report.target_type === typeFilter;
-
-      return matchSearch && matchStatus && matchType;
-    });
-  }, [reports, searchTerm, statusFilter, typeFilter]);
-
-  const groupedReports = useMemo(() => {
-    const groups = new Map<string, ReportGroup>();
-
-    filteredReports.forEach((report) => {
-      const meta = getReportedAgainstMeta(report);
-      const existing = groups.get(meta.key);
-
-      if (existing) {
-        existing.reports.push(report);
-        return;
-      }
-
-      groups.set(meta.key, {
-        key: meta.key,
-        meta,
-        reports: [report],
-        primaryReport: report,
-        reportCount: 1,
-      });
-    });
-
-    const rows = Array.from(groups.values()).map((group) => {
-      const reportsByNewest = [...group.reports].sort((first, second) =>
-        compareDates(
-          second.updatedAt || second.createdAt,
-          first.updatedAt || first.createdAt
-        )
-      );
-
-      return {
-        ...group,
-        reports: reportsByNewest,
-        primaryReport: reportsByNewest[0],
-        reportCount: reportsByNewest.length,
-      };
-    });
-
-    rows.sort((first, second) => {
-      let result = 0;
-
-      switch (sortColumn) {
-        case "reportedAgainst":
-          result = compareStrings(first.meta.name, second.meta.name);
-          break;
-        case "reportCount":
-          result = first.reportCount - second.reportCount;
-          break;
-        default:
-          result = 0;
-      }
-
-      return sortDirection === "asc" ? result : -result;
-    });
-
-    return rows;
-  }, [filteredReports, sortColumn, sortDirection]);
-
-  const indexOfLast = currentPage * reportsPerPage;
-  const indexOfFirst = indexOfLast - reportsPerPage;
-  const currentReportGroups = groupedReports.slice(indexOfFirst, indexOfLast);
-  const totalPages = Math.ceil(groupedReports.length / reportsPerPage);
-
-  const statusColor = (status: string) => {
-    switch (status) {
-      case "new":
-        return "bg-yellow-100 text-yellow-800";
-      case "in-progress":
-        return "bg-blue-100 text-blue-800";
-      case "resolved":
-        return "bg-green-100 text-green-800";
-      case "rejected":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const openModal = (report: Report, groupKey?: string) => {
-    setSelectedReport(report);
-    setIsModalOpen(true);
-    if (groupKey) {
-      setHighlightGroupKey(groupKey);
-    }
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedReport(null);
-  };
-
-  const handleSendMail = (group: ReportGroup) => {
-    const reportedAgainstEmail = group.meta.email || "";
-
-    if (!reportedAgainstEmail) {
-      toast.error("Reported user email not found.");
-      return;
-    }
-
-    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-
-    setHighlightGroupKey(group.key);
-
-    highlightTimerRef.current = setTimeout(() => {
-      const params = new URLSearchParams({
-        receiverEmail: reportedAgainstEmail,
-      });
-
-      router.push(`/admin/notifications/send-general?${params.toString()}`);
-    }, 350);
-  };
-
-  const handleSort = (column: ReportSortColumn) => {
-    setSortDirection((currentDirection) =>
-      nextSortDirection(column, sortColumn, currentDirection)
-    );
-    setSortColumn(column);
-  };
-
-  const activeQuickFilter = useMemo<QuickFilterKey | null>(() => {
-    if (statusFilter === "all" && typeFilter === "all") return "all";
-    if (statusFilter === "new" && typeFilter === "all") return "new";
-    if (statusFilter === "in-progress" && typeFilter === "all") {
-      return "in-progress";
-    }
-    if (statusFilter === "resolved" && typeFilter === "all") return "resolved";
-    if (statusFilter === "all" && typeFilter === "conversation") {
-      return "comment";
-    }
-    if (statusFilter === "all" && typeFilter === "Manga") return "manga";
-    return null;
-  }, [statusFilter, typeFilter]);
-
-  const quickFilters = useMemo(
-    () => [
-      {
-        key: "all" as const,
-        label: "All reports",
-        count: reports.length,
-        icon: AlertTriangle,
-      },
-      {
-        key: "new" as const,
-        label: "New",
-        count: reports.filter((report) => report.status === "new").length,
-        icon: Clock,
-      },
-      {
-        key: "in-progress" as const,
-        label: "In Progress",
-        count: reports.filter((report) => report.status === "in-progress")
-          .length,
-        icon: Eye,
-      },
-      {
-        key: "resolved" as const,
-        label: "Resolved",
-        count: reports.filter((report) => report.status === "resolved").length,
-        icon: CheckCircle,
-      },
-      {
-        key: "comment" as const,
-        label: "Comments only",
-        count: reports.filter(
-          (report) =>
-            report.target_type === "Comment" || report.target_type === "Reply"
-        ).length,
-        icon: MessageSquare,
-      },
-      {
-        key: "manga" as const,
-        label: "Manga only",
-        count: reports.filter((report) => report.target_type === "Manga").length,
-        icon: BookOpen,
-      },
-    ],
+  const contentReports = useMemo(
+    () => reports.filter((report) => isContentReport(report)),
     [reports]
   );
+  const communityReports = useMemo(
+    () => reports.filter((report) => isCommunityReport(report)),
+    [reports]
+  );
+  const contentGroups = useMemo(
+    () => buildContentReportGroups(contentReports),
+    [contentReports]
+  );
+  const communityGroups = useMemo(
+    () => buildCommunityReportGroups(communityReports),
+    [communityReports]
+  );
 
-  const applyQuickFilter = (filter: QuickFilterKey) => {
-    setCurrentPage(1);
+  const filteredContentGroups = useMemo(() => {
+    const normalizedTerm = views.content.searchTerm.trim().toLowerCase();
 
-    switch (filter) {
-      case "new":
-        setStatusFilter("new");
-        setTypeFilter("all");
-        break;
-      case "in-progress":
-        setStatusFilter("in-progress");
-        setTypeFilter("all");
-        break;
-      case "resolved":
-        setStatusFilter("resolved");
-        setTypeFilter("all");
-        break;
-      case "comment":
-        setStatusFilter("all");
-        setTypeFilter("conversation");
-        break;
-      case "manga":
-        setStatusFilter("all");
-        setTypeFilter("Manga");
-        break;
-      default:
-        setStatusFilter("all");
-        setTypeFilter("all");
-        break;
+    return contentGroups.filter((group) => {
+      const matchesSearch =
+        !normalizedTerm ||
+        group.meta.name.toLowerCase().includes(normalizedTerm) ||
+        String(group.meta.email || "").toLowerCase().includes(normalizedTerm) ||
+        group.mangaBuckets.some((manga) =>
+          manga.mangaTitle.toLowerCase().includes(normalizedTerm)
+        );
+
+      const matchesStatus =
+        views.content.statusFilter === "all"
+          ? true
+          : views.content.statusFilter === "done"
+            ? group.doneCount === group.totalCount && group.totalCount > 0
+            : group.doneCount < group.totalCount;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [contentGroups, views.content.searchTerm, views.content.statusFilter]);
+
+  const filteredCommunityGroups = useMemo(() => {
+    const normalizedTerm = views.community.searchTerm.trim().toLowerCase();
+
+    return communityGroups.filter((group) => {
+      const matchesSearch =
+        !normalizedTerm ||
+        group.meta.name.toLowerCase().includes(normalizedTerm) ||
+        String(group.meta.email || "").toLowerCase().includes(normalizedTerm) ||
+        group.sections.some((section) =>
+          section.targetBuckets.some(
+            (target) =>
+              target.label.toLowerCase().includes(normalizedTerm) ||
+              target.excerpt.toLowerCase().includes(normalizedTerm)
+          )
+        );
+
+      const matchesStatus =
+        views.community.statusFilter === "all"
+          ? true
+          : views.community.statusFilter === "done"
+            ? group.doneCount === group.totalCount && group.totalCount > 0
+            : group.doneCount < group.totalCount;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [communityGroups, views.community.searchTerm, views.community.statusFilter]);
+
+  const contentSelectedGroup = useMemo(
+    () =>
+      views.content.selectedGroupKey
+        ? contentGroups.find((group) => group.key === views.content.selectedGroupKey) ||
+          null
+        : null,
+    [contentGroups, views.content.selectedGroupKey]
+  );
+
+  const communitySelectedGroup = useMemo(
+    () =>
+      views.community.selectedGroupKey
+        ? communityGroups.find(
+            (group) => group.key === views.community.selectedGroupKey
+          ) || null
+        : null,
+    [communityGroups, views.community.selectedGroupKey]
+  );
+
+  const contentConfirmGroup = useMemo(
+    () =>
+      views.content.confirmGroupKey
+        ? contentGroups.find((group) => group.key === views.content.confirmGroupKey) ||
+          null
+        : null,
+    [contentGroups, views.content.confirmGroupKey]
+  );
+
+  const communityConfirmGroup = useMemo(
+    () =>
+      views.community.confirmGroupKey
+        ? communityGroups.find(
+            (group) => group.key === views.community.confirmGroupKey
+          ) || null
+        : null,
+    [communityGroups, views.community.confirmGroupKey]
+  );
+
+  useEffect(() => {
+    if (!availableTabs.includes(activeTab)) {
+      setActiveTab(availableTabs[0] || "content");
     }
-  };
+  }, [activeTab, availableTabs]);
 
-  const selectedReportIndex = useMemo(() => {
-    if (!selectedReport) return -1;
-    const selectedGroupKey = getReportedAgainstMeta(selectedReport).key;
-    return groupedReports.findIndex((group) => group.key === selectedGroupKey);
-  }, [selectedReport, groupedReports]);
+  useEffect(() => {
+    if (!linkedTab) return;
+    if (linkedReportId || linkedReportCode) return;
 
-  const openModalByIndex = (index: number) => {
-    const group = groupedReports[index];
-    if (!group) return;
+    const requestedTab =
+      linkedTab === "community"
+        ? "community"
+        : linkedTab === "content"
+          ? "content"
+          : null;
 
-    setSelectedReport(group.primaryReport);
-    setIsModalOpen(true);
-    setHighlightGroupKey(group.key);
-    setCurrentPage(Math.floor(index / reportsPerPage) + 1);
-  };
+    if (requestedTab && availableTabs.includes(requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [availableTabs, linkedReportCode, linkedReportId, linkedTab]);
+
+  useEffect(() => {
+    if (!views.content.selectedGroupKey) return;
+    if (!contentGroups.some((group) => group.key === views.content.selectedGroupKey)) {
+      patchView("content", {
+        selectedGroupKey: null,
+        focusReportId: null,
+        isModalOpen: false,
+      });
+    }
+  }, [contentGroups, patchView, views.content.selectedGroupKey]);
+
+  useEffect(() => {
+    if (!views.community.selectedGroupKey) return;
+    if (
+      !communityGroups.some((group) => group.key === views.community.selectedGroupKey)
+    ) {
+      patchView("community", {
+        selectedGroupKey: null,
+        focusReportId: null,
+        isModalOpen: false,
+      });
+    }
+  }, [communityGroups, patchView, views.community.selectedGroupKey]);
+
+  useEffect(() => {
+    const totalPages = Math.max(
+      1,
+      Math.ceil(filteredContentGroups.length / GROUPS_PER_PAGE)
+    );
+
+    if (views.content.currentPage > totalPages) {
+      patchView("content", { currentPage: totalPages });
+    }
+  }, [filteredContentGroups.length, patchView, views.content.currentPage]);
+
+  useEffect(() => {
+    const totalPages = Math.max(
+      1,
+      Math.ceil(filteredCommunityGroups.length / GROUPS_PER_PAGE)
+    );
+
+    if (views.community.currentPage > totalPages) {
+      patchView("community", { currentPage: totalPages });
+    }
+  }, [filteredCommunityGroups.length, patchView, views.community.currentPage]);
 
   useEffect(() => {
     if (loadingReports || deepLinkHandledRef.current) return;
     if (!linkedReportId && !linkedReportCode) return;
-    if (!reports.length || !groupedReports.length) return;
 
     const targetReport = reports.find((report) => {
       if (linkedReportId && report._id === linkedReportId) return true;
       return (
         linkedReportCode &&
-        String(report.reportCode || "").toLowerCase() === linkedReportCode.toLowerCase()
+        String(report.reportCode || "").toLowerCase() ===
+          linkedReportCode.toLowerCase()
       );
     });
 
     if (!targetReport) return;
 
-    const targetGroupKey = getReportedAgainstMeta(targetReport).key;
-    const targetIndex = groupedReports.findIndex(
-      (group) => group.key === targetGroupKey
-    );
+    const targetTab: WorkspaceTab = isCommunityReport(targetReport)
+      ? "community"
+      : "content";
 
-    if (targetIndex < 0) return;
+    if (!availableTabs.includes(targetTab)) return;
+
+    const groups = targetTab === "content" ? contentGroups : communityGroups;
+    if (!groups.length) return;
+
+    const location =
+      targetTab === "content"
+        ? findReportLocation(contentGroups, targetReport._id)
+        : findCommunityReportLocation(communityGroups, targetReport._id);
+
+    if (!location) return;
 
     deepLinkHandledRef.current = true;
-    setHighlightGroupKey(targetGroupKey);
-    setSelectedReport(targetReport);
-    setIsModalOpen(true);
-    setCurrentPage(Math.floor(targetIndex / reportsPerPage) + 1);
-  }, [linkedReportCode, linkedReportId, loadingReports, reports, groupedReports]);
+    setActiveTab(targetTab);
 
-  const handlePreviousReport = () => {
-    if (selectedReportIndex <= 0) return;
-    openModalByIndex(selectedReportIndex - 1);
+    const groupIndex = groups.findIndex((group) => group.key === location.groupKey);
+
+    patchView(targetTab, {
+      selectedGroupKey: location.groupKey,
+      focusReportId: targetReport._id,
+      isModalOpen: true,
+      currentPage: groupIndex >= 0 ? Math.floor(groupIndex / GROUPS_PER_PAGE) + 1 : 1,
+      confirmGroupKey: null,
+    });
+  }, [
+    availableTabs,
+    communityGroups,
+    contentGroups,
+    linkedReportCode,
+    linkedReportId,
+    loadingReports,
+    patchView,
+    reports,
+  ]);
+
+  const currentView = views[activeTab];
+  const currentGroups =
+    activeTab === "content" ? filteredContentGroups : filteredCommunityGroups;
+  const totalPages = Math.max(1, Math.ceil(currentGroups.length / GROUPS_PER_PAGE));
+  const currentPageGroups = currentGroups.slice(
+    (currentView.currentPage - 1) * GROUPS_PER_PAGE,
+    currentView.currentPage * GROUPS_PER_PAGE
+  );
+  const pageNumbers = getPageNumbers(totalPages, currentView.currentPage);
+
+  const currentStats = useMemo(() => {
+    const groups = activeTab === "content" ? contentGroups : communityGroups;
+    const totalMergedCases = groups.reduce(
+      (total, group) => total + group.totalCount,
+      0
+    );
+    const doneMergedCases = groups.reduce(
+      (total, group) => total + group.doneCount,
+      0
+    );
+
+    return {
+      totalMergedCases,
+      doneMergedCases,
+      openMergedCases: totalMergedCases - doneMergedCases,
+      reportAgainstCount: groups.length,
+    };
+  }, [activeTab, communityGroups, contentGroups]);
+
+  const applyReportMutation = useCallback(
+    async ({
+      reportIds,
+      status,
+      note,
+      resolutionAction,
+      mutationKey,
+      successMessage,
+    }: {
+      reportIds: string[];
+      status?: ReportStatus;
+      note?: string;
+      resolutionAction?: ReportResolutionAction;
+      mutationKey: string;
+      successMessage: string;
+    }) => {
+      if (!API) {
+        toast.error("Missing NEXT_PUBLIC_API_URL.");
+        return;
+      }
+
+      const normalizedNote = note?.trim();
+
+      if (!status && !resolutionAction && !normalizedNote) {
+        toast.error("Write a note before saving.");
+        return;
+      }
+
+      if ((status === "resolved" || status === "rejected" || resolutionAction) && !normalizedNote) {
+        toast.error("Add a closing note before resolving or rejecting.");
+        return;
+      }
+
+      if (!reportIds.length) {
+        toast.success("Nothing new to update.");
+        return;
+      }
+
+      setBusyKey(mutationKey);
+
+      try {
+        const payload: Record<string, unknown> = {};
+        if (status) payload.status = status;
+        if (normalizedNote) payload.resolution_note = normalizedNote;
+        if (resolutionAction) {
+          payload.resolution_action = resolutionAction;
+          payload.status = "resolved";
+        }
+
+        const finalStatus = String(payload.status || "");
+        const shouldCloseFromNew =
+          finalStatus === "resolved" || finalStatus === "rejected";
+        const reportLookup = new Map(reports.map((report) => [report._id, report]));
+
+        const results = await Promise.allSettled(
+          reportIds.map(async (reportId) => {
+            const endpoint = `${API}/api/reports/${reportId}/moderate`;
+            const currentReport = reportLookup.get(reportId);
+
+            // Backend requires new -> in-progress before a report can be closed.
+            if (currentReport?.status === "new" && shouldCloseFromNew) {
+              await axios.put(
+                endpoint,
+                { status: "in-progress" },
+                { withCredentials: true }
+              );
+            }
+
+            const response = await axios.put(endpoint, payload, {
+              withCredentials: true,
+            });
+
+            return response.data as WorkspaceReport;
+          })
+        );
+
+        const succeededReports = results.flatMap((result) =>
+          result.status === "fulfilled" ? [result.value] : []
+        );
+
+        if (succeededReports.length > 0) {
+          const updates = new Map(
+            succeededReports.map((report) => [report._id, report])
+          );
+
+          setReports((previous) =>
+            previous.map((report) => updates.get(report._id) ?? report)
+          );
+        }
+
+        if (succeededReports.length === reportIds.length) {
+          toast.success(successMessage);
+          return;
+        }
+
+        const rejected = results.find((result) => result.status === "rejected") as
+          | PromiseRejectedResult
+          | undefined;
+
+        if (succeededReports.length > 0) {
+          toast.error(
+            rejected
+              ? `Only updated ${succeededReports.length}/${reportIds.length} reports.`
+              : "Some reports may not be fully updated."
+          );
+          return;
+        }
+
+        toast.error(getErrorMessage(rejected?.reason));
+      } catch (err: any) {
+        logAxiosError("[Admin Reports Update]", `${API}/api/reports`, err, {
+          reportIds,
+          status,
+          note: normalizedNote,
+          resolutionAction,
+        });
+        toast.error(getErrorMessage(err));
+      } finally {
+        setBusyKey(null);
+      }
+    },
+    [API, reports]
+  );
+
+  const handleTabChange = (nextTab: WorkspaceTab) => {
+    setActiveTab(nextTab);
+    setViews((previous) => ({
+      content: {
+        ...previous.content,
+        isModalOpen: false,
+        focusReportId: null,
+        confirmGroupKey: null,
+      },
+      community: {
+        ...previous.community,
+        isModalOpen: false,
+        focusReportId: null,
+        confirmGroupKey: null,
+      },
+    }));
   };
 
-  const handleNextReport = () => {
-    if (selectedReportIndex < 0 || selectedReportIndex >= groupedReports.length - 1) {
-      return;
-    }
-    openModalByIndex(selectedReportIndex + 1);
+  const handleOpenContentGroup = (group: ReportAgainstGroup, reportId?: string | null) => {
+    const visibleIndex = filteredContentGroups.findIndex(
+      (candidate) => candidate.key === group.key
+    );
+
+    patchView("content", {
+      selectedGroupKey: group.key,
+      focusReportId: reportId || null,
+      isModalOpen: true,
+      currentPage: visibleIndex >= 0 ? Math.floor(visibleIndex / GROUPS_PER_PAGE) + 1 : 1,
+    });
   };
 
-  const totalReports = reports.length;
-  const newReports = reports.filter((report) => report.status === "new").length;
-  const unresolvedReports = reports.filter(
-    (report) => report.status === "in-progress"
-  ).length;
+  const handleOpenCommunityGroup = (
+    group: CommunityReportAgainstGroup,
+    reportId?: string | null
+  ) => {
+    const visibleIndex = filteredCommunityGroups.findIndex(
+      (candidate) => candidate.key === group.key
+    );
+
+    patchView("community", {
+      selectedGroupKey: group.key,
+      focusReportId: reportId || null,
+      isModalOpen: true,
+      currentPage: visibleIndex >= 0 ? Math.floor(visibleIndex / GROUPS_PER_PAGE) + 1 : 1,
+    });
+  };
+
+  const handleResolveGroup = useCallback(
+    async (tab: WorkspaceTab, group: ReportAgainstGroup | CommunityReportAgainstGroup) => {
+      const unresolvedReportIds = group.reports
+        .filter((report) => !isDoneStatus(report.status))
+        .map((report) => report._id);
+
+      await applyReportMutation({
+        reportIds: unresolvedReportIds,
+        status: "resolved",
+        note:
+          tab === "content"
+            ? "Bulk resolved from content report workspace."
+            : "Bulk resolved from community report workspace.",
+        mutationKey: `group:${tab}:${group.key}`,
+        successMessage: `Marked ${group.meta.name} cases as done.`,
+      });
+
+      patchView(tab, { confirmGroupKey: null });
+    },
+    [applyReportMutation, patchView]
+  );
+
+  const handleSubmitItemAction = useCallback(
+    async (
+      tab: WorkspaceTab,
+      item: MergedReportItem,
+      action: {
+        status?: ReportStatus;
+        note?: string;
+        resolutionAction?: ReportResolutionAction;
+      }
+    ) => {
+      const reportIds =
+        action.status || action.resolutionAction
+          ? getEditableItemReportIds(item, "status")
+          : getEditableItemReportIds(item, "note");
+
+      await applyReportMutation({
+        reportIds,
+        status: action.status,
+        note: action.note,
+        resolutionAction: action.resolutionAction,
+        mutationKey: `item:${tab}:${item.key}`,
+        successMessage: action.resolutionAction
+          ? "Resolved grouped case with moderation action."
+          : action.status
+            ? action.status === "resolved"
+              ? "Marked grouped case as done."
+              : action.status === "rejected"
+                ? "Rejected grouped case."
+                : "Marked grouped case in progress."
+            : "Saved grouped case note.",
+      });
+    },
+    [applyReportMutation]
+  );
+
+  const activeConfirmGroup =
+    activeTab === "content" ? contentConfirmGroup : communityConfirmGroup;
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <p className="text-sm text-gray-500">Admin / Report Workspace</p>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Moderation Reports
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-            Review reports across manga, chapters, comments, and replies from one queue.
-          </p>
+        <div className="space-y-3">
+          <div>
+            <p className="text-sm text-gray-500">Admin / Report Review</p>
+            <h1 className="text-3xl font-bold text-gray-900">Report Review</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+              {activeTab === "content"
+                ? "Review manga and chapter reports by reported account, then resolve grouped cases from one content-focused queue."
+                : "Review comment and reply reports by reported account, then resolve grouped cases from one community-focused queue."}
+            </p>
+          </div>
+
+          {availableTabs.length > 1 ? (
+            <Tabs value={activeTab} onValueChange={(value) => handleTabChange(value as WorkspaceTab)}>
+              <TabsList className="h-10 rounded-xl border border-slate-200 bg-white p-1">
+                <TabsTrigger value="content" className="rounded-lg px-4">
+                  Content
+                  <Badge variant="secondary" className="ml-1 border border-slate-200 bg-slate-50 text-slate-700">
+                    {contentGroups.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="community" className="rounded-lg px-4">
+                  Community
+                  <Badge variant="secondary" className="ml-1 border border-slate-200 bg-slate-50 text-slate-700">
+                    {communityGroups.length}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          ) : null}
         </div>
+
+        {roleError ? (
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Role verification issue</AlertTitle>
+            <AlertDescription>{roleError}</AlertDescription>
+          </Alert>
+        ) : null}
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-700">
-                Total Reports
+                Case Progress
               </CardTitle>
-              <AlertTriangle className="h-5 w-5 text-gray-600" />
+              <ShieldCheck className="h-5 w-5 text-gray-600" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-gray-900">
-                {totalReports}
+                {currentStats.doneMergedCases}/{currentStats.totalMergedCases}
               </div>
-              <p className="mt-1 text-xs text-gray-600">Current queue snapshot across all report types.</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-red-200">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-700">
-                New Reports
-              </CardTitle>
-              <Clock className="h-5 w-5 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-red-600">{newReports}</div>
               <p className="mt-1 text-xs text-gray-600">
-                Waiting for a first review
+                Grouped cases already marked done.
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-orange-200">
+          <Card className="border-amber-200">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-700">
-                Unresolved Reports
+                Open Cases
               </CardTitle>
-              <Eye className="h-5 w-5 text-orange-600" />
+              <Clock3 className="h-5 w-5 text-amber-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-orange-600">
-                {unresolvedReports}
+              <div className="text-3xl font-bold text-amber-600">
+                {currentStats.openMergedCases}
               </div>
               <p className="mt-1 text-xs text-gray-600">
-                Already picked up by staff
+                {activeTab === "content"
+                  ? "Still waiting for a final content decision."
+                  : "Still waiting for a final community decision."}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-sky-200">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700">
+                Report Against
+              </CardTitle>
+              {activeTab === "content" ? (
+                <BookOpen className="h-5 w-5 text-sky-600" />
+              ) : (
+                <MessageSquare className="h-5 w-5 text-sky-600" />
+              )}
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-sky-600">
+                {currentStats.reportAgainstCount}
+              </div>
+              <p className="mt-1 text-xs text-gray-600">
+                {activeTab === "content"
+                  ? "Accounts with active or completed content report history."
+                  : "Accounts with active or completed community report history."}
               </p>
             </CardContent>
           </Card>
         </div>
 
         <Card className="rounded-3xl border-slate-200/80 shadow-sm">
-          <CardHeader className="pb-4">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-              <div className="space-y-1">
-                <CardTitle className="text-lg font-semibold text-slate-900">
-                  Reports Queue
-                </CardTitle>
-                <CardDescription className="max-w-2xl text-sm leading-6">
-                  Review the target account quickly and move each case through
-                  moderation without leaving the queue.
-                </CardDescription>
-              </div>
+          <CardHeader className="space-y-4 pb-4">
+            <div className="space-y-1">
+              <CardTitle className="text-lg font-semibold text-slate-900">
+                Report Against Queue
+              </CardTitle>
             </div>
 
-            <div className="flex flex-wrap gap-2 pt-2">
-              {quickFilters.map((filter) => {
-                const Icon = filter.icon;
-                const isActive = activeQuickFilter === filter.key;
-
-                return (
-                  <button
-                    key={filter.key}
-                    type="button"
-                    onClick={() => applyQuickFilter(filter.key)}
-                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition ${
-                      isActive
-                        ? "border-slate-900 bg-slate-900 text-white shadow-sm"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{filter.label}</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        isActive
-                          ? "bg-white/15 text-white"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {filter.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            {listError && reports.length > 0 && (
-              <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-medium">Some report data may be stale.</p>
-                  <p className="text-amber-800">{listError}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
-                  onClick={fetchReports}
-                >
-                  Retry
-                </Button>
-              </div>
-            )}
-
-            <div className="mb-5 flex flex-col gap-3 lg:flex-row">
+            <div className="flex flex-col gap-3 lg:flex-row">
               <div className="relative flex-1">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Search by reported account or email..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder={
+                    activeTab === "content"
+                      ? "Search by reported account or manga title..."
+                      : "Search by reported account or comment text..."
+                  }
+                  className="pl-9"
+                  value={currentView.searchTerm}
+                  onChange={(event) =>
+                    patchView(activeTab, {
+                      searchTerm: event.target.value,
+                      currentPage: 1,
+                    })
+                  }
                 />
               </div>
 
-              <div>
+              <div className="w-full lg:w-[220px]">
                 <label className="mb-1 block text-xs font-medium text-gray-600">
-                  Status
+                  Queue Status
                 </label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[168px]">
-                    <SelectValue placeholder="All Statuses" />
+                <Select
+                  value={currentView.statusFilter}
+                  onValueChange={(value) =>
+                    patchView(activeTab, {
+                      statusFilter: value as GroupStatusFilter,
+                      currentPage: 1,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All rows" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="new">New</SelectItem>
-                    <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">
-                  Target Type
-                </label>
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-[178px]">
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="conversation">
-                      Comments & Replies
-                    </SelectItem>
-                    <SelectItem value="Manga">Manga</SelectItem>
-                    <SelectItem value="Chapter">Chapter</SelectItem>
-                    <SelectItem value="Comment">Comment</SelectItem>
-                    <SelectItem value="Reply">Reply</SelectItem>
+                    <SelectItem value="all">All rows</SelectItem>
+                    <SelectItem value="needs-review">Needs review</SelectItem>
+                    <SelectItem value="done">Done</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
+          </CardHeader>
 
-            <div className="rounded-2xl border border-slate-200/80">
+          <CardContent className="space-y-4">
+            {listError && reports.length > 0 ? (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Some report data may be stale</AlertTitle>
+                <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span>{listError}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-fit border-white/60 bg-white/10 text-white hover:bg-white/20"
+                    onClick={fetchReports}
+                  >
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200/80">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Report Against</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>
-                      <SortableHeader
-                        column="reportedAgainst"
-                        label="Reported Against"
-                        activeColumn={sortColumn}
-                        direction={sortDirection}
-                        onSort={handleSort}
-                      />
+                      {activeTab === "content" ? "Manga with report" : "Targets with report"}
                     </TableHead>
-                    <TableHead>
-                      <SortableHeader
-                        column="reportCount"
-                        label="Report Count"
-                        activeColumn={sortColumn}
-                        direction={sortDirection}
-                        onSort={handleSort}
-                      />
-                    </TableHead>
-                    <TableHead className="w-[184px] text-center">
-                      Actions
-                    </TableHead>
+                    <TableHead>Progress</TableHead>
+                    <TableHead>Latest activity</TableHead>
+                    <TableHead className="w-[220px] text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
 
                 <TableBody>
                   {loadingReports ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="py-4 text-center">
-                        Loading...
+                      <TableCell colSpan={6} className="py-8 text-center">
+                        <div className="inline-flex items-center gap-2 text-slate-500">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {activeTab === "content"
+                            ? "Loading content reports..."
+                            : "Loading community reports..."}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : listError && reports.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="py-8 text-center">
+                      <TableCell colSpan={6} className="py-8 text-center">
                         <div className="space-y-3">
                           <div>
                             <p className="text-sm font-semibold text-rose-700">
                               Unable to load reports
                             </p>
-                            <p className="mt-1 text-sm text-slate-500">{listError}</p>
+                            <p className="mt-1 text-sm text-slate-500">
+                              {listError}
+                            </p>
                           </div>
                           <Button
                             variant="outline"
@@ -909,114 +972,218 @@ export default function ReportsPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : currentReportGroups.length === 0 ? (
+                  ) : currentPageGroups.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="py-4 text-center">
-                        No reports found.
+                      <TableCell colSpan={6} className="py-8 text-center">
+                        {activeTab === "content"
+                          ? "No content report groups found."
+                          : "No community report groups found."}
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    currentReportGroups.map((group) => {
-                      const reportedAgainst = group.meta.name;
-                      const reportedAgainstEmail = group.meta.email;
-                      const reportedAgainstAvatar = resolveAvatarUrl(
-                        group.meta.avatar,
-                        API
-                      );
-                      const isHighlighted = highlightGroupKey === group.key;
-
-                      const rowClass = [
-                        "group cursor-default transition-all duration-150",
-                        "hover:bg-slate-50 hover:shadow-sm",
-                        "focus-within:bg-slate-50 focus-within:shadow-sm",
-                        isHighlighted
-                          ? "bg-blue-50 ring-1 ring-blue-200 shadow-sm"
-                          : "",
-                      ].join(" ");
+                  ) : activeTab === "content" ? (
+                    currentPageGroups.map((group) => {
+                      const contentGroup = group as ReportAgainstGroup;
+                      const statusMeta = getGroupStatusMeta(contentGroup);
+                      const avatar = resolveAvatarUrl(contentGroup.meta.avatar, API);
+                      const isActive =
+                        views.content.selectedGroupKey === contentGroup.key &&
+                        views.content.isModalOpen;
+                      const groupBusy = busyKey === `group:content:${contentGroup.key}`;
 
                       return (
-                        <TableRow key={group.key} className={rowClass}>
-                          <TableCell className="group-hover:text-slate-900">
+                        <TableRow
+                          key={contentGroup.key}
+                          className={isActive ? "bg-sky-50/60" : undefined}
+                        >
+                          <TableCell>
                             <div className="flex items-start gap-3">
-                              <Avatar className="h-10 w-10 border">
+                              <Avatar className="h-11 w-11 border border-slate-200">
                                 <AvatarImage
-                                  src={reportedAgainstAvatar}
-                                  alt={reportedAgainst || "Reported user"}
+                                  src={avatar}
+                                  alt={contentGroup.meta.name}
                                   referrerPolicy="no-referrer"
                                 />
                                 <AvatarFallback>
-                                  {getInitial(reportedAgainst)}
+                                  {getInitial(contentGroup.meta.name)}
                                 </AvatarFallback>
                               </Avatar>
-
                               <div className="min-w-0">
                                 <div className="font-semibold text-slate-900">
-                                  {reportedAgainst}
+                                  {contentGroup.meta.name}
                                 </div>
-                                {reportedAgainstEmail ? (
-                                  <div className="truncate text-xs text-gray-500">
-                                    {reportedAgainstEmail}
-                                  </div>
-                                ) : (
-                                  <div className="truncate text-xs text-gray-400">
-                                    No email
-                                  </div>
-                                )}
+                                <div className="truncate text-xs text-slate-500">
+                                  {contentGroup.meta.email || "No email"}
+                                </div>
                               </div>
                             </div>
                           </TableCell>
 
-                          <TableCell className="group-hover:text-slate-900">
-                            <div className="flex items-center gap-3">
-                              <div className="text-2xl font-semibold text-slate-900">
-                                {group.reportCount}
+                          <TableCell>
+                            <Badge variant="secondary" className={`border ${statusMeta.className}`}>
+                              {statusMeta.label}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="font-semibold text-slate-900">
+                                {contentGroup.mangaCount}
                               </div>
-                              <Badge
-                                variant="secondary"
-                                className="border border-slate-200 bg-slate-100 text-slate-700"
-                              >
-                                total reports
-                              </Badge>
+                              <div className="text-xs text-slate-500">
+                                manga currently in this queue
+                              </div>
                             </div>
                           </TableCell>
 
-                          <TableCell className="align-middle">
-                            <div className="mx-auto grid w-[164px] grid-cols-2 gap-2">
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="font-semibold text-slate-900">
+                                {contentGroup.doneCount}/{contentGroup.totalCount}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                grouped cases done
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="text-sm text-slate-700">
+                              {formatReportDateTime(contentGroup.latestActivityAt)}
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="mx-auto grid w-[190px] grid-cols-2 gap-2">
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-9 w-full rounded-xl border-sky-200 bg-sky-50 text-sky-700 shadow-none transition-colors hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800"
-                                onClick={() =>
-                                  openModal(group.primaryReport, group.key)
-                                }
+                                className="h-9 rounded-xl border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800"
+                                onClick={() => handleOpenContentGroup(contentGroup)}
                               >
                                 <Eye className="h-4 w-4" />
                                 View
                               </Button>
+                              <Button
+                                variant="success"
+                                size="sm"
+                                className="h-9 rounded-xl"
+                                disabled={groupBusy || contentGroup.doneCount === contentGroup.totalCount}
+                                onClick={() =>
+                                  patchView("content", { confirmGroupKey: contentGroup.key })
+                                }
+                              >
+                                {groupBusy ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="h-4 w-4" />
+                                )}
+                                Done
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    currentPageGroups.map((group) => {
+                      const communityGroup = group as CommunityReportAgainstGroup;
+                      const statusMeta = getGroupStatusMeta(communityGroup);
+                      const avatar = resolveAvatarUrl(communityGroup.meta.avatar, API);
+                      const isActive =
+                        views.community.selectedGroupKey === communityGroup.key &&
+                        views.community.isModalOpen;
+                      const groupBusy = busyKey === `group:community:${communityGroup.key}`;
 
+                      return (
+                        <TableRow
+                          key={communityGroup.key}
+                          className={isActive ? "bg-sky-50/60" : undefined}
+                        >
+                          <TableCell>
+                            <div className="flex items-start gap-3">
+                              <Avatar className="h-11 w-11 border border-slate-200">
+                                <AvatarImage
+                                  src={avatar}
+                                  alt={communityGroup.meta.name}
+                                  referrerPolicy="no-referrer"
+                                />
+                                <AvatarFallback>
+                                  {getInitial(communityGroup.meta.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <div className="font-semibold text-slate-900">
+                                  {communityGroup.meta.name}
+                                </div>
+                                <div className="truncate text-xs text-slate-500">
+                                  {communityGroup.meta.email || "No email"}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <Badge variant="secondary" className={`border ${statusMeta.className}`}>
+                              {statusMeta.label}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="font-semibold text-slate-900">
+                                {communityGroup.targetCount}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                {communityGroup.commentCount} comments, {communityGroup.replyCount} replies
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="font-semibold text-slate-900">
+                                {communityGroup.doneCount}/{communityGroup.totalCount}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                grouped cases done
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="text-sm text-slate-700">
+                              {formatReportDateTime(communityGroup.latestActivityAt)}
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="mx-auto grid w-[190px] grid-cols-2 gap-2">
                               <Button
                                 variant="outline"
                                 size="sm"
-                                type="button"
-                                className="h-9 w-full rounded-xl border-amber-200 bg-amber-50 text-amber-700 shadow-none transition-colors hover:border-amber-300 hover:bg-amber-100 hover:text-amber-800 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  handleSendMail(group);
-                                }}
-                                disabled={!reportedAgainstEmail}
-                                title={
-                                  reportedAgainstEmail
-                                    ? "Open notification composer"
-                                    : "This report target does not have an email"
+                                className="h-9 rounded-xl border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800"
+                                onClick={() => handleOpenCommunityGroup(communityGroup)}
+                              >
+                                <Eye className="h-4 w-4" />
+                                View
+                              </Button>
+                              <Button
+                                variant="success"
+                                size="sm"
+                                className="h-9 rounded-xl"
+                                disabled={groupBusy || communityGroup.doneCount === communityGroup.totalCount}
+                                onClick={() =>
+                                  patchView("community", {
+                                    confirmGroupKey: communityGroup.key,
+                                  })
                                 }
                               >
-                                {reportedAgainstEmail ? (
-                                  <BellRing className="h-4 w-4" />
+                                {groupBusy ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
-                                  <Mail className="h-4 w-4" />
+                                  <CheckCircle2 className="h-4 w-4" />
                                 )}
-                                Notify
+                                Done
                               </Button>
                             </div>
                           </TableCell>
@@ -1028,38 +1195,121 @@ export default function ReportsPage() {
               </Table>
             </div>
 
-            <div className="mt-4 flex justify-center space-x-2">
-              {Array.from({ length: totalPages }, (_, index) => index + 1).map(
-                (page) => (
+            {currentGroups.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl border-slate-200"
+                  disabled={currentView.currentPage <= 1}
+                  onClick={() =>
+                    patchView(activeTab, {
+                      currentPage: Math.max(1, currentView.currentPage - 1),
+                    })
+                  }
+                >
+                  Prev
+                </Button>
+                {pageNumbers.map((pageNumber) => (
                   <Button
-                    key={page}
-                    variant={page === currentPage ? "default" : "outline"}
+                    key={pageNumber}
+                    variant={pageNumber === currentView.currentPage ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setCurrentPage(page)}
+                    className="rounded-xl"
+                    onClick={() => patchView(activeTab, { currentPage: pageNumber })}
                   >
-                    {page}
+                    {pageNumber}
                   </Button>
-                )
-              )}
-            </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl border-slate-200"
+                  disabled={currentView.currentPage >= totalPages}
+                  onClick={() =>
+                    patchView(activeTab, {
+                      currentPage: Math.min(totalPages, currentView.currentPage + 1),
+                    })
+                  }
+                >
+                  Next
+                </Button>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
         <ReportModal
-          open={isModalOpen}
-          report={selectedReport}
-          loading={Boolean(updatingReportId)}
-          onClose={closeModal}
-          onUpdateStatus={handleUpdateStatus}
-          statusColor={statusColor}
-          onPrevious={handlePreviousReport}
-          onNext={handleNextReport}
-          hasPrevious={selectedReportIndex > 0}
-          hasNext={
-            selectedReportIndex >= 0 &&
-            selectedReportIndex < groupedReports.length - 1
+          open={views.content.isModalOpen}
+          group={contentSelectedGroup}
+          busyKey={busyKey}
+          focusReportId={views.content.focusReportId}
+          onClose={() =>
+            patchView("content", { isModalOpen: false, focusReportId: null })
+          }
+          onSubmitItemAction={(item, action) =>
+            handleSubmitItemAction("content", item, action)
           }
         />
+
+        <CommunityReportModal
+          open={views.community.isModalOpen}
+          group={communitySelectedGroup}
+          busyKey={busyKey}
+          focusReportId={views.community.focusReportId}
+          onClose={() =>
+            patchView("community", { isModalOpen: false, focusReportId: null })
+          }
+          onSubmitItemAction={(item, action) =>
+            handleSubmitItemAction("community", item, action)
+          }
+        />
+
+        <AlertDialog
+          open={Boolean(activeConfirmGroup)}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) patchView(activeTab, { confirmGroupKey: null });
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Mark all current cases done?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {activeConfirmGroup ? (
+                  <>
+                    This will resolve every unresolved{" "}
+                    {activeTab === "content" ? "manga and chapter" : "comment and reply"}{" "}
+                    report currently grouped under{" "}
+                    <span className="font-semibold text-slate-900">
+                      {activeConfirmGroup.meta.name}
+                    </span>
+                    . Existing done cases stay unchanged.
+                  </>
+                ) : (
+                  "This will resolve every unresolved grouped case in the selected row."
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={Boolean(busyKey)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={!activeConfirmGroup || Boolean(busyKey)}
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (!activeConfirmGroup) return;
+                  handleResolveGroup(activeTab, activeConfirmGroup);
+                }}
+              >
+                {busyKey && activeConfirmGroup ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                Confirm
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );
