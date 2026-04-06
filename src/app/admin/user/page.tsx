@@ -920,6 +920,14 @@ export default function UserManagementPage() {
     setConfirmAction(null);
   }, []);
 
+  const closeEditDialog = useCallback(() => {
+    setIsEditDialogOpen(false);
+    setSelectedUser(null);
+    setDraftRole("");
+    setDraftStaffStatus("Normal");
+    resetDialogDrafts();
+  }, [resetDialogDrafts]);
+
   const handleOpenEdit = useCallback(
     (user: UserRow) => {
       setSelectedUser(user);
@@ -941,12 +949,12 @@ export default function UserManagementPage() {
   const handleDialogOpenChange = (open: boolean) => {
     if (isSubmittingAction) return;
 
-    setIsEditDialogOpen(open);
-
     if (!open) {
-      setSelectedUser(null);
-      resetDialogDrafts();
+      closeEditDialog();
+      return;
     }
+
+    setIsEditDialogOpen(true);
   };
 
   const handleOpenNotifications = useCallback(
@@ -1344,8 +1352,9 @@ Manga Platform Team`;
       }
 
       setConfirmAction(null);
+      closeEditDialog();
       if (shouldReloadUsers) {
-        void loadUsers();
+        await loadUsers();
       }
     } catch (error: any) {
       let endpoint = "";
@@ -1376,6 +1385,7 @@ Manga Platform Team`;
           ? message.join(", ")
           : message ?? "Action failed."
       );
+      setConfirmAction(null);
     } finally {
       setIsSubmittingAction(false);
     }

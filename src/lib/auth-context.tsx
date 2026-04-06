@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
+import { removeCookie } from "./cookie-func";
 
 type AuthContextType = {
   isLogin: boolean;
@@ -16,19 +17,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any | null>(null);
 
   useEffect(() => {
+    let mounted = true;
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+
+    const syncLoggedOutState = async () => {
+      await removeCookie();
+      if (!mounted) return;
+      setIsLogin(false);
+      setUser(null);
+    };
+
     (async () => {
       try {
-        const res = await axios.get("/api/auth/check-login", { withCredentials: true });
+        const res = await axios.get(
+          apiBase ? `${apiBase}/api/auth/check-login` : "/api/auth/check-login",
+          { withCredentials: true },
+        );
         if (res.data.isLogin) {
-          
+          if (!mounted) return;
           setIsLogin(true);
-          setUser(res.data.user);
+          setUser(res.data.user ?? null);
+          return;
         }
+        await syncLoggedOutState();
       } catch (err) {
+        if (axios.isAxiosError(err) && err.response?.status === 401) {
+          await syncLoggedOutState();
+          return;
+        }
+
+        if (!mounted) return;
         setIsLogin(false);
         setUser(null);
       }
     })();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const setLoginStatus = (val: boolean, userData?: any) => {

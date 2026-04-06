@@ -1,7 +1,14 @@
 import Cookies from 'js-cookie';
 
+function notifyAuthCookieChange() {
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("auth:cookie-changed"))
+    }
+}
+
 export async function removeCookie() {
     await Cookies.remove("user_normal_info", { path: "/" })
+    notifyAuthCookieChange()
 }
 
 export async function setCookie(tokenPayload: any) {
@@ -22,4 +29,5 @@ export async function setCookie(tokenPayload: any) {
         expires: 360,
         path: "/",
     })
+    notifyAuthCookieChange()
 }

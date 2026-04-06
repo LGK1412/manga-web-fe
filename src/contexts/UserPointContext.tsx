@@ -9,6 +9,7 @@ import {
   useCallback,
 } from "react";
 import axios from "axios";
+import { removeCookie } from "@/lib/cookie-func";
 
 interface UserPointContextType {
   point: number;
@@ -52,7 +53,9 @@ export const UserPointProvider = ({ children }: { children: ReactNode }) => {
       setRole("");
       setPoint(0);
       setAuthorPoint(0);
-      if (err?.response?.status !== 401) {
+      if (err?.response?.status === 401) {
+        await removeCookie();
+      } else {
         console.error("UserPointProvider Error:", err);
       }
     } finally {

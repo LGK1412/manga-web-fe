@@ -113,18 +113,36 @@ export function Navbar() {
     setMounted(true);
   }, []);
 
-  useLayoutEffect(() => {
+  const syncUserFromCookie = () => {
     const raw = Cookies.get("user_normal_info");
 
-    if (raw) {
-      try {
-        const decoded = decodeURIComponent(raw);
-        const parsed = JSON.parse(decoded);
-        setUser(parsed);
-      } catch {
-        console.error("Invalid cookie data");
-      }
+    if (!raw) {
+      setUser(undefined);
+      return;
     }
+
+    try {
+      const decoded = decodeURIComponent(raw);
+      const parsed = JSON.parse(decoded);
+      setUser(parsed);
+    } catch {
+      console.error("Invalid cookie data");
+      setUser(undefined);
+    }
+  };
+
+  useLayoutEffect(() => {
+    syncUserFromCookie();
+
+    const handleAuthCookieChange = () => {
+      syncUserFromCookie();
+    };
+
+    window.addEventListener("auth:cookie-changed", handleAuthCookieChange);
+
+    return () => {
+      window.removeEventListener("auth:cookie-changed", handleAuthCookieChange);
+    };
   }, []);
 
   async function logout() {
