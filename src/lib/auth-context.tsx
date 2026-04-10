@@ -5,6 +5,7 @@ import axios from "axios";
 import { removeCookie } from "./cookie-func";
 
 type AuthContextType = {
+  isReady: boolean;
   isLogin: boolean;
   user: any | null;
   setLoginStatus: (val: boolean, user?: any) => void;
@@ -13,6 +14,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [isReady, setIsReady] = useState(false);
   const [isLogin, setIsLogin] = useState(false);
   const [user, setUser] = useState<any | null>(null);
 
@@ -25,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!mounted) return;
       setIsLogin(false);
       setUser(null);
+      setIsReady(true);
     };
 
     (async () => {
@@ -37,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!mounted) return;
           setIsLogin(true);
           setUser(res.data.user ?? null);
+          setIsReady(true);
           return;
         }
         await syncLoggedOutState();
@@ -49,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return;
         setIsLogin(false);
         setUser(null);
+        setIsReady(true);
       }
     })();
 
@@ -60,10 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setLoginStatus = (val: boolean, userData?: any) => {
     setIsLogin(val);
     setUser(val ? userData || null : null);
+    setIsReady(true);
   };
 
   return (
-    <AuthContext.Provider value={{ isLogin, user, setLoginStatus }}>
+    <AuthContext.Provider value={{ isReady, isLogin, user, setLoginStatus }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import {
   Menu,
@@ -277,13 +277,12 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { setLoginStatus } = useAuth();
+  const { isReady, isLogin, user, setLoginStatus } = useAuth();
   const { toast } = useToast();
 
   const [open, setOpen] = useState(true);
-  const [currentRole, setCurrentRole] = useState<Role | null>(null);
-  const [loadingRole, setLoadingRole] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const hasRedirectedRef = useRef(false);
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {
@@ -294,44 +293,14 @@ export default function AdminLayout({
   );
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-  useEffect(() => {
-    const fetchMe = async () => {
-      if (!API_URL) {
-        console.warn("Missing NEXT_PUBLIC_API_URL");
-        setCurrentRole(null);
-        setLoadingRole(false);
-        return;
-      }
-
-      try {
-        const endpoint = `${API_URL}/api/auth/me`;
-        const res = await axios.get(endpoint, { withCredentials: true });
-
-        const rawRole = res.data?.role || res.data?.user?.role;
-        const parsedRole = normalizeRole(rawRole);
-
-        console.log("[AdminLayout] rawRole =", rawRole);
-        console.log("[AdminLayout] parsedRole =", parsedRole);
-
-        setCurrentRole(parsedRole);
-      } catch (err: any) {
-        console.warn(
-          "[AdminLayout] fetchMe failed:",
-          err?.response?.data || err?.message,
-        );
-        setCurrentRole(null);
-      } finally {
-        setLoadingRole(false);
-      }
-    };
-
-    fetchMe();
-  }, [API_URL]);
+  const currentRole = useMemo(() => normalizeRole(user?.role), [user]);
+  const loadingRole = !isReady;
 
   const visibleMenuItems = useMemo(() => {
     return getVisibleMenuItems(currentRole, menuItems);
   }, [currentRole]);
+  const hasWorkspaceAccess =
+    isLogin && !!currentRole && visibleMenuItems.length > 0;
 
   const toolTitle = currentRole ? ROLE_TOOL_LABEL[currentRole] : "Staff Tool";
   const roleLabel = formatWorkspaceRole(currentRole);
@@ -380,6 +349,31 @@ export default function AdminLayout({
     }
   }, [pathname, isGroupActive, visibleMenuItems]);
 
+  useEffect(() => {
+    if (loadingRole || hasRedirectedRef.current) return;
+
+    if (!isLogin) {
+      hasRedirectedRef.current = true;
+      toast({
+        title: "Login required",
+        description: "Please log in with a staff account to access the staff workspace.",
+        variant: "destructive",
+      });
+      router.replace("/login");
+      return;
+    }
+
+    if (!hasWorkspaceAccess) {
+      hasRedirectedRef.current = true;
+      toast({
+        title: "Access denied",
+        description: "Your account does not have permission to access the admin workspace.",
+        variant: "destructive",
+      });
+      router.replace("/");
+    }
+  }, [hasWorkspaceAccess, isLogin, loadingRole, router, toast]);
+
   const toggleGroup = (groupId: string) => {
     if (!open) {
       setOpen(true);
@@ -423,6 +417,26 @@ export default function AdminLayout({
       setIsLoggingOut(false);
     }
   };
+
+  if (loadingRole) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <Loader2 className="h-5 w-5 animate-spin text-slate-500 dark:text-slate-300" />
+          <div>
+            <p className="text-sm font-semibold">Loading admin workspace</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Verifying your staff access...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasWorkspaceAccess) {
+    return null;
+  }
 
   return (
     <div className="h-dvh min-h-screen overflow-hidden bg-slate-100 p-3 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
