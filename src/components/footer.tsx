@@ -25,6 +25,7 @@ export function Footer({
   const year = new Date().getFullYear();
   const brandName = brand?.name ?? "MangaWorld";
   const tagline = brand?.tagline ?? "Read stories quickly, smoothly, and with an easy-to-read interface.";
+  const facebookHref = "https://www.facebook.com/le.loi.263103";
 
   const navSections: Section[] = sections ?? [
     {
@@ -45,11 +46,14 @@ export function Footer({
     {
       title: "Information",
       links: [
-        { label: "About Us", href: "#" },
-        { label: "Contact", href: "#" },
+        { label: "About Us", href: facebookHref },
+        { label: "Contact", href: facebookHref },
       ],
     },
   ];
+
+  const isExternalHref = (href: string) =>
+    href.startsWith("http://") || href.startsWith("https://");
 
   const onBackToTop = () => {
     if (typeof window !== "undefined") {
@@ -116,12 +120,23 @@ export function Footer({
                 <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                   {sec.links.map((link) => (
                     <li key={`${link.href}-${link.label}`}>
-                      <Link
-                        href={link.href}
-                        className="hover:text-foreground hover:underline underline-offset-4"
-                      >
-                        {link.label}
-                      </Link>
+                      {isExternalHref(link.href) ? (
+                        <a
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-foreground hover:underline underline-offset-4"
+                        >
+                          {link.label}
+                        </a>
+                      ) : (
+                        <Link
+                          href={link.href}
+                          className="hover:text-foreground hover:underline underline-offset-4"
+                        >
+                          {link.label}
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>
