@@ -292,25 +292,6 @@ function FindingCard({
             </DetailPanel>
           </div>
 
-          <DetailPanel
-            title="Author Revision Direction"
-            source={
-              finding.authorGuidance.source === "ai" ? "AI draft guidance" : "Fallback rule"
-            }
-            className="border-amber-200/70 bg-amber-50/70"
-          >
-            <div className="space-y-3">
-              <p className="text-sm font-medium leading-6 text-slate-800">
-                {finding.authorGuidance.objective}
-              </p>
-              <Checklist
-                items={finding.authorGuidance.revisionSteps}
-                emptyLabel="No step-by-step revision list was generated for this finding."
-                dotClassName="bg-amber-500"
-              />
-            </div>
-          </DetailPanel>
-
           <div className="flex flex-col gap-2 border-t pt-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <span>Click this card to sync the viewer highlight with this finding.</span>
             <span className="inline-flex items-center gap-1 font-medium text-foreground/80">

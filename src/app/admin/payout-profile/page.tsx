@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "../adminLayout/page";
 
 type KycStatus = "pending" | "verified" | "rejected";

@@ -9,7 +9,6 @@ import {
   Save,
   X,
   Check,
-  ChevronRight,
   Edit,
   Trash2,
   ArrowLeft,
@@ -20,7 +19,6 @@ import {
   ChevronDown,
   ChevronsUp,
   ChevronsDown,
-  RefreshCw,
   HelpCircle,
 } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -102,7 +100,6 @@ export default function CreateChapterPage() {
           return;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mapped: Chapter[] = rawData.map((c: any) => ({
           id: c._id,
           title: c.title,
@@ -528,7 +525,6 @@ export default function CreateChapterPage() {
     fetchChapterData(chapterId);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function updateChaptersState(newChapter: any) {
     setChapters((prev) => [
       ...prev,

@@ -16,7 +16,7 @@ import {
   Gift,
   Flag,
 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -204,21 +204,34 @@ export default function MangaDetailPage() {
   const [donationOpen, setDonationOpen] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
-          { withCredentials: true }
-        );
-        setUserId(res.data.user_id);
-      } catch (err) {
-        console.error("Not logged in or token expired", err);
-        setUserId(null);
-      }
-    };
+  const showLoginRequiredToast = (action: string) => {
+    toast({
+      title: "Login required",
+      description: `Please log in to ${action}.`,
+      variant: "destructive",
+    });
+  };
 
-    fetchCurrentUser();
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
+        { withCredentials: true }
+      );
+      const nextUserId = res.data?.user_id ?? null;
+      setUserId(nextUserId);
+      return nextUserId;
+    } catch (err: unknown) {
+      if (!axios.isAxiosError(err) || err.response?.status !== 401) {
+        console.error("Failed to fetch current user", err);
+      }
+      setUserId(null);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    void fetchCurrentUser();
   }, []);
 
   useEffect(() => {
@@ -365,6 +378,12 @@ export default function MangaDetailPage() {
   };
 
   const handleAddToFavourite = async () => {
+    const currentUserId = userId ?? (await fetchCurrentUser());
+    if (!currentUserId) {
+      showLoginRequiredToast("add this story to your favorites");
+      return;
+    }
+
     try {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/user/toggle-favourite`,
@@ -374,12 +393,20 @@ export default function MangaDetailPage() {
 
       const { isFavourite } = res.data;
       setIsFavourite(isFavourite);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        setUserId(null);
+        showLoginRequiredToast("add this story to your favorites");
+        return;
+      }
+
       console.error("Error adding/removing from favorites:", err);
       toast({
         title: "Unable to update favorites",
         description:
-          err.response?.data?.message || "Please log in or try again.",
+          axios.isAxiosError(err)
+            ? err.response?.data?.message || "Please try again."
+            : "Please try again.",
         variant: "destructive",
       });
     }
@@ -506,6 +533,16 @@ export default function MangaDetailPage() {
   const isOwnStory =
     !!userId && !!manga?.author?._id && String(userId) === String(manga.author._id);
 
+  const handleOpenReportDialog = async () => {
+    const currentUserId = userId ?? (await fetchCurrentUser());
+    if (!currentUserId) {
+      showLoginRequiredToast("submit a report");
+      return;
+    }
+
+    setReportDialogOpen(true);
+  };
+
   const handleSubmitReport = async ({
     reason,
     description,
@@ -513,15 +550,15 @@ export default function MangaDetailPage() {
     reason: string;
     description?: string;
   }) => {
-    if (!userId) {
-      toast({
-        title: "Not logged in",
-        description: "Please log in to submit a report.",
-        variant: "destructive",
-      });
+    const currentUserId = userId ?? (await fetchCurrentUser());
+    if (!currentUserId) {
+      showLoginRequiredToast("submit a report");
       return;
     }
-    if (isOwnStory) {
+    if (
+      manga?.author?._id &&
+      String(currentUserId) === String(manga.author._id)
+    ) {
       toast({
         title: "Action not allowed",
         description: "You cannot report your own story.",
@@ -549,11 +586,18 @@ export default function MangaDetailPage() {
       });
 
       setReportDialogOpen(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        setUserId(null);
+        setReportDialogOpen(false);
+        showLoginRequiredToast("submit a report");
+        return;
+      }
+
       toast({
         title: "Error sending report",
         description:
-          err.response?.data?.message ||
+          (axios.isAxiosError(err) ? err.response?.data?.message : undefined) ||
           "Please try again later.",
         variant: "destructive",
       });
@@ -764,7 +808,7 @@ export default function MangaDetailPage() {
                         <Button
                           variant="outline"
                           size="lg"
-                          onClick={() => setReportDialogOpen(true)}
+                          onClick={handleOpenReportDialog}
                           type="button"
                           className="min-w-[140px] justify-center border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
                         >

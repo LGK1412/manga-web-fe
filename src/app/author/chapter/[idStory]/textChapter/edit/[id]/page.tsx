@@ -16,10 +16,9 @@ import {
   ArrowLeft,
   Loader2,
   Languages,
-  ChevronRight, // ← Thêm icon Languages cho nút Translate
 } from "lucide-react";
 import NativeRichEditor from "@/components/NativeRichEditor";
-import AITranslator from "@/components/AITranslator"; // Đổi đường dẫn cho phù hợp (nếu cần)
+import AITranslator from "@/components/AITranslator";
 
 // ---- Axios (NestJS)
 const api = axios.create({
@@ -60,86 +59,6 @@ function countWords(text: string) {
   return cleaned.split(" ").length;
 }
 
-// ========== Moderation helpers (local, không tạo file mới) ==========
-type ModerationStatus = "AI_PENDING" | "AI_PASSED" | "AI_WARN" | "AI_BLOCK";
-
-function stripHtml(html: string) {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-async function sha256(text: string) {
-  const enc = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", enc);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-// Stub AI — bạn thay bằng call thật tới provider của bạn
-async function fakeAiModerate(inputHtml: string): Promise<{
-  status: ModerationStatus;
-  risk: number;
-  labels: string[];
-  findings: Array<{ section: string; score: number; note?: string }>;
-}> {
-  const plain = stripHtml(inputHtml);
-  const wc = plain.split(" ").filter(Boolean).length;
-  if (/cấm|bạo lực|18\+/.test(plain.toLowerCase())) {
-    return {
-      status: "AI_BLOCK",
-      risk: 92,
-      labels: ["policy_violation"],
-      findings: [
-        { section: "content", score: 0.92, note: "Sensitive keywords" },
-      ],
-    };
-  }
-  if (wc < 30) {
-    return {
-      status: "AI_WARN",
-      risk: 35,
-      labels: ["low_quality"],
-      findings: [{ section: "length", score: 0.35, note: "Content too short" }],
-    };
-  }
-  return {
-    status: "AI_PASSED",
-    risk: 5,
-    labels: [],
-    findings: [],
-  };
-}
-
-async function submitForAi(
-  chapterId: string,
-  policyVersion: string,
-  contentHash: string,
-) {
-  return api.post("/moderation/submit", {
-    chapterId,
-    policyVersion,
-    contentHash,
-  });
-}
-async function pushAiResult(params: {
-  chapterId: string;
-  status: ModerationStatus;
-  risk_score: number;
-  labels: string[];
-  ai_model?: string;
-  policy_version: string;
-  content_hash: string;
-  ai_findings?: Array<{ section: string; score: number; note?: string }>;
-  force_unpublish_if_block?: boolean;
-}) {
-  return api.post("/moderation/ai-result", params);
-}
-// ================================================================
-
 export default function EditChapterPage({
   params,
 }: {
@@ -155,7 +74,6 @@ export default function EditChapterPage({
   // Loading state
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(true);
-  const [isAiRunning, setIsAiRunning] = useState(false);
 
   // Form state
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -166,7 +84,6 @@ export default function EditChapterPage({
   const [isPublished, setIsPublished] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
 
-  // State cho AITranslator modal
   const [isTranslatorOpen, setIsTranslatorOpen] = useState(false);
 
   const [errors, setErrors] = useState<{
@@ -336,51 +253,6 @@ export default function EditChapterPage({
       alert("Unable to reload data to discard changes");
     } finally {
       setIsLoadingDetail(false);
-    }
-  }
-
-  // === Nút Kiểm tra Policy (AI) — chạy được trên trang Sửa
-  async function handleAiCheck() {
-    if (!chapterId) {
-      alert("Missing chapterId — check cannot run.");
-      return;
-    }
-    try {
-      setIsAiRunning(true);
-      const plain = stripHtml(content);
-      const hash = await sha256(plain);
-
-      // 1) Submit → AI_PENDING
-      await submitForAi(chapterId, "tos-2025.11", hash);
-
-      // 2) Gọi AI thật (ở đây demo stub)
-      const ai = await fakeAiModerate(content);
-
-      // 3) Push kết quả
-      await pushAiResult({
-        chapterId,
-        status: ai.status,
-        risk_score: ai.risk,
-        labels: ai.labels,
-        ai_model: "local-moderator-v1",
-        policy_version: "tos-2025.11",
-        content_hash: hash,
-        ai_findings: ai.findings,
-        force_unpublish_if_block: true,
-      });
-
-      alert(
-        ai.status === "AI_PASSED"
-          ? "✅ AI PASSED — you can publish."
-          : ai.status === "AI_WARN"
-            ? "⚠️ AI WARN — content has warnings, consider before publishing."
-            : "⛔ AI BLOCK — content blocked by policy.",
-      );
-    } catch (e) {
-      console.error("AI check failed:", e);
-      alert("Check failed. Please try again.");
-    } finally {
-      setIsAiRunning(false);
     }
   }
 
@@ -762,27 +634,6 @@ export default function EditChapterPage({
                     >
                       <Languages className="h-3.5 w-3.5" />
                       Translate
-                    </button>
-
-                    <button hidden
-                      onClick={handleAiCheck}
-                      disabled={isAiRunning || !chapterId}
-                      className={clsx(
-                        "inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs",
-                        isAiRunning
-                          ? "border-slate-200 bg-slate-100 cursor-wait"
-                          : "border-slate-200 bg-white hover:bg-slate-50",
-                      )}
-                      title="Run Policy (AI) check"
-                    >
-                      {isAiRunning ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Checking…
-                        </>
-                      ) : (
-                        <>Check Policy (AI)</>
-                      )}
                     </button>
                   </div>
                 </div>
