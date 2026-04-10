@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUp, Mail, MessageSquare } from "lucide-react";
-import { useState } from "react";
+import { FACEBOOK_CONTACT_URL } from "@/lib/external-links";
 
 type FooterLink = { label: string; href: string };
 type Section = { title: string; links: FooterLink[] };
@@ -25,7 +25,6 @@ export function Footer({
   const year = new Date().getFullYear();
   const brandName = brand?.name ?? "MangaWorld";
   const tagline = brand?.tagline ?? "Read stories quickly, smoothly, and with an easy-to-read interface.";
-  const facebookHref = "https://www.facebook.com/le.loi.263103";
 
   const navSections: Section[] = sections ?? [
     {
@@ -45,8 +44,8 @@ export function Footer({
     {
       title: "Information",
       links: [
-        { label: "About Us", href: facebookHref },
-        { label: "Contact", href: facebookHref },
+        { label: "About Us", href: FACEBOOK_CONTACT_URL },
+        { label: "Contact", href: FACEBOOK_CONTACT_URL },
       ],
     },
   ];
