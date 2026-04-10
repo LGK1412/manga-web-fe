@@ -42,6 +42,8 @@ import {
 } from "@/lib/admin-workspace";
 import { StaffNotificationBell } from "@/components/admin/staff-notification-bell";
 
+const REDIRECT_DELAY_MS = 5000;
+
 /** ===== Types ===== */
 type Role =
   | "admin"
@@ -270,6 +272,34 @@ function getVisibleMenuItems(role: Role | null, items: MenuItem[]) {
   return items.filter((item) => allowedIds.has(item.id));
 }
 
+function canAccessMenuPath(item: MenuItem, pathname: string) {
+  if (item.kind === "link") {
+    return isPathActive(pathname, item.href);
+  }
+
+  return item.submenu.some((sub) => {
+    if (pathname === sub.href || pathname.startsWith(`${sub.href}/`)) {
+      return true;
+    }
+
+    return !!sub.matchPrefixes?.some((prefix) => pathname.startsWith(prefix));
+  });
+}
+
+function getFirstWorkspaceHref(items: MenuItem[]) {
+  for (const item of items) {
+    if (item.kind === "link") {
+      return item.href;
+    }
+
+    if (item.submenu.length > 0) {
+      return item.submenu[0].href;
+    }
+  }
+
+  return "/";
+}
+
 export default function AdminLayout({
   children,
 }: {
@@ -283,6 +313,11 @@ export default function AdminLayout({
   const [open, setOpen] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const hasRedirectedRef = useRef(false);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [redirectNotice, setRedirectNotice] = useState<{
+    title: string;
+    description: string;
+  } | null>(null);
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {
@@ -299,8 +334,22 @@ export default function AdminLayout({
   const visibleMenuItems = useMemo(() => {
     return getVisibleMenuItems(currentRole, menuItems);
   }, [currentRole]);
-  const hasWorkspaceAccess =
+  const hasStaffWorkspace =
     isLogin && !!currentRole && visibleMenuItems.length > 0;
+  const canAccessStaffInbox =
+    !!currentRole && isStaffInboxRole(currentRole) && pathname === "/admin/my-notifications";
+  const canAccessCurrentPath =
+    visibleMenuItems.some((item) => canAccessMenuPath(item, pathname)) ||
+    canAccessStaffInbox;
+  const fallbackWorkspaceHref = useMemo(
+    () =>
+      visibleMenuItems.length > 0
+        ? getFirstWorkspaceHref(visibleMenuItems)
+        : canAccessStaffInbox
+          ? "/admin/my-notifications"
+          : "/",
+    [canAccessStaffInbox, visibleMenuItems],
+  );
 
   const toolTitle = currentRole ? ROLE_TOOL_LABEL[currentRole] : "Staff Tool";
   const roleLabel = formatWorkspaceRole(currentRole);
@@ -354,25 +403,71 @@ export default function AdminLayout({
 
     if (!isLogin) {
       hasRedirectedRef.current = true;
+      setRedirectNotice({
+        title: "Redirecting to login",
+        description:
+          "Please log in with a staff account to access the admin workspace.",
+      });
       toast({
         title: "Login required",
         description: "Please log in with a staff account to access the staff workspace.",
         variant: "destructive",
       });
-      router.replace("/login");
+      redirectTimerRef.current = setTimeout(() => {
+        router.replace("/login");
+      }, REDIRECT_DELAY_MS);
       return;
     }
 
-    if (!hasWorkspaceAccess) {
+    if (!hasStaffWorkspace) {
       hasRedirectedRef.current = true;
+      setRedirectNotice({
+        title: "Redirecting to a workspace you can access",
+        description: "This admin area is only available to staff accounts.",
+      });
       toast({
         title: "Access denied",
         description: "Your account does not have permission to access the admin workspace.",
         variant: "destructive",
       });
-      router.replace("/");
+      redirectTimerRef.current = setTimeout(() => {
+        router.replace("/");
+      }, REDIRECT_DELAY_MS);
+      return;
     }
-  }, [hasWorkspaceAccess, isLogin, loadingRole, router, toast]);
+
+    if (!canAccessCurrentPath) {
+      hasRedirectedRef.current = true;
+      setRedirectNotice({
+        title: "Redirecting to a workspace you can access",
+        description: "This role does not have access to the current admin page.",
+      });
+      toast({
+        title: "Access denied",
+        description: "Your role cannot access this admin page.",
+        variant: "destructive",
+      });
+      redirectTimerRef.current = setTimeout(() => {
+        router.replace(fallbackWorkspaceHref);
+      }, REDIRECT_DELAY_MS);
+    }
+  }, [
+    canAccessCurrentPath,
+    fallbackWorkspaceHref,
+    hasStaffWorkspace,
+    isLogin,
+    loadingRole,
+    router,
+    toast,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
 
   const toggleGroup = (groupId: string) => {
     if (!open) {
@@ -434,7 +529,21 @@ export default function AdminLayout({
     );
   }
 
-  if (!hasWorkspaceAccess) {
+  if (redirectNotice) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
+        <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <Shield className="mx-auto h-8 w-8 text-slate-400 dark:text-slate-500" />
+          <h1 className="mt-4 text-lg font-semibold">{redirectNotice.title}</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            {redirectNotice.description}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasStaffWorkspace || !canAccessCurrentPath) {
     return null;
   }
 

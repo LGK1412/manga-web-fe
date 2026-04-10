@@ -20,6 +20,13 @@ const ROLE_LABELS: Record<string, string> = {
   user: "User",
 };
 
+const POST_LOGIN_DESTINATIONS: Record<string, string> = {
+  admin: "/admin/dashboard",
+  content_moderator: "/admin/user",
+  community_manager: "/admin/user",
+  financial_manager: "/admin/user",
+};
+
 const workspaceRules: WorkspaceRule[] = [
   {
     matches: (pathname) => pathname === "/admin/dashboard",
@@ -198,4 +205,9 @@ export function isStaffInboxRole(role?: string | null) {
   return STAFF_INBOX_ROLES.includes(
     String(role || "").trim().toLowerCase() as (typeof STAFF_INBOX_ROLES)[number],
   );
+}
+
+export function resolvePostLoginHref(role?: string | null) {
+  const normalizedRole = String(role || "").trim().toLowerCase();
+  return POST_LOGIN_DESTINATIONS[normalizedRole] ?? "/";
 }

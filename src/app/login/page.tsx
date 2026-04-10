@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import { setCookie } from "@/lib/cookie-func";
 import GoogleButton from "@/components/GoogleButton";
 import { useAuth } from "@/lib/auth-context";
+import { resolvePostLoginHref } from "@/lib/admin-workspace";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -75,15 +76,16 @@ export default function LoginPage() {
         { withCredentials: true }
       );
 
-      await setCookie(res.data.tokenPayload);
+      const tokenPayload = res.data.tokenPayload;
+      await setCookie(tokenPayload);
 
       toast({
         title: "Welcome back!",
         description: "You have successfully logged in",
         variant: "success"
       });
-      setLoginStatus(true);
-      window.location.href = "/";
+      setLoginStatus(true, tokenPayload);
+      router.replace(resolvePostLoginHref(tokenPayload?.role));
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (
