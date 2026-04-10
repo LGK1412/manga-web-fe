@@ -42,6 +42,18 @@ interface ImageFile {
   filename?: string;
 }
 
+const MAX_IMAGE_FILE_SIZE = 8 * 1024 * 1024;
+
+function formatFileSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${bytes} B`;
+}
+
 function getImageUrl(chapterId: string, filename: string): string {
   return `${process.env.NEXT_PUBLIC_API_URL}/uploads/image-chapters/${chapterId}/${filename}`;
 }
@@ -194,7 +206,41 @@ export default function CreateChapterPage() {
   function handleFileSelect(files: FileList | null) {
     if (!files) return;
 
-    const newImageFiles: ImageFile[] = Array.from(files).map((file, index) => ({
+    const selectedFiles = Array.from(files);
+    const invalidFiles = selectedFiles.filter(
+      (file) =>
+        !file.type.startsWith("image/") || file.size > MAX_IMAGE_FILE_SIZE,
+    );
+
+    if (invalidFiles.length > 0) {
+      const invalidNames = invalidFiles
+        .map((file) =>
+          file.size > MAX_IMAGE_FILE_SIZE
+            ? `${file.name} (${formatFileSize(file.size)})`
+            : file.name,
+        )
+        .join(", ");
+
+      setErrors((prev) => ({
+        ...prev,
+        images: "Each image must be a valid image file and 8 MB or smaller.",
+      }));
+      alert(
+        `Some files were skipped: ${invalidNames}. Each image must be 8 MB or smaller.`,
+      );
+    }
+
+    const validFiles = selectedFiles.filter(
+      (file) =>
+        file.type.startsWith("image/") && file.size <= MAX_IMAGE_FILE_SIZE,
+    );
+
+    if (validFiles.length === 0) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    const newImageFiles: ImageFile[] = validFiles.map((file, index) => ({
       id: `${Date.now()}-${index}`,
       file,
       preview: URL.createObjectURL(file),
@@ -203,7 +249,9 @@ export default function CreateChapterPage() {
     }));
 
     setImageFiles((prev) => [...prev, ...newImageFiles]);
+    setErrors((prev) => ({ ...prev, images: undefined }));
     setDirty(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function removeImage(id: string) {
@@ -369,6 +417,17 @@ export default function CreateChapterPage() {
             "existing_images",
             JSON.stringify(existingImagesWithOrder),
           );
+
+          const newImagesMeta = sortedImages
+            .filter((img) => !img.isExisting && img.file)
+            .map((img) => ({
+              originalname: img.file!.name,
+              order: img.order,
+            }));
+
+          if (newImagesMeta.length > 0) {
+            formData.append("new_images_meta", JSON.stringify(newImagesMeta));
+          }
         }
 
         let res;
@@ -420,7 +479,13 @@ export default function CreateChapterPage() {
         );
       } catch (err) {
         console.error("Error saving draft", err);
-        alert("Error saving draft. Please try again.");
+        const message = axios.isAxiosError(err)
+          ? err.response?.data?.message ||
+            (err.code === "ERR_NETWORK"
+              ? "Network error. Check whether the API server is running and each image is 8 MB or smaller."
+              : "Please try again.")
+          : "Please try again.";
+        alert(`Error saving draft: ${message}`);
       }
     });
   }
@@ -462,6 +527,17 @@ export default function CreateChapterPage() {
             "existing_images",
             JSON.stringify(existingImagesWithOrder),
           );
+
+          const newImagesMeta = sortedImages
+            .filter((img) => !img.isExisting && img.file)
+            .map((img) => ({
+              originalname: img.file!.name,
+              order: img.order,
+            }));
+
+          if (newImagesMeta.length > 0) {
+            formData.append("new_images_meta", JSON.stringify(newImagesMeta));
+          }
         }
 
         let res;
@@ -509,8 +585,14 @@ export default function CreateChapterPage() {
         }
       } catch (err) {
         console.error("Error processing chapter", err);
+        const message = axios.isAxiosError(err)
+          ? err.response?.data?.message ||
+            (err.code === "ERR_NETWORK"
+              ? "Network error. Check whether the API server is running and each image is 8 MB or smaller."
+              : "Please try again.")
+          : "Please try again.";
         alert(
-          `Error ${isCreatingMode ? "creating" : "updating"} chapter. Please try again.`,
+          `Error ${isCreatingMode ? "creating" : "updating"} chapter: ${message}`,
         );
       }
     });
