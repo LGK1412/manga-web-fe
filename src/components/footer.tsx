@@ -40,7 +40,6 @@ export function Footer({
       title: "Account",
       links: [
         { label: "Login", href: "/login" },
-        { label: "Top Up Points", href: "/topup" },
       ],
     },
     {
