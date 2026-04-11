@@ -1,4 +1,5 @@
 "use client";
+
 import {
   FileText,
   ExternalLink,
@@ -6,7 +7,9 @@ import {
   Image as ImageIcon,
   Eye,
   CheckCircle2,
+  User,
 } from "lucide-react";
+
 import {
   Dialog,
   DialogContent,
@@ -14,8 +17,26 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "../../ui/dialog";
+
 import { Button } from "../../ui/button";
+import { useState } from "react";
+
+interface TaxItem {
+  author: {
+    _id: string;
+    username: string;
+    email: string;
+  };
+  authorName: string;
+  taxCode: string;
+  totalGross: number;
+  totalTax: number;
+  totalNet: number;
+  withdrawIds: string[];
+  proofFiles: string[];
+}
 
 interface TaxSettlement {
   _id: string;
@@ -23,61 +44,44 @@ interface TaxSettlement {
   periodFrom: Date;
   periodTo: Date;
   year: number;
-  items: [
-    {
-      author: string; //id
-      authorName: string;
-      taxCode: string;
-      totalGross: number;
-      totalTax: number;
-      totalNet: number;
-      withdrawIds: string[];
-    },
-  ];
-
-  totalGross: number;
-  totalTax: number;
-  totalNet: number;
-
-  withdrawCount: number;
-  authorCount: number;
-
-  status: "draft" | "exported" | "paid" | "cancelled";
-  fileName: string[];
+  items: TaxItem[];
   receiptNumber?: string;
-  proofFiles?: string[];
   paidAt?: string;
-  paidBy?: string;
   note?: string;
 }
 
 export default function ViewProofModal({ tax }: { tax: TaxSettlement }) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
+  const totalFiles =
+    tax.items?.reduce((acc, item) => acc + (item.proofFiles?.length || 0), 0) ||
+    0;
+
   return (
     <Dialog>
       <DialogTrigger asChild>
         <Button
-          variant="outline"
-          size="sm"
-          className="text-blue-600 border-blue-200 hover:bg-blue-50 gap-2"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-blue-600 hover:bg-blue-50"
         >
           <Eye className="w-4 h-4" />
-          Documents ({tax.proofFiles?.length || 0})
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
         <DialogHeader className="border-b pb-4">
           <DialogTitle className="text-xl flex items-center gap-2">
             <CheckCircle2 className="text-green-500 w-5 h-5" />
-            Payout Detail
+            Payment Documents
           </DialogTitle>
+
           <div className="grid grid-cols-2 gap-4 mt-4 text-sm bg-slate-50 p-3 rounded-md">
             <div>
-              <p className="text-slate-500">Receip number</p>
+              <p className="text-slate-500">Receipt number</p>
               <p className="font-bold">{tax.receiptNumber || "N/A"}</p>
             </div>
+
             <div>
               <p className="text-slate-500">Paid date</p>
               <p className="font-bold">
@@ -86,6 +90,7 @@ export default function ViewProofModal({ tax }: { tax: TaxSettlement }) {
                   : "N/A"}
               </p>
             </div>
+
             {tax.note && (
               <div className="col-span-2">
                 <p className="text-slate-500">Note:</p>
@@ -97,84 +102,146 @@ export default function ViewProofModal({ tax }: { tax: TaxSettlement }) {
 
         <div className="space-y-6 py-4">
           <h4 className="font-semibold text-slate-900 flex items-center gap-2">
-            <ImageIcon className="w-4 h-4" /> List of attached files
+            <ImageIcon className="w-4 h-4" />
+            Author Proof Documents
           </h4>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {tax.proofFiles?.map((fileName, idx) => {
-              const fileUrl = `${apiUrl}/proofFiles/${tax._id}/${fileName}`;
-              const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(fileName);
+          {totalFiles === 0 && (
+            <div className="text-center py-10 text-slate-400">
+              No documents uploaded
+            </div>
+          )}
 
-              return (
-                <div
-                  key={idx}
-                  className="group border rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-all"
-                >
-                  {/* Khu vực hiển thị nội dung */}
-                  <div className="aspect-video bg-slate-100 flex items-center justify-center overflow-hidden relative">
-                    {isImage ? (
-                      <img
-                        src={fileUrl}
-                        alt={fileName}
-                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center gap-2">
-                        <FileText className="w-12 h-12 text-blue-500" />
-                        <span className="text-[10px] font-medium text-slate-400 uppercase">
-                          {fileName.split(".").pop()} FILE
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Overlay Action khi Hover */}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-3 transition-opacity">
-                      <a
-                        href={fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-2 bg-white rounded-full hover:bg-slate-100"
-                        title="Xem toàn màn hình"
-                      >
-                        <ExternalLink className="w-4 h-4 text-slate-900" />
-                      </a>
-                    </div>
-                  </div>
-
-                  {/* Thông tin File dưới ảnh */}
-                  <div className="p-3 border-t flex items-center justify-between">
-                    <p
-                      className="text-xs font-medium truncate flex-1 pr-2 text-slate-600"
-                      title={fileName}
-                    >
-                      {fileName}
-                    </p>
-                    <a
-                      href={fileUrl}
-                      download
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      <Download className="w-4 h-4" />
-                    </a>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {tax.items.map((item) =>
+            item.proofFiles?.length ? (
+              <AuthorProofRow
+                key={`${item.author._id}-${tax._id}`}
+                item={item}
+                taxId={tax._id}
+                apiUrl={apiUrl}
+              />
+            ) : null,
+          )}
         </div>
-
-        <DialogFooter className="sm:justify-start border-t pt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() =>
-              (document.querySelector('[data-state="open"]') as any)?.click()
-            }
-          >
-            Close
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function AuthorProofRow({
+  item,
+  taxId,
+  apiUrl,
+}: {
+  item: TaxItem;
+  taxId: string;
+  apiUrl?: string;
+}) {
+  return (
+    <div className="border rounded-lg p-4 bg-white shadow-sm space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="bg-blue-100 p-1.5 rounded-full">
+          <User className="w-3.5 h-3.5 text-blue-600" />
+        </div>
+
+        <span className="font-semibold text-sm">{item.authorName}</span>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {item.proofFiles.map((file, idx) => (
+          <FilePreviewFromServer
+            key={idx}
+            file={file}
+            taxId={taxId}
+            authorId={item.author._id}
+            apiUrl={apiUrl}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FilePreviewFromServer({
+  file,
+  taxId,
+  authorId,
+  apiUrl,
+}: {
+  file: string;
+  taxId: string;
+  authorId: string;
+  apiUrl?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const fileUrl = `${apiUrl}/proofFiles/${taxId}/${authorId}/${file}`;
+
+  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(file);
+  const isPdf = /\.pdf$/i.test(file);
+
+  return (
+    <>
+      <div
+        className="relative group border bg-white rounded-md p-1 w-16 h-16 shadow-sm cursor-pointer  hover:ring-2 hover:ring-red-400 transition-all"
+        onClick={() => setOpen(true)}
+      >
+        {isImage ? (
+          <img
+            src={fileUrl}
+            className="w-full h-full object-cover rounded"
+            alt="preview server"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 text-red-600 rounded">
+            <FileText className="w-6 h-6" />
+            <span className="text-[8px] font-bold">
+              {isPdf ? "PDF" : "FILE"}
+            </span>
+          </div>
+        )}
+
+        {/* Overlay khi hover (tùy chọn - nếu bạn muốn giữ các nút nhanh) */}
+        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition rounded-md">
+          <Eye className="w-4 h-4 text-white" />
+        </div>
+      </div>
+
+      {/* Preview Modal - Đồng nhất với FilePreviewItem */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-4xl w-[90vw]">
+          <DialogHeader className="flex flex-row items-center justify-between pr-8">
+            <DialogTitle className="truncate flex-1">
+              Preview: {file}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="max-h-[75vh] overflow-auto flex justify-center bg-slate-50 rounded-lg border p-2">
+            {isImage && (
+              <img
+                src={fileUrl}
+                className="max-w-full h-auto object-contain rounded shadow-sm"
+                alt="Zoomed preview"
+              />
+            )}
+
+            {isPdf && (
+              <iframe
+                src={`${fileUrl}#toolbar=0`}
+                className="w-full h-[70vh] border-none rounded"
+              />
+            )}
+
+            {!isImage && !isPdf && (
+              <div className="py-20 text-center">
+                <FileText className="w-12 h-12 mx-auto text-slate-300" />
+                <p className="mt-2 text-sm text-slate-500">
+                  Định dạng này không hỗ trợ xem trực tiếp
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

@@ -4,19 +4,19 @@ import AdminLayout from "../adminLayout/page";
 import PayoutCard from "@/components/admin/payout/payout";
 import TaxCard from "@/components/admin/tax/tax";
 import WithdrawCard from "@/components/admin/withdraw";
+import { useState } from "react";
 
 export default function WithdrawManagementPage() {
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshWithdraw = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Withdraw Management</h1>
-          <p className="text-gray-600">
-            Author&apos;s Withdraw & Tax Mangagement
-          </p>
-        </div>
-        <WithdrawCard />
-        <PayoutCard />
+        <WithdrawCard refreshKey={refreshKey} />
+        <PayoutCard onWithdrawUpdated={refreshWithdraw} />
         <TaxCard />
       </div>
     </AdminLayout>

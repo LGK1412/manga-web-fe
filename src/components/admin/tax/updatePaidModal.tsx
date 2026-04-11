@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,21 +9,20 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Edit3,
   UploadCloud,
   X,
   Loader2,
   Save,
   FileText,
-  ExternalLink,
-  ImageIcon,
+  User,
+  Edit,
 } from "lucide-react";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function UpdatePaidTaxModal({
   tax,
@@ -36,26 +35,53 @@ export default function UpdatePaidTaxModal({
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
   const [receiptNumber, setReceiptNumber] = useState(tax.receiptNumber || "");
   const [note, setNote] = useState(tax.note || "");
-  const [newFiles, setNewFiles] = useState<File[]>([]);
-  const [existingFiles, setExistingFiles] = useState<string[]>(
-    tax.proofFiles || [],
-  );
 
-  const removeExistingFile = (fileName: string) => {
-    setExistingFiles((prev) => prev.filter((f) => f !== fileName));
-  };
+  const [remainingFilesMap, setRemainingFilesMap] = useState<
+    Record<string, string[]>
+  >({});
+  const [newFilesMap, setNewFilesMap] = useState<Record<string, File[]>>({});
 
-  const removeNewFile = (index: number) => {
-    setNewFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setNewFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+  useEffect(() => {
+    if (open) {
+      const initialMap: Record<string, string[]> = {};
+      tax.items.forEach((item: any) => {
+        initialMap[item.author._id] = [...(item.proofFiles || [])];
+      });
+      setRemainingFilesMap(initialMap);
+      setNewFilesMap({});
+      setReceiptNumber(tax.receiptNumber || "");
+      setNote(tax.note || "");
     }
+  }, [open, tax]);
+
+  const handleFileChange = (
+    authorId: string,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setNewFilesMap((prev) => ({
+        ...prev,
+        [authorId]: [...(prev[authorId] || []), ...files],
+      }));
+    }
+    e.target.value = "";
+  };
+
+  const removeRemainingFile = (authorId: string, fileName: string) => {
+    setRemainingFilesMap((prev) => ({
+      ...prev,
+      [authorId]: prev[authorId].filter((f) => f !== fileName),
+    }));
+  };
+
+  const removeNewFile = (authorId: string, index: number) => {
+    setNewFilesMap((prev) => ({
+      ...prev,
+      [authorId]: prev[authorId].filter((_, i) => i !== index),
+    }));
   };
 
   const handleUpdate = async () => {
@@ -64,23 +90,36 @@ export default function UpdatePaidTaxModal({
       const formData = new FormData();
       formData.append("receiptNumber", receiptNumber);
       formData.append("note", note);
-      formData.append("remainingFiles", JSON.stringify(existingFiles));
-      newFiles.forEach((file) => formData.append("proofFiles", file));
+
+      const itemFiles = tax.items.map((item: any) => ({
+        authorId: item.author._id,
+        remainingFiles: remainingFilesMap[item.author._id] || [],
+      }));
+      formData.append("itemFiles", JSON.stringify(itemFiles));
+
+      Object.entries(newFilesMap).forEach(([authorId, files]) => {
+        files.forEach((file) => {
+          formData.append(`proofFiles_${authorId}`, file);
+        });
+      });
 
       await axios.patch(
         `${apiUrl}/api/tax-settlement/update-paid/${tax._id}`,
         formData,
-        { withCredentials: true },
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
+        },
       );
 
-      toast({ title: "Cập nhật thành công" });
+      toast({ title: "Cập nhật thành công", variant: "success" });
       setOpen(false);
       onSuccess();
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Lỗi",
-        description: "Không thể cập nhật",
+        description: "Cập nhật thất bại",
       });
     } finally {
       setSubmitting(false);
@@ -95,157 +134,113 @@ export default function UpdatePaidTaxModal({
           variant="ghost"
           className="text-blue-600 hover:bg-blue-50"
         >
-          <Edit3 className="w-4 h-4 mr-1" /> Update
+          <Edit className="w-4 h-4" />
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[650px] max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-2">
           <DialogTitle className="flex items-center gap-2">
-            <Edit3 className="w-5 h-5 text-blue-500" />
-            Update Tax Settlement
+            <Edit className="w-5 h-5 text-blue-500" />
+            Update Paid Settlement
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Inputs cơ bản */}
-          <div className="grid grid-cols-1 gap-4">
-            <div className="space-y-2">
-              <Label>Receipt number</Label>
-              <Input
-                value={receiptNumber}
-                onChange={(e) => setReceiptNumber(e.target.value)}
-                placeholder="VD: VCB-12345678"
-              />
+        <ScrollArea className="flex-1 px-6">
+          <div className="space-y-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Receipt number</Label>
+                <Input
+                  value={receiptNumber}
+                  onChange={(e) => setReceiptNumber(e.target.value)}
+                  placeholder="VCB-123..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Note</Label>
+                <Input
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Ghi chú..."
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Note</Label>
-              <Textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Nhập ghi chú chỉnh sửa..."
-              />
-            </div>
-          </div>
 
-          <hr />
+            <div className="h-px bg-slate-200" />
 
-          {/* Section: File đã có (UI giống ViewModal) */}
-          <div className="space-y-3">
-            <Label className="text-blue-600 font-bold flex items-center gap-2">
-              <ImageIcon className="w-4 h-4" /> Documents (
-              {existingFiles.length})
-            </Label>
-            <div className="grid grid-cols-2 gap-3">
-              {existingFiles.map((file) => {
-                const fileUrl = `${apiUrl}/proofFiles/${tax._id}/${file}`;
-                const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(file);
+            <div className="space-y-4">
+              <Label className="text-base font-bold text-blue-600">
+                Documents
+              </Label>
+              {tax.items.map((item: any) => {
+                const authorId = item.author._id;
                 return (
                   <div
-                    key={file}
-                    className="group relative border rounded-lg overflow-hidden bg-white shadow-sm"
+                    key={authorId}
+                    className="border rounded-lg p-4 bg-white shadow-sm space-y-3"
                   >
-                    <div className="aspect-video bg-slate-100 flex items-center justify-center relative">
-                      {isImage ? (
-                        <img
-                          src={fileUrl}
-                          className="w-full h-full object-cover"
-                          alt="current"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center gap-1">
-                          <FileText className="w-8 h-8 text-blue-400" />
-                          <span className="text-[10px] font-bold text-slate-400 uppercase">
-                            {file.split(".").pop()} FILE
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-3 transition-opacity">
-                        <a
-                          href={fileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-2 bg-white rounded-full hover:bg-slate-100"
-                          title="Xem toàn màn hình"
-                        >
-                          <ExternalLink className="w-4 h-4 text-slate-900" />
-                        </a>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-blue-500" />
+                        <span className="font-semibold text-sm">
+                          {item.authorName}
+                        </span>
                       </div>
-
-                      {/* Nút xóa file cũ */}
-                      <button
-                        onClick={() => removeExistingFile(file)}
-                        className="absolute top-1 right-1 z-10 bg-red-500 text-white rounded-full p-1 shadow-md hover:scale-110 transition-transform"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
                     </div>
-                    <div className="p-2 border-t bg-slate-50">
-                      <p
-                        className="text-[10px] font-medium truncate text-slate-500"
-                        title={file}
-                      >
-                        {file}
-                      </p>
+
+                    <div className="relative border-2 border-dashed border-slate-200 rounded-md p-3 text-center hover:border-blue-400 hover:bg-blue-50/30 transition-all">
+                      <input
+                        type="file"
+                        multiple
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        onChange={(e) => handleFileChange(authorId, e)}
+                        accept="image/*,.pdf"
+                      />
+                      <div className="flex items-center justify-center gap-2 text-slate-400">
+                        <UploadCloud className="h-4 w-4" />
+                        <span className="text-xs font-medium text-slate-500">
+                          Upload files
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {remainingFilesMap[authorId]?.map((fileName) => (
+                        <FilePreviewFromServer
+                          key={fileName}
+                          fileName={fileName}
+                          taxId={tax._id}
+                          authorId={authorId}
+                          apiUrl={apiUrl}
+                          onRemove={() =>
+                            removeRemainingFile(authorId, fileName)
+                          }
+                        />
+                      ))}
+                      {newFilesMap[authorId]?.map((file, idx) => (
+                        <FilePreviewItem
+                          key={idx}
+                          file={file}
+                          onRemove={() => removeNewFile(authorId, idx)}
+                        />
+                      ))}
                     </div>
                   </div>
                 );
               })}
             </div>
           </div>
+        </ScrollArea>
 
-          {/* Section: Upload file mới */}
-          <div className="space-y-3">
-            <Label className="text-green-600 font-bold flex items-center gap-2">
-              <UploadCloud className="w-4 h-4" /> Add new file
-            </Label>
-            <div className="border-2 border-dashed rounded-xl p-6 text-center relative hover:bg-slate-50 transition-all border-slate-200">
-              <input
-                type="file"
-                multiple
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                onChange={handleFileChange}
-              />
-              <UploadCloud className="mx-auto h-8 w-8 text-slate-300" />
-              <p className="text-sm text-slate-500 mt-2 font-medium">
-                Drag and drop or click to upload
-              </p>
-            </div>
-
-            {/* Danh sách file mới chờ upload */}
-            <div className="grid grid-cols-2 gap-3">
-              {newFiles.map((file, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-2 border rounded-lg bg-green-50/50 border-green-100"
-                >
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <FileText className="w-4 h-4 text-green-600 shrink-0" />
-                    <span className="text-xs truncate font-medium text-green-700">
-                      {file.name}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => removeNewFile(idx)}
-                    className="text-red-400 hover:text-red-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="gap-2">
+        <DialogFooter className="p-6 border-t bg-slate-50/50">
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
           <Button
             onClick={handleUpdate}
             disabled={submitting}
-            className="min-w-[120px]"
+            className="min-w-[140px]"
           >
             {submitting ? (
               <Loader2 className="animate-spin w-4 h-4 mr-2" />
@@ -257,5 +252,150 @@ export default function UpdatePaidTaxModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// --- Component xem file từ Server ---
+function FilePreviewFromServer({
+  fileName,
+  taxId,
+  authorId,
+  apiUrl,
+  onRemove,
+}: any) {
+  const [open, setOpen] = useState(false);
+  const fileUrl = `${apiUrl}/proofFiles/${taxId}/${authorId}/${fileName}`;
+  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(fileName);
+  const isPdf = /\.pdf$/i.test(fileName);
+
+  return (
+    <>
+      <div
+        className="relative group border rounded-md p-1 w-16 h-16 shadow-sm cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
+        onClick={() => setOpen(true)}
+      >
+        {isImage ? (
+          <img
+            src={fileUrl}
+            className="w-full h-full object-cover rounded"
+            alt="p"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 text-red-600 rounded">
+            <FileText className="w-5 h-5" />
+            <span className="text-[7px] font-bold uppercase">
+              {fileName.split(".").pop()}
+            </span>
+          </div>
+        )}
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 z-20 shadow-md hover:scale-110"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-1 flex flex-col bg-slate-900 border-none">
+          <DialogHeader className="p-2 bg-white rounded-t-lg">
+            <DialogTitle className="text-sm truncate">{fileName}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto flex items-center justify-center bg-slate-900">
+            {isImage ? (
+              <img
+                src={fileUrl}
+                className="max-w-full max-h-full object-contain"
+                alt="preview"
+              />
+            ) : isPdf ? (
+              <iframe src={fileUrl} className="w-full h-[75vh] bg-white" />
+            ) : (
+              <div className="text-white text-center p-10">
+                <FileText className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                <p>Định dạng này không hỗ trợ xem trước.</p>
+                <Button asChild variant="outline" className="mt-4">
+                  <a href={fileUrl} target="_blank">
+                    Tải về
+                  </a>
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function FilePreviewItem({ file, onRemove }: any) {
+  const [url, setUrl] = useState("");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+
+  const isImage = file.type.startsWith("image/");
+  const isPdf = file.type === "application/pdf";
+
+  return (
+    <>
+      <div
+        className="relative group border border-green-200 bg-green-50/30 rounded-md p-1 w-16 h-16 shadow-sm cursor-pointer hover:ring-2 hover:ring-green-400 transition-all"
+        onClick={() => setOpen(true)}
+      >
+        {isImage ? (
+          <img
+            src={url}
+            className="w-full h-full object-cover rounded"
+            alt="p"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-green-100 text-green-700 rounded">
+            <FileText className="w-5 h-5" />
+            <span className="text-[7px] font-bold">NEW</span>
+          </div>
+        )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 z-20 shadow-md"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-1 flex flex-col bg-slate-900 border-none">
+          <DialogHeader className="p-2 bg-white rounded-t-lg">
+            <DialogTitle className="text-sm truncate">
+              Xem trước: {file.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto flex items-center justify-center">
+            {isImage ? (
+              <img
+                src={url}
+                className="max-w-full max-h-full object-contain"
+                alt="preview"
+              />
+            ) : isPdf ? (
+              <iframe src={url} className="w-full h-[75vh] bg-white" />
+            ) : (
+              <p className="text-white">Chứng từ: {file.name}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

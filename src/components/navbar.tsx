@@ -151,7 +151,7 @@ export function Navbar() {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`,
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       if (res.data.success) {
@@ -181,7 +181,7 @@ export function Navbar() {
     try {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/manga/random`,
-        { withCredentials: true }
+        { withCredentials: true },
       );
       if (res.data?._id) {
         router.push(`/story/${res.data._id}`);
@@ -329,7 +329,7 @@ export function Navbar() {
                       </Link>
                     </DropdownMenuItem>
 
-                    {/* ✅ Nếu là staff/admin thì ẩn Inventory & Emoji */}
+                    {/* Nếu là staff/admin thì ẩn Inventory & Emoji */}
                     {!canSeeAdminDashboard && user && (
                       <DropdownMenuItem asChild>
                         <Link
@@ -531,7 +531,6 @@ export function Navbar() {
                           Notifications
                         </Link>
                       )}
-
 
                       {normalizedRole === "author" && (
                         <Link

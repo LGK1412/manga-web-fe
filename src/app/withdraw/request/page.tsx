@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import ImageBox from "@/components/image-box";
 import { Card } from "@/components/ui/card";
-import { InfoIcon, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { InfoIcon, AlertCircle, Loader2 } from "lucide-react";
 
 type KycStatus = "pending" | "verified" | "rejected" | "not_found";
 
@@ -216,10 +216,15 @@ export default function PayoutProfilePage() {
     try {
       const res = await axios.post(
         `${apiBase}/api/withdraw`,
-        { withdraw_point: withdrawAmount },
+        { withdraw_point: Number(withdrawAmount) },
         { withCredentials: true },
       );
-      toast({ title: "Đã tạo lệnh rút tiền thành công" });
+
+      toast({
+        title: "Request withdrawal successfully",
+        description: `Your request have been sent`,
+        variant: "success",
+      });
       setWithdrawAmount("");
       fetchPoints();
     } catch (err: any) {

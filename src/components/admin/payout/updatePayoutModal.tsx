@@ -8,10 +8,8 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Edit3,
   UploadCloud,
   X,
   Loader2,
@@ -19,6 +17,7 @@ import {
   FileText,
   ExternalLink,
   ImageIcon,
+  Edit,
 } from "lucide-react";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
@@ -71,14 +70,18 @@ export default function UpdatePayoutModal({
         { withCredentials: true },
       );
 
-      toast({ title: "Cập nhật thành công" });
+      toast({
+        title: "Update successfully",
+        description: "Payout settlement has been updated",
+        variant: "success",
+      });
       setOpen(false);
       onSuccess();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể cập nhật",
+        title: "Error",
+        description: "Unable to update",
       });
     } finally {
       setSubmitting(false);
@@ -89,18 +92,18 @@ export default function UpdatePayoutModal({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
-          size="sm"
           variant="ghost"
-          className="text-blue-600 hover:bg-blue-50"
+          size="icon"
+          className="h-8 w-8 text-blue-600 hover:bg-blue-50"
         >
-          <Edit3 className="w-4 h-4 mr-1" /> Update
+          <Edit className="h-4 w-4" />
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Edit3 className="w-5 h-5 text-blue-500" />
+            <Edit className="w-5 h-5 text-blue-500" />
             Update Payout Settlement
           </DialogTitle>
         </DialogHeader>

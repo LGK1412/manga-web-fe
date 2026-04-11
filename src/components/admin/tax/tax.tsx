@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { Loader2, FileDown, CalendarDays, Eye } from "lucide-react";
+import {
+  Loader2,
+  FileDown,
+  CalendarDays,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  ChevronRight,
+  CalendarIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,10 +38,32 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+
 import CancelTaxModal from "./taxCancelModal";
 import ViewProofModal from "./viewProofModal";
 import PayTaxModal from "./taxPayModal";
 import UpdatePaidTaxModal from "./updatePaidModal";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+interface TaxItem {
+  author: {
+    _id: string;
+    username: string;
+    email: string;
+  };
+  authorName: string;
+  taxCode: string;
+  totalGross: number;
+  totalTax: number;
+  totalNet: number;
+  withdrawIds: string[];
+}
 
 interface TaxSettlement {
   _id: string;
@@ -40,18 +71,7 @@ interface TaxSettlement {
   periodFrom: Date;
   periodTo: Date;
   year: number;
-  items: [
-    {
-      author: string; //id
-      authorName: string;
-      taxCode: string;
-      totalGross: number;
-      totalTax: number;
-      totalNet: number;
-      withdrawIds: string[];
-    },
-  ];
-
+  items: TaxItem[];
   totalGross: number;
   totalTax: number;
   totalNet: number;
@@ -74,7 +94,6 @@ export default function TaxCard() {
   const [loadingTax, setLoadingTax] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  // States cho bộ lọc Export
   const [reportType, setReportType] = useState<"QUARTERLY" | "ANNUAL">(
     "QUARTERLY",
   );
@@ -82,6 +101,63 @@ export default function TaxCard() {
     new Date().getFullYear().toString(),
   );
   const [selectedQuarter, setSelectedQuarter] = useState<string>("1");
+
+  const getStatusBadge = (status: string, note?: string) => {
+    const styles: Record<string, { color: string; icon: any; label: string }> =
+      {
+        draft: {
+          color: "bg-amber-50 text-amber-600 border-amber-200",
+          icon: Clock,
+          label: "Draft",
+        },
+        exported: {
+          color: "bg-blue-50 text-blue-600 border-blue-200",
+          icon: CheckCircle2,
+          label: "Exported",
+        },
+        paid: {
+          color: "bg-emerald-50 text-emerald-600 border-emerald-200",
+          icon: CheckCircle2,
+          label: "Paid",
+        },
+        cancelled: {
+          color: "bg-rose-50 text-rose-600 border-rose-200",
+          icon: XCircle,
+          label: "Cancelled",
+        },
+      };
+
+    const s = styles[status] || {
+      color: "bg-gray-50 text-gray-600 border-gray-200",
+      icon: Clock,
+      label: status,
+    };
+    const Icon = s.icon;
+
+    const badge = (
+      <Badge
+        variant="outline"
+        className={`${s.color} flex items-center gap-1 font-medium capitalize py-0.5 cursor-default`}
+      >
+        <Icon className="w-3 h-3" /> {s.label}
+      </Badge>
+    );
+
+    if (status === "cancelled" && note) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>{badge}</TooltipTrigger>
+            <TooltipContent className="bg-rose-600 text-white border-none">
+              <p className="text-xs">Reason: {note}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return badge;
+  };
 
   const fetchTaxs = async () => {
     try {
@@ -98,7 +174,6 @@ export default function TaxCard() {
     }
   };
 
-  // Hàm xử lý Export và Tải file ZIP
   const handleExportTax = async () => {
     try {
       setExporting(true);
@@ -262,15 +337,13 @@ export default function TaxCard() {
 
   return (
     <div className="space-y-6">
-      {/* Khối Export điều khiển */}
       <Card className="border-primary/20 shadow-md">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <CalendarDays className="w-5 h-5 text-primary" />
-            Tax return export tool
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-bold text-slate-800">
+            Export Tax Settlement
           </CardTitle>
           <CardDescription>
-            system for creating payment and tax settlement file templates
+            Select year or quarter of year to export tax report
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -329,33 +402,47 @@ export default function TaxCard() {
 
             <Button
               onClick={handleExportTax}
-              className="ml-auto gap-2"
-              disabled={exporting}
+              className="h-9 bg-green-600 hover:bg-green-700 text-white"
             >
               {exporting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
-                <FileDown className="w-4 h-4" />
+                <FileDown className="w-4 h-4 mr-2" />
               )}
-              {exporting ? "Exporting..." : "Excel"}
+              {exporting ? "Exporting..." : "Export"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Bảng danh sách lịch sử giữ nguyên logic Table của bạn */}
       <Card>
-        <CardHeader>
-          <CardTitle>Tax Settlement History</CardTitle>
+        <CardHeader className="py-4 px-6 border-b border-slate-100 bg-white">
+          <div className="flex justify-between items-center">
+            <div className="space-y-1">
+              <CardTitle className="text-lg font-bold text-slate-800 leading-none">
+                Tax Settlement History
+              </CardTitle>
+              <CardDescription>
+                View, process and export tax settlement excel
+              </CardDescription>
+            </div>
+            <Badge
+              variant="secondary"
+              className="font-normal text-slate-500 bg-slate-100 shrink-0"
+            >
+              Total {taxs.length} items
+            </Badge>
+          </div>
         </CardHeader>
+
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Reporting period</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Total tax (VNĐ)</TableHead>
-                <TableHead className="text-center">Total withdraws</TableHead>
+                <TableHead>Period</TableHead>
+                <TableHead className="text-center">Type</TableHead>
+                <TableHead className="text-right">Total tax</TableHead>
+                <TableHead className="text-center">Withdraws</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-center">Action</TableHead>
               </TableRow>
@@ -370,69 +457,74 @@ export default function TaxCard() {
               ) : (
                 taxs.map((t) => (
                   <TableRow key={t._id}>
-                    <TableCell className="font-medium">
-                      {reportType === "ANNUAL"
-                        ? `Năm ${t.year}`
-                        : `${new Date(t.periodFrom).toLocaleDateString()} - ${new Date(t.periodTo).toLocaleDateString()}`}
+                    <TableCell className="pl-6 font-medium text-slate-700">
+                      {reportType === "ANNUAL" ? (
+                        <div className="flex items-center gap-2">
+                          <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Year {t.year}</span>
+                        </div>
+                      ) : (
+                        /* Hiển thị cho báo cáo giai đoạn (Period) */
+                        <div className="flex items-center gap-2">
+                          {format(new Date(t.periodFrom), "dd/MM/yyyy")}
+                          <ChevronRight className="w-3 h-3 text-slate-400" />
+                          {format(new Date(t.periodTo), "dd/MM/yyyy")}
+                        </div>
+                      )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="flex justify-center">
                       <Badge variant="outline">{t.reportType}</Badge>
                     </TableCell>
                     <TableCell className="text-right font-bold text-red-600">
-                      {t.totalTax.toLocaleString()}
+                      {t.totalTax.toLocaleString()}đ
                     </TableCell>
                     <TableCell className="text-center">
-                      {t.withdrawCount}
-                    </TableCell>
-                    <TableCell>
                       <Badge
-                        className={`
-      px-2 py-1 rounded-full font-bold capitalize
-      ${
-        t.status === "paid"
-          ? "bg-green-100 text-green-800 hover:bg-green-100"
-          : t.status === "exported"
-            ? "bg-blue-100 text-blue-800 hover:bg-blue-100"
-            : t.status === "cancelled"
-              ? "bg-red-100 text-red-800 hover:bg-red-100"
-              : "bg-slate-100 text-slate-800"
-      }
-    `}
+                        variant="secondary"
+                        className="bg-slate-100 text-slate-600"
                       >
-                        {t.status}
+                        {t.withdrawCount} items
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      <div className="flex justify-center">
+                        {getStatusBadge(t.status, t.note)}
+                      </div>
+                    </TableCell>
 
-                    <TableCell className="text-right flex justify-end gap-2">
-                      {/* Nút Tải file ZIP/Excel hiện tại */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownloadAgain(t)}
-                        className="hover:bg-primary/10 text-primary"
-                      >
-                        <FileDown className="w-4 h-4 mr-1" />
-                        Download
-                      </Button>
-
-                      {t.status === "paid" ? (
-                        <>
-                          <ViewProofModal tax={t} />
-                          <UpdatePaidTaxModal tax={t} onSuccess={fetchTaxs} />
-                        </>
-                      ) : t.status === "cancelled" ? (
-                        <Badge
-                          variant="outline"
-                          className="bg-red-100 text-red-800"
-                        >
-                          Canceled
-                        </Badge>
-                      ) : (
-                        <div className="flex gap-1">
-                          <PayTaxModal tax={t} onSuccess={fetchTaxs} />
-                          <CancelTaxModal taxId={t._id} onSuccess={fetchTaxs} />
+                    <TableCell className="pr-6 text-right">
+                      <div className="flex justify-end items-center gap-1">
+                        <div className="flex gap-1 justify-end">
+                          {t.status !== "paid" && t.status !== "cancelled" && (
+                            <>
+                              <PayTaxModal tax={t} onSuccess={fetchTaxs} />
+                              <CancelTaxModal
+                                taxId={t._id}
+                                onSuccess={fetchTaxs}
+                              />
+                            </>
+                          )}
+                          {t.status === "paid" && (
+                            <>
+                              <ViewProofModal tax={t} />
+                              <UpdatePaidTaxModal
+                                tax={t}
+                                onSuccess={fetchTaxs}
+                              />
+                            </>
+                          )}
                         </div>
-                      )}
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDownloadAgain(t)}
+                          className="h-8 w-8 text-green-600 hover:bg-green-50"
+                          title="Download Excel"
+                        >
+                          <FileDown className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

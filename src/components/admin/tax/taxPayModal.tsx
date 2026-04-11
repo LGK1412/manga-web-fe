@@ -8,13 +8,34 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { X, UploadCloud, CheckCircle2, Eye, Loader2 } from "lucide-react";
+import {
+  X,
+  UploadCloud,
+  CheckCircle2,
+  Loader2,
+  User,
+  FileText,
+} from "lucide-react";
 import { Label } from "../../ui/label";
 import { Button } from "../../ui/button";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface TaxItem {
+  author: {
+    _id: string;
+    username: string;
+    email: string;
+  };
+  authorName: string;
+  taxCode: string;
+  totalGross: number;
+  totalTax: number;
+  totalNet: number;
+  withdrawIds: string[];
+}
 
 interface TaxSettlement {
   _id: string;
@@ -22,18 +43,7 @@ interface TaxSettlement {
   periodFrom: Date;
   periodTo: Date;
   year: number;
-  items: [
-    {
-      author: string; //id
-      authorName: string;
-      taxCode: string;
-      totalGross: number;
-      totalTax: number;
-      totalNet: number;
-      withdrawIds: string[];
-    },
-  ];
-
+  items: TaxItem[];
   totalGross: number;
   totalTax: number;
   totalNet: number;
@@ -50,7 +60,6 @@ interface TaxSettlement {
   note?: string;
 }
 
-// --- COMPONENT MODAL THANH TOÁN ---
 export default function PayTaxModal({
   tax,
   onSuccess,
@@ -62,40 +71,51 @@ export default function PayTaxModal({
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // States cho Form
   const [receiptNumber, setReceiptNumber] = useState("");
   const [note, setNote] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [authorFiles, setAuthorFiles] = useState<Record<string, File[]>>({});
 
-  // Xử lý khi chọn file
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      setSelectedFiles((prev) => [...prev, ...filesArray]);
+  const handleFileChange = (
+    authorId: string,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    if (!e.target.files || e.target.files.length === 0) return;
 
-      // Tạo preview cho ảnh
-      const newPreviews = filesArray.map((file) => {
-        if (file.type.startsWith("image/")) return URL.createObjectURL(file);
-        return ""; // Nếu là file khác (pdf...) thì không preview ảnh
-      });
-      setPreviews((prev) => [...prev, ...newPreviews]);
-    }
+    const newFiles = Array.from(e.target.files);
+
+    setAuthorFiles((prev) => ({
+      ...prev,
+      [authorId]: [...(prev[authorId] || []), ...newFiles],
+    }));
+
+    e.target.value = "";
   };
 
-  const removeFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-    setPreviews((prev) => prev.filter((_, i) => i !== index));
+  const removeFile = (authorId: string, index: number) => {
+    setAuthorFiles((prev) => {
+      const next = { ...prev };
+      const files = [...(next[authorId] || [])];
+
+      files.splice(index, 1);
+
+      next[authorId] = files;
+      return next;
+    });
   };
 
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
+
       const formData = new FormData();
+
       formData.append("receiptNumber", receiptNumber);
       formData.append("note", note);
-      selectedFiles.forEach((file) => {
-        formData.append("proofFiles", file);
+
+      Object.entries(authorFiles).forEach(([authorId, files]) => {
+        files.forEach((file) => {
+          formData.append(`proofFiles_${authorId}`, file);
+        });
       });
 
       await axios.patch(
@@ -112,8 +132,9 @@ export default function PayTaxModal({
         description: "Tax payment confirmed.",
         variant: "success",
       });
+
       setOpen(false);
-      onSuccess(); // Load lại danh sách
+      onSuccess();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -125,6 +146,14 @@ export default function PayTaxModal({
     }
   };
 
+  useEffect(() => {
+    if (open) {
+      setAuthorFiles({});
+      setReceiptNumber("");
+      setNote("");
+    }
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -133,83 +162,66 @@ export default function PayTaxModal({
           variant="outline"
           className="text-green-600 border-green-200 hover:bg-green-50"
         >
-          <CheckCircle2 className="w-4 h-4 mr-1" /> Confirm
+          <CheckCircle2 className="w-4 h-4 mr-1" /> Confirm Payment
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Confirm Tax Settlement</DialogTitle>
+      <DialogContent className="sm:max-w-[620px] max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-2">
+          <DialogTitle>Confirm Tax Settlement & Upload Proofs</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Receipt number</Label>
-            <Input
-              placeholder="VD: VCB-12345678"
-              value={receiptNumber}
-              onChange={(e) => setReceiptNumber(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Documents (Img/PDF)</Label>
-            <div className="border-2 border-dashed rounded-lg p-4 text-center hover:bg-slate-50 transition-colors relative">
-              <input
-                type="file"
-                multiple
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                onChange={handleFileChange}
-                accept="image/*,.pdf"
-              />
-              <UploadCloud className="mx-auto h-8 w-8 text-slate-400" />
-              <p className="text-sm text-slate-600 mt-2">
-                Drag and drop or click to select files.
-              </p>
+        <ScrollArea className="flex-1 px-6">
+          <div className="space-y-6 pb-6">
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="space-y-2">
+                <Label>Receipt number</Label>
+                <Input
+                  placeholder="VCB-12345678"
+                  value={receiptNumber}
+                  onChange={(e) => setReceiptNumber(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>General Note</Label>
+                <Input
+                  placeholder="Optional..."
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </div>
             </div>
 
-            {/* PREVIEW AREA */}
-            <div className="grid grid-cols-3 gap-2 mt-3">
-              {selectedFiles.map((file, idx) => (
-                <div key={idx} className="relative group border rounded p-1">
-                  {previews[idx] ? (
-                    <img
-                      src={previews[idx]}
-                      alt="preview"
-                      className="h-20 w-full object-cover rounded"
-                    />
-                  ) : (
-                    <div className="h-20 w-full flex items-center justify-center bg-slate-100 text-[10px] break-all p-1 text-center">
-                      {file.name}
-                    </div>
-                  )}
-                  <button
-                    onClick={() => removeFile(idx)}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
+            <Separator />
+
+            <div className="space-y-4">
+              <Label className="text-base font-bold text-blue-600">
+                Author Proofs (Individual Uploads)
+              </Label>
+
+              {tax.items.map((item) => {
+                const authorId = item.author._id;
+
+                return (
+                  <AuthorUploadRow
+                    key={`${item.author._id}-${tax._id}`}
+                    item={item}
+                    files={authorFiles[authorId] || []}
+                    onFileChange={handleFileChange}
+                    onRemove={removeFile}
+                  />
+                );
+              })}
             </div>
           </div>
+        </ScrollArea>
 
-          <div className="space-y-2">
-            <Label>Note</Label>
-            <Textarea
-              placeholder="Notes, if any..."
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
+        <DialogFooter className="p-6 border-t bg-slate-50/50">
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={submitting || selectedFiles.length === 0}
+            disabled={submitting || Object.keys(authorFiles).length === 0}
           >
             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Confirm
@@ -218,4 +230,145 @@ export default function PayTaxModal({
       </DialogContent>
     </Dialog>
   );
+}
+
+function AuthorUploadRow({
+  item,
+  files,
+  onFileChange,
+  onRemove,
+}: {
+  item: TaxItem;
+  files: File[];
+  onFileChange: (id: string, e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemove: (id: string, idx: number) => void;
+}) {
+  const authorId = item.author._id;
+  return (
+    <div className="border rounded-lg p-4 bg-white shadow-sm space-y-3">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <div className="bg-blue-100 p-1.5 rounded-full">
+            <User className="w-3.5 h-3.5 text-blue-600" />
+          </div>
+          <span className="font-semibold text-sm">{item.authorName}</span>
+        </div>
+        <span className="text-[11px] font-medium px-2 py-0.5 bg-slate-100 rounded-full text-slate-600">
+          Tax: {item.totalTax.toLocaleString()}đ
+        </span>
+      </div>
+
+      {/* Upload Zone */}
+      <div className="relative border-2 border-dashed border-slate-200 rounded-md p-3 text-center hover:border-blue-400 hover:bg-blue-50/30 transition-all group">
+        <input
+          type="file"
+          multiple
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          onChange={(e) => onFileChange(authorId, e)}
+          accept="image/*,.pdf"
+        />
+        <div className="flex items-center justify-center gap-2 text-slate-400 group-hover:text-blue-500">
+          <UploadCloud className="h-4 w-4" />
+          <span className="text-xs font-medium">
+            Click or drag proof for this author
+          </span>
+        </div>
+      </div>
+
+      {/* Preview Area */}
+      {files.length > 0 && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {files.map((file, idx) => (
+            <FilePreviewItem
+              key={`${authorId}-${idx}`}
+              file={file}
+              onRemove={() => onRemove(authorId, idx)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilePreviewItem({
+  file,
+  onRemove,
+}: {
+  file: File;
+  onRemove: () => void;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [file]);
+
+  const isImage = file.type.startsWith("image/");
+  const isPdf = file.type === "application/pdf";
+
+  return (
+    <>
+      <div
+        className="relative group border bg-white rounded-md p-1 w-16 h-16 shadow-sm cursor-pointer  hover:ring-2 hover:ring-red-400 transition-all"
+        onClick={() => setOpen(true)}
+      >
+        {isImage && previewUrl ? (
+          <img
+            src={previewUrl}
+            className="w-full h-full object-cover rounded"
+            alt="preview"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 text-red-600 rounded">
+            <FileText className="w-6 h-6" />
+            <span className="text-[8px] font-bold">
+              {isPdf ? "PDF" : "FILE"}
+            </span>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:scale-110 transition-transform z-20"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </div>
+
+      {/* Preview Modal */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Preview File</DialogTitle>
+          </DialogHeader>
+
+          <div className="max-h-[70vh] overflow-auto">
+            {isImage && previewUrl && (
+              <img src={previewUrl} className="w-full rounded" alt="preview" />
+            )}
+
+            {isPdf && previewUrl && (
+              <iframe src={previewUrl} className="w-full h-[70vh]" />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// --- Helper Component ---
+function Separator() {
+  return <div className="h-px bg-slate-200 w-full" />;
 }
