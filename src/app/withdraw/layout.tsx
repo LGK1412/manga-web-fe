@@ -25,14 +25,14 @@ export default function WithdrawLayout({
             href="/withdraw/request"
             className={`px-4 py-2 rounded ${isActive("request")}`}
           >
-            Yêu cầu rút tiền
+            Withdraw
           </Link>
 
           <Link
             href="/withdraw/history"
             className={`px-4 py-2 rounded ${isActive("history")}`}
           >
-            Lịch sử / Báo cáo
+            History
           </Link>
         </div>
 

@@ -16,6 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import NativeRichEditor from "@/components/NativeRichEditor";
+import PointRuleDialog from "@/components/PointRuleDialog";
 
 // ---- Axios instance (trỏ tới NestJS)
 const api = axios.create({
@@ -252,7 +253,6 @@ export default function CreateChapterPage({
             </div>
 
             <div className="space-y-2 overflow-y-auto flex-1 pr-1">
-
               {/* Skeleton */}
               {isLoadingList &&
                 Array.from({ length: 5 }).map((_, i) => (
@@ -375,8 +375,8 @@ export default function CreateChapterPage({
                   {isPending
                     ? "Creating..."
                     : isPublished
-                    ? "Create & Publish"
-                    : "Create Draft"}
+                      ? "Create & Publish"
+                      : "Create Draft"}
                 </button>
               </div>
             </div>
@@ -461,24 +461,26 @@ export default function CreateChapterPage({
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-slate-700">
-                        Point
-                      </label>
+                      <div className="flex items-center gap-2">
+                        <label className="block text-sm font-medium text-slate-700">
+                          Point
+                        </label>
+                        <PointRuleDialog />
+                      </div>
                       <input
                         type="number"
                         min={0}
-                        step="1000"
                         value={price}
                         onChange={(e) => {
-                          setPrice(parseInt(e.target.value || "0", 10));
+                          const value = Math.max(
+                            0,
+                            parseInt(e.target.value || "0"),
+                          );
+                          setPrice(value);
                           setDirty(true);
                         }}
-                        placeholder="Optional"
-                        className="mt-1 w-full rounded-xl border px-3.5 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-200 border-slate-300"
+                        className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-blue-200"
                       />
-                      <p className="mt-1 text-[11px] text-slate-500">
-                        Set to 0 if free
-                      </p>
                     </div>
                   </div>
 
@@ -513,7 +515,6 @@ export default function CreateChapterPage({
                     <div className="text-[11px] text-slate-500">
                       {liveWordCount} words
                     </div>
-                    
                   </div>
                 </div>
                 <div className="p-5 text-black">
@@ -530,7 +531,8 @@ export default function CreateChapterPage({
 
                   <div className="mt-2 flex items-center justify-between">
                     <p className="text-[11px] text-slate-500">
-                      You can save as draft or publish immediately. Content moderation may later mark it safe or reject it.
+                      You can save as draft or publish immediately. Content
+                      moderation may later mark it safe or reject it.
                     </p>
                     {dirty && (
                       <span className="text-[11px] text-amber-600">

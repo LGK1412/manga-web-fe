@@ -34,13 +34,14 @@ export default function PurchaseHistory() {
           `${process.env.NEXT_PUBLIC_API_URL}/api/chapter-purchase/history`,
           {
             withCredentials: true,
-          }
+          },
         );
         setHistory(res.data);
       } catch (error: any) {
         toast({
           title: "Error loading purchase history",
-          description: error.response?.data?.message || "Please try again later.",
+          description:
+            error.response?.data?.message || "Please try again later.",
           variant: "destructive",
         });
       } finally {
@@ -62,7 +63,7 @@ export default function PurchaseHistory() {
   if (history.length === 0)
     return (
       <div className="text-center py-10 text-gray-500">
-        You haven't purchased any chapters yet.
+        You haven&apos;t purchased any chapters yet.
       </div>
     );
 

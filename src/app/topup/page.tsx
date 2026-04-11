@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Zap, Crown, Gift } from "lucide-react";
 import axios from "axios";
-import Cookies from "js-cookie";
 import { useToast } from "@/hooks/use-toast";
 import { TransactionHistoryModal } from "@/components/TransactionHistoryModal";
 

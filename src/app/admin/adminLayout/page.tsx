@@ -212,7 +212,14 @@ const menuItems: MenuItem[] = [
 
 /** ===== Role -> Menu Access ===== */
 const ROLE_MENU_ACCESS: Record<Role, string[]> = {
-  admin: ["dashboard", "notifications", "policies", "audit-logs", "users"],
+  admin: [
+    "dashboard",
+    "notifications",
+    "policies",
+    "audit-logs",
+    "users",
+    "emoji-pack",
+  ],
 
   content_moderator: [
     "reports",
@@ -337,7 +344,9 @@ export default function AdminLayout({
   const hasStaffWorkspace =
     isLogin && !!currentRole && visibleMenuItems.length > 0;
   const canAccessStaffInbox =
-    !!currentRole && isStaffInboxRole(currentRole) && pathname === "/admin/my-notifications";
+    !!currentRole &&
+    isStaffInboxRole(currentRole) &&
+    pathname === "/admin/my-notifications";
   const canAccessCurrentPath =
     visibleMenuItems.some((item) => canAccessMenuPath(item, pathname)) ||
     canAccessStaffInbox;
@@ -410,7 +419,8 @@ export default function AdminLayout({
       });
       toast({
         title: "Login required",
-        description: "Please log in with a staff account to access the staff workspace.",
+        description:
+          "Please log in with a staff account to access the staff workspace.",
         variant: "destructive",
       });
       redirectTimerRef.current = setTimeout(() => {
@@ -427,7 +437,8 @@ export default function AdminLayout({
       });
       toast({
         title: "Access denied",
-        description: "Your account does not have permission to access the admin workspace.",
+        description:
+          "Your account does not have permission to access the admin workspace.",
         variant: "destructive",
       });
       redirectTimerRef.current = setTimeout(() => {
@@ -440,7 +451,8 @@ export default function AdminLayout({
       hasRedirectedRef.current = true;
       setRedirectNotice({
         title: "Redirecting to a workspace you can access",
-        description: "This role does not have access to the current admin page.",
+        description:
+          "This role does not have access to the current admin page.",
       });
       toast({
         title: "Access denied",
@@ -505,7 +517,9 @@ export default function AdminLayout({
       toast({
         title: "Logout failed",
         description:
-          error?.response?.data?.message || error?.message || "Unexpected error",
+          error?.response?.data?.message ||
+          error?.message ||
+          "Unexpected error",
         variant: "destructive",
       });
     } finally {
@@ -738,7 +752,9 @@ export default function AdminLayout({
                 ) : (
                   <LogOut className="h-4 w-4" />
                 )}
-                {open && <span>{isLoggingOut ? "Signing out..." : "Logout"}</span>}
+                {open && (
+                  <span>{isLoggingOut ? "Signing out..." : "Logout"}</span>
+                )}
               </Button>
             </div>
           </div>
@@ -781,9 +797,7 @@ export default function AdminLayout({
             </header>
 
             <main className="min-w-0 pb-3">
-              <div className="flex flex-col gap-6 px-1 py-1">
-                {children}
-              </div>
+              <div className="flex flex-col gap-6 px-1 py-1">{children}</div>
             </main>
           </div>
         </div>

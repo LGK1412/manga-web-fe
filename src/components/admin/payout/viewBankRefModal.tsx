@@ -52,12 +52,11 @@ export default function ViewBankRefModal({
     <Dialog>
       <DialogTrigger asChild>
         <Button
-          variant="outline"
-          size="sm"
-          className="text-blue-600 border-blue-200 hover:bg-blue-50 gap-2"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-blue-600 hover:bg-blue-50"
         >
           <Eye className="w-4 h-4" />
-          Document ({payout.bankBatchRef?.length || 0})
         </Button>
       </DialogTrigger>
 
@@ -113,7 +112,7 @@ export default function ViewBankRefModal({
                     ) : (
                       <div className="flex flex-col items-center gap-2">
                         <FileText className="w-12 h-12 text-blue-500" />
-                        <span className="text-[10px] font-medium text-slate-400 uppercase">
+                        <span className="text-[10px] font-medium tet-slate-400 uppercase">
                           {fileName.split(".").pop()} FILE
                         </span>
                       </div>
@@ -154,18 +153,6 @@ export default function ViewBankRefModal({
             })}
           </div>
         </div>
-
-        <DialogFooter className="sm:justify-start border-t pt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() =>
-              (document.querySelector('[data-state="open"]') as any)?.click()
-            }
-          >
-            Close
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

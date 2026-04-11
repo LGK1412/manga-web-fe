@@ -31,8 +31,8 @@ export default function CancelPayoutModal({
     if (!note.trim()) {
       return toast({
         variant: "destructive",
-        title: "Thiếu thông tin",
-        description: "Vui lòng nhập lý do hủy",
+        title: "Note cannot be empty",
+        description: "Please enter reason",
       });
     }
 
@@ -45,17 +45,17 @@ export default function CancelPayoutModal({
       );
 
       toast({
-        title: "Đã hủy",
-        description:
-          "Hồ sơ thanh toán đã được chuyển sang trạng thái Cancelled",
+        title: "Cancel successfully",
+        description: "Payout settlement status has been cancelled",
+        variant: "success",
       });
       setOpen(false);
       onSuccess();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể hủy hồ sơ này",
+        title: "Error while cancelling",
+        description: "Cannot cancel this settlement",
       });
     } finally {
       setLoading(false);
@@ -70,7 +70,7 @@ export default function CancelPayoutModal({
           variant="ghost"
           className="text-red-500 hover:text-red-700 hover:bg-red-50"
         >
-          <Ban className="w-4 h-4 mr-1" /> Hủy bỏ
+          <Ban className="w-4 h-4 mr-1" /> Cancel
         </Button>
       </DialogTrigger>
       <DialogContent>

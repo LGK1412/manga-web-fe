@@ -8,7 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { X, UploadCloud, CheckCircle2, Eye, Loader2 } from "lucide-react";
+import { X, UploadCloud, CheckCircle2, Loader2 } from "lucide-react";
 import { Label } from "../../ui/label";
 import { Button } from "../../ui/button";
 import axios from "axios";
@@ -92,16 +92,18 @@ export default function PayPayoutModal({
       );
 
       toast({
-        title: "Thành công",
-        description: "Đã xác nhận thanh toán thuế",
+        title: "Mark as paid successfully",
+        description: "Tax payment has been confirmed",
+        variant: "success",
       });
+
       setOpen(false);
-      onSuccess(); // Load lại danh sách
+      onSuccess();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể cập nhật trạng thái thanh toán",
+        title: "Error",
+        description: "Failed to update payment status",
       });
     } finally {
       setSubmitting(false);
