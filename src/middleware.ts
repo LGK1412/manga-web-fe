@@ -23,7 +23,7 @@ export async function middleware(req: NextRequest) {
     const role = user?.role
     const pathname = req.nextUrl.pathname
     const dontNeedLoginPages = ["/login", "/verify-email", "/register", "/forgot-password", "/reset-forgot-password"]
-    const mustLoginPages = ["/change-password"]
+    const mustLoginPages = ["/change-password","/topup"]
     const adminPages = ["/admin/dashboard", "/admin/user", "/admin/notifications", "/admin/notifications/send-general", "/admin/policies", "/admin/audit-logs"]
     const contentModerPages = ["/admin/user", "/admin/genre", "/admin/style", "/admin/report", "/admin/notifications", "/admin/notifications/send-general", "/admin/license-management", "/admin/moderation/queue", "/admin/moderation/workspace", "/admin/manga", "/admin/my-notifications"]
     const financialPages = ["admin/payout-profile", "/admin/user", "/admin/withdraw", "/admin/my-notifications"]
@@ -77,5 +77,5 @@ export const config = {
         "/author/chapter/:idStory/textChapter/create", "/author/chapter/:idStory/textChapter/edit/:id", "/author/manga/:id/license",
         "/admin/dashboard", "/admin/user", "/admin/notifications", "/admin/notifications/send-general", "/admin/policies", "/admin/audit-logs",
         "/admin/genre", "/admin/style", "/admin/report", "/admin/license-management", "/admin/moderation/queue", "/admin/moderation/workspace", "/admin/manga", "/admin/withdraw",
-        "/admin/comments", "/admin/my-notifications"],
+        "/admin/comments", "/admin/my-notifications","/topup"],
 }

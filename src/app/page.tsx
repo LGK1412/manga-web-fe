@@ -216,7 +216,7 @@ async function fetchLatestPage(
   const url = `${api}/api/manga/get/all?page=${page}&limit=${limit}`;
   const res = await axios.get(url, { withCredentials: true, signal });
   const parsed = parseListResponse(res.data, limit);
-
+  console.log("fetchLatestPage", { url, parsed });
   return {
     items: parsed.array.map(mapToCard),
     page: parsed.page > 0 ? parsed.page : page,
@@ -325,11 +325,10 @@ function NumberPager({
           <button
             key={it}
             onClick={() => onChange(it)}
-            className={`${btn} ${
-              it === safePage
+            className={`${btn} ${it === safePage
                 ? "bg-[#0D0D0D] dark:bg-primary text-white dark:text-primary-foreground border-black dark:border-primary"
                 : "border-gray-300 dark:border-input hover:bg-gray-50 dark:hover:bg-accent"
-            }`}
+              }`}
             aria-current={it === safePage ? "page" : undefined}
           >
             {String(it)}
@@ -338,9 +337,8 @@ function NumberPager({
       )}
 
       <button
-        className={`${btn} ${
-          safePage === safeTotalPages ? "cursor-not-allowed opacity-50" : ""
-        }`}
+        className={`${btn} ${safePage === safeTotalPages ? "cursor-not-allowed opacity-50" : ""
+          }`}
         onClick={() => safePage < safeTotalPages && onChange(safePage + 1)}
         disabled={safePage === safeTotalPages}
         aria-label="Next page"
@@ -349,9 +347,8 @@ function NumberPager({
       </button>
 
       <button
-        className={`${btn} ${
-          safePage === safeTotalPages ? "cursor-not-allowed opacity-50" : ""
-        }`}
+        className={`${btn} ${safePage === safeTotalPages ? "cursor-not-allowed opacity-50" : ""
+          }`}
         onClick={() => safePage < safeTotalPages && onChange(safeTotalPages)}
         disabled={safePage === safeTotalPages}
         aria-label="Last page"
@@ -606,11 +603,10 @@ export default function HomePage() {
                   <button
                     key={k}
                     onClick={() => setTab(k)}
-                    className={`rounded-full px-3 py-1 text-xs ${
-                      tab === k
+                    className={`rounded-full px-3 py-1 text-xs ${tab === k
                         ? "bg-black dark:bg-primary text-white dark:text-primary-foreground"
                         : "bg-white dark:bg-card text-gray-800 dark:text-foreground"
-                    }`}
+                      }`}
                   >
                     {k === "day" ? "Day" : k === "week" ? "Week" : "Month"}
                   </button>

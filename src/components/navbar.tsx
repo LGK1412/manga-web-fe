@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect, useLayoutEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -88,6 +88,9 @@ export function Navbar() {
   const canShowDaily =
     !isPointLoading && (role === "user" || role === "author");
 
+  const mounted = typeof window !== "undefined";
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const submitSearch = (q: string) => {
     const query = q.trim();
     if (!query) return;
@@ -106,12 +109,6 @@ export function Navbar() {
     e.preventDefault();
     submitSearch(searchQuery);
   };
-
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const syncUserFromCookie = () => {
     const raw = Cookies.get("user_normal_info");
@@ -140,8 +137,13 @@ export function Navbar() {
 
     window.addEventListener("auth:cookie-changed", handleAuthCookieChange);
 
+    intervalRef.current = setInterval(() => {
+      syncUserFromCookie();
+    }, 100);
+
     return () => {
       window.removeEventListener("auth:cookie-changed", handleAuthCookieChange);
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);
 
@@ -244,7 +246,6 @@ export function Navbar() {
             </div>
           </div>
 
-          {/* Desktop: centered search */}
           <form
             onSubmit={handleSearch}
             className="hidden md:block flex-1 max-w-md mx-4"

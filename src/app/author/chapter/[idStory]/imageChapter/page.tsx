@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition, useEffect } from "react";
+import { useMemo, useState, useTransition, useEffect, useRef } from "react";
 import { use } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
 import {
   BookOpen,
@@ -20,8 +20,17 @@ import {
   GripVertical,
   Save,
   HelpCircle,
+  RefreshCw,
+  ScanText,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUp,
+  ChevronsDown,
+  Upload,
 } from "lucide-react";
 import PointRuleDialog from "@/components/PointRuleDialog";
+import MangaOCRModal from "@/components/MangaOCRViewer";
+
 
 // ---- Axios instance
 const api = axios.create({
@@ -44,9 +53,16 @@ interface ImageFile {
   file?: File;
   previewUrl: string;
   isExisting?: boolean;
+  order?: number;
+  originalUrl?: string;
+  filename?: string;
 }
 
 // ---- Helpers
+function getImageUrl(chapterId: string, filename: string): string {
+  return `${process.env.NEXT_PUBLIC_API_URL}/uploads/image-chapters/${chapterId}/${filename}`;
+}
+
 function clsx(...classes: Array<string | boolean | undefined | null>) {
   return classes.filter(Boolean).join(" ");
 }
@@ -60,12 +76,17 @@ export default function CreateImageChapterPage({
   const mangaId = idStory;
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isCreatingMode, setIsCreatingMode] = useState(true);
+  const [currentEditingId, setCurrentEditingId] = useState<string | null>(null);
 
   // Loading states
   const [isLoadingList, setIsLoadingList] = useState(true);
+  const [isLoadingChapter, setIsLoadingChapter] = useState(false);
+  const [isLoadingTranslation, setIsLoadingTranslation] = useState(false);
 
   // Form State
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -74,6 +95,7 @@ export default function CreateImageChapterPage({
   const [price, setPrice] = useState<number>(0);
   const [isPublished, setIsPublished] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [content, setContent] = useState("");
   const [images, setImages] = useState<ImageFile[]>([]);
 
   const [errors, setErrors] = useState<{
@@ -83,6 +105,21 @@ export default function CreateImageChapterPage({
     images?: string;
   }>({});
   const [dirty, setDirty] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Refs
+  const imageContainerRef = useRef<HTMLDivElement>(null);
+  const scrollableContainerRef = useRef<HTMLDivElement>(null);
+  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Position input states
+  const [showPositionInput, setShowPositionInput] = useState<string | null>(null);
+  const [targetPosition, setTargetPosition] = useState<string>("");
+
+  // OCR states
+  const [ocrTargetUrl, setOcrTargetUrl] = useState<string | null>(null);
+  const [translationMode, setTranslationMode] = useState(false);
+  const [initialBubbles, setInitialBubbles] = useState<Record<string, any>>({});
 
   // --- GET: load chapters
   useEffect(() => {
@@ -114,6 +151,64 @@ export default function CreateImageChapterPage({
       mounted = false;
     };
   }, [mangaId]);
+
+  // Cleanup scroll interval
+  useEffect(() => {
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Reset dragging state when window loses focus
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener("blur", handleWindowBlur);
+    return () => {
+      window.removeEventListener("blur", handleWindowBlur);
+    };
+  }, []);
+
+  // Handle mouse wheel scroll during drag
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const container = scrollableContainerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Check if the target is within the scrollable container
+      const isWithinContainer = container.contains(e.target as Node);
+      if (!isWithinContainer) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Smooth scroll with better sensitivity
+      const scrollAmount = e.deltaY > 0 ? 60 : -60;
+      const currentScroll = container.scrollTop;
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      
+      // Ensure scroll doesn't go beyond bounds
+      const newScroll = Math.max(0, Math.min(currentScroll + scrollAmount, maxScroll));
+      
+      container.scrollTop = newScroll;
+    };
+
+    // Listen on document level with capture phase (passive: false allows preventDefault)
+    document.addEventListener("wheel", handleWheel, { 
+      capture: true,
+      passive: false 
+    });
+
+    return () => {
+      document.removeEventListener("wheel", handleWheel, { capture: true });
+    };
+  }, [isDragging]);
 
   // Image Handlers
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -153,9 +248,148 @@ export default function CreateImageChapterPage({
     return Object.keys(next).length === 0;
   }
 
+  // Fetch chapter data for editing
+  async function fetchChapterData(chapterId: string) {
+    if (!chapterId) return;
+    try {
+      setIsLoadingChapter(true);
+      const res = await api.get(`/image-chapter/id/${chapterId}`);
+      const data = res.data?.data;
+
+      setTitle(data.title);
+      setNumber(data.order);
+      setPrice(data.price || 0);
+      setIsPublished(data.is_published);
+
+      // Handle existing images
+      const existingImages =
+        data.images?.[0]?.images?.map((imgName: string, index: number) => ({
+          id: `existing-${index}`,
+          previewUrl: getImageUrl(chapterId, imgName),
+          isExisting: true,
+          originalUrl: getImageUrl(chapterId, imgName),
+          filename: imgName,
+          order: index,
+        })) || [];
+
+      setImages(existingImages);
+      setDirty(false);
+      setErrors({});
+    } catch (err) {
+      console.error("Error loading chapter data", err);
+      alert("Could not load chapter data");
+    } finally {
+      setIsLoadingChapter(false);
+    }
+  }
+
+  // Move image to specific position
+  function moveToPosition(index: number, position: "first" | "last") {
+    const newImages = [...images];
+    const item = newImages.splice(index, 1)[0];
+
+    if (position === "first") {
+      newImages.unshift(item);
+    } else {
+      newImages.push(item);
+    }
+
+    const reorderedImages = newImages.map((img, i) => ({
+      ...img,
+      order: i,
+    }));
+
+    setImages(reorderedImages);
+    setDirty(true);
+  }
+
+  // Auto scroll functionality
+  function startAutoScroll(direction: "up" | "down") {
+    if (scrollIntervalRef.current) return;
+
+    const container = scrollableContainerRef.current;
+    if (!container) return;
+
+    const scrollAmount = direction === "up" ? -50 : 50;
+
+    scrollIntervalRef.current = setInterval(() => {
+      container.scrollBy({
+        top: scrollAmount,
+        behavior: "smooth",
+      });
+    }, 100);
+  }
+
+  function stopAutoScroll() {
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+  }
+
+  function handleMouseDownMove(index: number, direction: "up" | "down") {
+    moveImage(index, direction);
+    startAutoScroll(direction);
+  }
+
+  function handleMouseDownMoveToPosition(
+    index: number,
+    position: "first" | "last"
+  ) {
+    moveToPosition(index, position);
+    startAutoScroll(position === "first" ? "up" : "down");
+  }
+
+  function moveToSpecificPosition(currentIndex: number, targetPos: number) {
+    const targetIndex = targetPos - 1;
+    if (
+      targetIndex < 0 ||
+      targetIndex >= images.length ||
+      targetIndex === currentIndex
+    ) {
+      return;
+    }
+
+    const newImages = [...images];
+    const item = newImages.splice(currentIndex, 1)[0];
+    newImages.splice(targetIndex, 0, item);
+
+    const reorderedImages = newImages.map((img, i) => ({
+      ...img,
+      order: i,
+    }));
+
+    setImages(reorderedImages);
+    setDirty(true);
+  }
+
+  function handlePositionSubmit(imageId: string, currentIndex: number) {
+    const pos = Number.parseInt(targetPosition);
+    if (pos >= 1 && pos <= images.length) {
+      moveToSpecificPosition(currentIndex, pos);
+    }
+    setShowPositionInput(null);
+    setTargetPosition("");
+  }
+
+  function handlePositionKeyPress(
+    e: React.KeyboardEvent,
+    imageId: string,
+    currentIndex: number
+  ) {
+    if (e.key === "Enter") {
+      handlePositionSubmit(imageId, currentIndex);
+    } else if (e.key === "Escape") {
+      setShowPositionInput(null);
+      setTargetPosition("");
+    }
+  }
+
   async function handleCreateNew() {
     setIsEditMode(false);
     setEditingId(null);
+    setIsCreatingMode(true);
+    setCurrentEditingId(null);
 
     setTitle("");
     setPrice(0);
@@ -176,35 +410,152 @@ export default function CreateImageChapterPage({
 
   async function handleEdit(id: string) {
     try {
-      const res = await api.get(`/image-chapter/id/${id}`);
-      const data = res.data?.data;
-
       setIsEditMode(true);
       setEditingId(id);
+      setIsCreatingMode(false);
+      setCurrentEditingId(id);
+      setChapters((prev) =>
+        prev.map((c) => ({ ...c, isActive: c.id === id }))
+      );
       setErrors({});
-
-      setTitle(data.title);
-      setNumber(data.order);
-      setPrice(data.price || 0);
-      setIsPublished(data.is_published);
-
-      // Xử lý hiển thị ảnh cũ
-      const existingImages =
-        data.images?.[0]?.images?.map((imgName: string) => ({
-          id: crypto.randomUUID(),
-          previewUrl: `${process.env.NEXT_PUBLIC_API_URL}/uploads/image-chapters/${id}/${imgName}`,
-          isExisting: true,
-        })) || [];
-
-      setImages(existingImages);
-      setDirty(false);
-
-      // Cuộn lên đầu form
+      await fetchChapterData(id);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       console.error(err);
       alert("Could not load chapter data");
     }
+  }
+
+  async function handleEditChapter(chapterId: string) {
+    await handleEdit(chapterId);
+  }
+
+  async function handleSaveDraft() {
+    if (!validate()) return;
+
+    startTransition(async () => {
+      try {
+        const formData = new FormData();
+        formData.append("title", title);
+        formData.append("order", number.toString());
+        formData.append("price", price.toString());
+        formData.append("is_published", "false");
+        formData.append("is_completed", String(isCompleted));
+
+        if (isEditMode && editingId) {
+          // UPDATE DRAFT: Send kept_images for deletion/reordering
+          const keptImages = images
+            .filter((img) => img.isExisting)
+            .map((img) => img.filename)
+            .filter(Boolean);
+
+          formData.append("kept_images", JSON.stringify(keptImages));
+
+          images.forEach((img) => {
+            if (!img.isExisting && img.file) {
+              formData.append("images", img.file);
+            }
+          });
+
+          await api.patch(`/image-chapter/${editingId}`, formData);
+          alert("Draft updated successfully!");
+          setDirty(false);
+        } else {
+          // CREATE
+          formData.append("manga_id", mangaId as string);
+
+          images.forEach((img) => {
+            if (img.file) {
+              formData.append("images", img.file);
+            }
+          });
+
+          await api.post(`/image-chapter`, formData);
+          alert("Draft saved successfully!");
+          handleDiscard();
+        }
+
+        const res = await api.get(`/image-chapter/${mangaId}`);
+        setChapters(
+          res.data.map((c: any) => ({
+            id: c._id,
+            title: c.title,
+            number: c.order,
+            price: c.price ?? 0,
+            isPublished: !!c.is_published,
+          }))
+        );
+      } catch (err: any) {
+        alert(err?.response?.data?.message || "Error saving draft");
+      }
+    });
+  }
+
+  async function handleOpenTranslation() {
+    if (!currentEditingId) return;
+
+    setIsLoadingTranslation(true);
+    try {
+      const res = await fetch("/api/getTranslation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chapterId: currentEditingId }),
+      });
+      const data = await res.json();
+
+      if (data.pages && data.pages.length > 0) {
+        const newBubbles: Record<string, any> = {};
+        data.pages.forEach((page: any) => {
+          const imgId =
+            images.find((img) => img.order === page.pageOrder)?.id ||
+            `page-${page.pageOrder}`;
+
+          newBubbles[imgId] = page.bubbles.map((b: any) => ({
+            id: b.box_id,
+            x: b.coordinates.x,
+            y: b.coordinates.y,
+            w: b.coordinates.w,
+            h: b.coordinates.h,
+            text: b.original_text,
+            translations: Array.isArray(b.translations)
+              ? b.translations.reduce(
+                (acc: any, t: any) => {
+                  acc[t.language] = t.text;
+                  return acc;
+                },
+                {} as Record<string, string>
+              )
+              : b.translations || {},
+          }));
+        });
+        setInitialBubbles(newBubbles);
+      }
+    } catch (err) {
+      console.error("Error loading translation:", err);
+    } finally {
+      setIsLoadingTranslation(false);
+      setTranslationMode(true);
+    }
+  }
+
+  function handleStartNewChapter() {
+    setIsCreatingMode(true);
+    setIsEditMode(false);
+    setEditingId(null);
+    setCurrentEditingId(null);
+    handleCreateNew();
+  }
+
+  function resetForm() {
+    setTitle("");
+    setNumber(chapters.length + 2);
+    setPrice(0);
+    setImages([]);
+    setDirty(false);
+    setIsCreatingMode(true);
+    setIsEditMode(false);
+    setEditingId(null);
+    setCurrentEditingId(null);
   }
 
   async function handleSubmit() {
@@ -220,24 +571,15 @@ export default function CreateImageChapterPage({
         formData.append("is_completed", String(isCompleted));
 
         if (isEditMode && editingId) {
-          // --- UPDATE ---
-          const existingImages = images
+          // --- UPDATE: Send kept_images in correct order + new images ---
+          const keptImages = images
             .filter((img) => img.isExisting)
-            .map((img, index) => ({
-              url: img.previewUrl,
-              order: index,
-            }));
+            .map((img) => img.filename)
+            .filter(Boolean);
 
-          const newImagesMeta = images
-            .filter((img) => !img.isExisting)
-            .map((img, index) => ({
-              originalname: img.file?.name,
-              order: index,
-            }));
+          formData.append("kept_images", JSON.stringify(keptImages));
 
-          formData.append("existing_images", JSON.stringify(existingImages));
-          formData.append("new_images_meta", JSON.stringify(newImagesMeta));
-
+          // Only append new (non-existing) images
           images.forEach((img) => {
             if (!img.isExisting && img.file) {
               formData.append("images", img.file);
@@ -245,9 +587,8 @@ export default function CreateImageChapterPage({
           });
 
           await api.patch(`/image-chapter/${editingId}`, formData);
-
           alert("Update successful!");
-          setDirty(false); // không reset form khi edit
+          setDirty(false);
         } else {
           // --- CREATE ---
           formData.append("manga_id", mangaId);
@@ -259,9 +600,7 @@ export default function CreateImageChapterPage({
           });
 
           await api.post(`/image-chapter`, formData);
-
           alert("Create successful!");
-
           handleDiscard();
         }
 
@@ -284,13 +623,21 @@ export default function CreateImageChapterPage({
   }
 
   function handleDiscard() {
-    setTitle("");
-    setNumber(chapters.length + 1);
-    setImages([]);
-    setPrice(0);
-    setIsPublished(false);
+    if (isCreatingMode) {
+      setTitle("");
+      setNumber(chapters.length + 1);
+      setContent("");
+      setPrice(0);
+      setImages([]);
+    } else {
+      if (currentEditingId) {
+        fetchChapterData(currentEditingId);
+      }
+    }
     setDirty(false);
     setErrors({});
+    setIsPublished(false);
+    setIsCompleted(false);
   }
 
   async function handleDelete(id: string) {
@@ -298,6 +645,9 @@ export default function CreateImageChapterPage({
     try {
       await api.delete(`/image-chapter/${id}`);
       setChapters((prev) => prev.filter((c) => c.id !== id));
+      if (currentEditingId === id) {
+        handleStartNewChapter();
+      }
     } catch (err) {
       alert("Error deleting chapter");
     }
@@ -508,7 +858,7 @@ export default function CreateImageChapterPage({
                         ? "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                         : "border border-slate-200 bg-white text-slate-800 hover:bg-slate-50"
                       : // Create mode style
-                        isPending || !mangaId
+                      isPending || !mangaId
                         ? "bg-blue-400 text-white cursor-not-allowed"
                         : "bg-blue-600 text-white hover:bg-blue-700",
                   )}
@@ -536,7 +886,7 @@ export default function CreateImageChapterPage({
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
+          <div ref={scrollableContainerRef} className="flex-1 p-4 sm:p-6 overflow-y-auto">
             <div className="mx-auto w-full max-w-3xl space-y-6">
               {/* Info Card */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
@@ -662,7 +1012,6 @@ export default function CreateImageChapterPage({
                 </div>
               </div>
 
-              {/* Image Upload Card (Thay cho RichEditor) */}
               {/* Image Upload Card */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <div className="p-5 border-b border-slate-200">
@@ -672,21 +1021,40 @@ export default function CreateImageChapterPage({
                         Chapter Images
                       </h3>
                       <p className="text-xs text-slate-500 mt-1">
-                        Upload images in reading order
+                        {translationMode
+                          ? "Đang ở chế độ OCR & Dịch toàn chapter"
+                          : isEditMode
+                            ? "Edit and rearrange images..."
+                            : "Upload and arrange images..."}
                       </p>
                     </div>
 
-                    <label className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 cursor-pointer">
-                      <UploadCloud className="h-4 w-4" />
-                      Upload Images
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                    </label>
+                    {/* Batch OCR Button */}
+                    {images.length > 0 && !translationMode && (
+                      <button
+                        onClick={handleOpenTranslation}
+                        disabled={isLoadingTranslation || !currentEditingId}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold rounded-2xl hover:from-violet-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      >
+                        {isLoadingTranslation ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <ScanText className="h-5 w-5" />
+                        )}
+                        🚀 OCR & Dịch Toàn Bộ Chapter
+                      </button>
+                    )}
+
+                    {/* Upload Button */}
+                    {!translationMode && (
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <Upload className="h-4 w-4" />
+                        {isCreatingMode ? "Upload Images" : "Add Images"}
+                      </button>
+                    )}
                   </div>
 
                   {errors.images && (
@@ -694,84 +1062,167 @@ export default function CreateImageChapterPage({
                   )}
                 </div>
 
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => handleImageUpload(e)}
+                  className="hidden"
+                />
+
                 <div className="p-5 space-y-4">
-                  {images.length === 0 && (
-                    <label className="flex flex-col items-center justify-center gap-3 py-14 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 transition-all">
-                      <UploadCloud className="h-8 w-8 text-slate-400" />
+                  {images.length === 0 ? (
+                    <label
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center gap-3 py-14 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 transition-all"
+                    >
+                      <ImageIcon className="h-16 w-16 text-slate-400" />
 
                       <div className="text-center">
-                        <p className="text-sm font-medium text-slate-700">
-                          Upload chapter images
+                        <p className="text-lg font-medium text-slate-700 mb-3">
+                          {isCreatingMode
+                            ? "No images yet"
+                            : "This chapter has no images"}
                         </p>
-                        <p className="text-xs text-slate-500 mt-1">
-                          Click to upload or drag and drop
+                        <p className="text-sm text-slate-500 mb-6">
+                          Drag and drop or click to select multiple images
                         </p>
                       </div>
 
-                      <span className="text-xs text-blue-600 font-medium">
-                        Supports multiple images
-                      </span>
-
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
+                      <button className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                        <Upload className="h-5 w-5" />
+                        Select Images
+                      </button>
                     </label>
-                  )}
-
-                  {images.map((img, index) => (
-                    <div
-                      key={img.id}
-                      className="group relative border border-slate-200 rounded-xl p-3 bg-white hover:border-blue-300 transition-all shadow-sm"
-                    >
-                      {/* Header */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-slate-500">
-                            Image {index + 1}
+                  ) : (
+                    <div className="space-y-6">
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-lg font-medium text-slate-700">
+                            {images.length} image
+                            {images.length !== 1 ? "s" : ""}{" "}
+                            {isCreatingMode ? "selected" : "in chapter"}
+                          </span>
+                          <span className="text-sm text-slate-500">
+                            Drag and drop to rearrange or use move buttons
                           </span>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => moveImage(index, "up")}
-                            disabled={index === 0}
-                            className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-20 text-slate-600"
-                          >
-                            <ArrowLeft className="h-4 w-4 rotate-90" />
-                          </button>
+                        {/* ==================== DANH SÁCH ẢNH CÓ DRAG & DROP ==================== */}
+                        <div ref={imageContainerRef} className="space-y-3">
+                          {images
+                            .sort((a, b) => (a.order || 0) - (b.order || 0))
+                            .map((imageFile, index) => (
+                              <div
+                                key={imageFile.id}
+                                draggable
+                                onDragStart={(e) => {
+                                  setIsDragging(true);
+                                  e.dataTransfer.setData("text/plain", index.toString());
+                                  e.currentTarget.classList.add("opacity-30", "scale-95");
+                                }}
+                                onDragEnd={(e) => {
+                                  setIsDragging(false);
+                                  e.currentTarget.classList.remove("opacity-30", "scale-95");
+                                }}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  const draggedIndex = parseInt(e.dataTransfer.getData("text/plain"));
+                                  const newImages = [...images];
 
-                          <button
-                            onClick={() => moveImage(index, "down")}
-                            disabled={index === images.length - 1}
-                            className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-20 text-slate-600"
-                          >
-                            <ArrowLeft className="h-4 w-4 -rotate-90" />
-                          </button>
+                                  const [movedItem] = newImages.splice(draggedIndex, 1);
+                                  newImages.splice(index, 0, movedItem);
 
-                          <button
-                            onClick={() => removeImage(img.id)}
-                            className="p-1.5 rounded hover:bg-red-50 text-red-500"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                                  // Cập nhật lại order
+                                  const reordered = newImages.map((img, i) => ({
+                                    ...img,
+                                    order: i,
+                                  }));
+
+                                  setImages(reordered);
+                                  setDirty(true);
+                                }}
+                                className={`flex items-start gap-6 p-6 bg-white border rounded-2xl hover:bg-slate-50 transition-all cursor-grab active:cursor-grabbing shadow-sm ${imageFile.isExisting
+                                  ? "border-slate-200"
+                                  : "border-blue-200 ring-1 ring-blue-100"
+                                  }`}
+                              >
+                                {/* Số thứ tự + nút position */}
+                                <div className="text-sm font-mono w-12 text-center mt-2">
+                                  {showPositionInput === imageFile.id ? (
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max={images.length}
+                                      value={targetPosition}
+                                      onChange={(e) => setTargetPosition(e.target.value)}
+                                      onKeyDown={(e) =>
+                                        handlePositionKeyPress(e, imageFile.id, index)
+                                      }
+                                      onBlur={() => {
+                                        setShowPositionInput(null);
+                                        setTargetPosition("");
+                                      }}
+                                      className="w-12 h-8 text-sm text-center border border-blue-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      autoFocus
+                                    />
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setShowPositionInput(imageFile.id);
+                                        setTargetPosition((index + 1).toString());
+                                      }}
+                                      className="w-12 h-8 text-sm font-mono text-slate-700 border border-slate-300 bg-slate-50 rounded-md hover:border-blue-400 hover:text-blue-600 transition-all"
+                                    >
+                                      {index + 1}
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Ảnh preview */}
+                                <div className="flex-1">
+                                  <img
+                                    src={imageFile.previewUrl}
+                                    alt={`Preview ${index + 1}`}
+                                    className="w-full max-w-4xl mx-auto object-contain rounded-2xl border shadow-sm"
+                                    style={{ maxHeight: "90vh" }}
+                                  />
+                                  <div className="mt-4 text-center">
+                                    <p className="text-sm font-medium text-slate-700">
+                                      {imageFile.isExisting
+                                        ? `Ảnh ${index + 1} (cũ)`
+                                        : imageFile.filename || `Ảnh ${index + 1}`}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Control buttons */}
+                                <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                                  {/* Nút OCR và Xóa */}
+                                  <button
+                                    onClick={() => setOcrTargetUrl(imageFile.previewUrl)}
+                                    className="p-2 rounded-xl hover:bg-emerald-50 text-emerald-600"
+                                    title="OCR & Dịch ảnh này"
+                                  >
+                                    <ScanText className="h-7 w-7" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => removeImage(imageFile.id)}
+                                    className="p-2 rounded-xl hover:bg-red-50 text-red-500"
+                                    title="Xóa ảnh"
+                                  >
+                                    <Trash2 className="h-7 w-7" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
                         </div>
-                      </div>
-
-                      {/* Image */}
-                      <div className="w-full rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                        <img
-                          src={img.previewUrl}
-                          alt={`Page ${index + 1}`}
-                          className="w-full object-contain max-h-[600px]"
-                        />
-                      </div>
+                      </>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
 
@@ -780,6 +1231,31 @@ export default function CreateImageChapterPage({
           </div>
         </main>
       </div>
+
+      {/* OCR Modal */}
+      {ocrTargetUrl && (
+        <MangaOCRModal
+          imageUrl={ocrTargetUrl}
+          onClose={() => setOcrTargetUrl(null)}
+        />
+      )}
+
+      {/* Batch OCR & Translation Modal */}
+      {translationMode && (
+        <MangaOCRModal
+          chapterId={currentEditingId as string}
+          chapterImages={images.map((img) => ({
+            id: img.id,
+            preview: img.previewUrl,
+            order: img.order || 0,
+          }))}
+          initialBubbles={initialBubbles}
+          onClose={() => {
+            setTranslationMode(false);
+            setInitialBubbles({});
+          }}
+        />
+      )}
     </div>
   );
 }

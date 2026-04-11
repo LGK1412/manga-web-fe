@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Zap, Crown, Gift } from "lucide-react";
+import { Sparkles, Zap, Crown, Gift, ArrowLeft } from "lucide-react";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 import { TransactionHistoryModal } from "@/components/TransactionHistoryModal";
@@ -26,6 +27,7 @@ interface Transaction {
 }
 
 export default function TopupPage() {
+  const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
@@ -76,8 +78,8 @@ export default function TopupPage() {
     try {
       if (!user?.user_id) {
         toast({
-          title: "Lack of login information!",
-          description: "Please login before buying point",
+          title: "Not Logged In",
+          description: "Please log in before purchasing points",
           variant: "destructive",
         });
         return;
@@ -97,6 +99,11 @@ export default function TopupPage() {
         "Error creating payment URL",
         error.response?.data || error.message,
       );
+      toast({
+        title: "Error",
+        description: "Failed to create payment. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -114,33 +121,43 @@ export default function TopupPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900 p-6">
       {/* Header Section */}
-      <div className="flex justify-end max-w-6xl mx-auto mb-6">
+      <div className="flex justify-between items-center max-w-6xl mx-auto mb-8">
+        <Button
+          onClick={() => router.back()}
+          variant="ghost"
+          className="group flex items-center gap-2 text-slate-400 transition-colors hover:bg-slate-800/50 hover:text-slate-100"
+        >
+          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+          Back
+        </Button>
         <Button
           onClick={() => {
             fetchTransactions();
             setShowModal(true);
           }}
-          className="bg-blue-600 hover:bg-blue-800 text-white"
+          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
         >
-          Lịch sử giao dịch
+          Transaction History
         </Button>
       </div>
 
       <div className="max-w-6xl mx-auto mb-12 text-center">
-        <h1 className="text-5xl font-bold text-white mb-4 text-balance">
-          Nạp Điểm Đọc Truyện
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <h1 className="text-5xl font-bold text-white text-balance">
+            Top Up Points
+          </h1>
           <Sparkles
-            className="inline-block ml-2 text-teal-400 animate-pulse"
+            className="text-teal-400 animate-pulse flex-shrink-0"
             size={40}
           />
-        </h1>
-        <p className="text-xl text-slate-300 text-pretty">
-          Khám phá thế giới truyện tranh không giới hạn với các gói nạp hấp dẫn
+        </div>
+        <p className="text-xl text-slate-300 text-pretty max-w-2xl mx-auto">
+          Discover unlimited manga stories with our attractive top-up packages and special bonuses
         </p>
       </div>
 
       {/* Packages Grid */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {packages.map((pkg, index) => {
           const delay = index * 0.1;
           const showBonus = pkg.effectivePoints > pkg.points;
@@ -152,36 +169,38 @@ export default function TopupPage() {
               style={{ animationDelay: `${delay}s` }}
             >
               <div className="flex flex-col items-center text-center space-y-4">
-                {/* Giá + điểm cơ bản */}
+                {/* Price + Base Points */}
                 <div className="space-y-2">
                   <p className="text-3xl font-bold text-white">
                     {pkg.price.toLocaleString()}
                     <span className="text-lg text-teal-300 ml-1">VND</span>
                   </p>
                   <p className="text-lg text-gray-400">
-                    {pkg.points} điểm cơ bản
+                    {pkg.points} base points
                   </p>
                 </div>
 
                 <div className="w-full h-px bg-gradient-to-r from-transparent via-teal-500 to-transparent"></div>
 
-                {/* Chỉ hiển thị phần bonus nếu còn */}
+                {/* Display bonus if available */}
                 {showBonus && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-center space-x-2">
-                      <Zap className="text-cyan-400" size={24} />
-                      <p className="text-2xl font-bold text-cyan-400 flex items-center gap-1">
-                        {pkg.effectivePoints.toLocaleString()}
-                        <Gift
-                          className="text-yellow-400 animate-pulse"
-                          size={20}
-                        />
+                  <div className="space-y-2 w-full">
+                    <div className="bg-gradient-to-r from-cyan-500/20 to-teal-500/20 rounded-lg p-3 border border-cyan-400/30">
+                      <div className="flex items-center justify-center space-x-2">
+                        <Zap className="text-cyan-400" size={24} />
+                        <p className="text-2xl font-bold text-cyan-400 flex items-center gap-1">
+                          {pkg.effectivePoints.toLocaleString()}
+                          <Gift
+                            className="text-yellow-400 animate-pulse"
+                            size={20}
+                          />
+                        </p>
+                        <span className="text-lg text-teal-300">points</span>
+                      </div>
+                      <p className="text-xs text-green-400 font-medium text-center mt-2">
+                        🎁 Bonus 2x points on first purchase this month!
                       </p>
-                      <span className="text-lg text-teal-300">điểm</span>
                     </div>
-                    <p className="text-xs text-green-400 font-medium">
-                      Bonus x2 điểm lần đầu trong tháng!
-                    </p>
                   </div>
                 )}
 
@@ -189,7 +208,7 @@ export default function TopupPage() {
                   className="w-full py-3 font-bold text-lg transition-all duration-300 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-teal-500/25"
                   onClick={() => handleBuy(pkg)}
                 >
-                  MUA NGAY
+                  BUY NOW
                 </Button>
               </div>
             </Card>
@@ -198,23 +217,23 @@ export default function TopupPage() {
       </div>
 
       {/* Bottom info section */}
-      <div className="mt-12 text-center">
-        <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20">
-          <h3 className="text-xl font-bold text-white mb-3">
-            Tại sao chọn chúng tôi?
+      <div className="mt-16 text-center">
+        <div className="bg-gradient-to-r from-slate-800/50 to-teal-800/30 backdrop-blur-sm rounded-2xl p-8 border border-teal-500/30 shadow-xl">
+          <h3 className="text-2xl font-bold text-white mb-6">
+            Why Choose Us?
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-300">
-            <div className="flex items-center justify-center space-x-2">
-              <Zap className="text-cyan-400" size={16} />
-              <span>Nạp điểm tức thì</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-slate-300">
+            <div className="flex flex-col items-center justify-center space-y-2 p-4 rounded-lg bg-cyan-500/10 border border-cyan-400/20">
+              <Zap className="text-cyan-400" size={24} />
+              <span className="font-medium">Instant Points</span>
             </div>
-            <div className="flex items-center justify-center space-x-2">
-              <Crown className="text-yellow-400" size={16} />
-              <span>Ưu đãi độc quyền</span>
+            <div className="flex flex-col items-center justify-center space-y-2 p-4 rounded-lg bg-yellow-500/10 border border-yellow-400/20">
+              <Crown className="text-yellow-400" size={24} />
+              <span className="font-medium">Exclusive Deals</span>
             </div>
-            <div className="flex items-center justify-center space-x-2">
-              <Crown className="text-yellow-400" size={16} />
-              <span>Đảm bảo an toàn</span>
+            <div className="flex flex-col items-center justify-center space-y-2 p-4 rounded-lg bg-green-500/10 border border-green-400/20">
+              <Crown className="text-green-400" size={24} />
+              <span className="font-medium">100% Secure</span>
             </div>
           </div>
         </div>

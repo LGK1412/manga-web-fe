@@ -615,9 +615,6 @@ export default function AuthorDashboard() {
                   <div className="border-t border-border/70 pt-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          Danger zone
-                        </p>
                         {story.isDeleted ? (
                           <p className="text-sm text-muted-foreground">
                             Restore this story to make it active again.
