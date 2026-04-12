@@ -320,6 +320,7 @@ export default function AdminLayout({
   const [open, setOpen] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const hasRedirectedRef = useRef(false);
+  const intentionalLogoutRef = useRef(false);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [redirectNotice, setRedirectNotice] = useState<{
     title: string;
@@ -408,7 +409,9 @@ export default function AdminLayout({
   }, [pathname, isGroupActive, visibleMenuItems]);
 
   useEffect(() => {
-    if (loadingRole || hasRedirectedRef.current) return;
+    if (loadingRole || hasRedirectedRef.current || intentionalLogoutRef.current) {
+      return;
+    }
 
     if (!isLogin) {
       hasRedirectedRef.current = true;
@@ -510,9 +513,15 @@ export default function AdminLayout({
         throw new Error(res.data?.message || "Unexpected error");
       }
 
+      intentionalLogoutRef.current = true;
+      setRedirectNotice(null);
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = null;
+      }
       await removeCookie();
       setLoginStatus(false);
-      router.push("/login");
+      router.replace("/login");
     } catch (error: any) {
       toast({
         title: "Logout failed",
