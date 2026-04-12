@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeWrapper } from "@/components/theme-wrapper";
 import { Toaster } from "@/components/ui/toaster";
 import FCMToken from "@/components/firebase/FCMToken";
 import SWRegister from "@/components/firebase/SWRegister";
@@ -15,7 +15,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Manga World - Read & Write Manga",
   description: "A platform for reading and writing manga",
-  generator: "v0.app",
+  generator: "v1.app",
 };
 
 export default function RootLayout({
@@ -26,12 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <ThemeWrapper>
           <FCMToken />
           <SWRegister />
           <AuthProvider>
@@ -40,7 +35,7 @@ export default function RootLayout({
               <Toaster />
             </UserPointProvider>
           </AuthProvider>
-        </ThemeProvider>
+        </ThemeWrapper>
       </body>
     </html>
   );

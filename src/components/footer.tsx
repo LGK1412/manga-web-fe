@@ -36,12 +36,6 @@ export function Footer({
       ],
     },
     {
-      title: "Account",
-      links: [
-        { label: "Login", href: "/login" },
-      ],
-    },
-    {
       title: "Information",
       links: [
         { label: "About Us", href: FACEBOOK_CONTACT_URL },

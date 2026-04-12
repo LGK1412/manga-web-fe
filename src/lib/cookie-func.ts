@@ -8,6 +8,7 @@ function notifyAuthCookieChange() {
 
 export async function removeCookie() {
     await Cookies.remove("user_normal_info", { path: "/" })
+    window.dispatchEvent(new Event("auth:cookie-changed"));
     notifyAuthCookieChange()
 }
 

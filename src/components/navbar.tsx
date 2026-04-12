@@ -158,6 +158,7 @@ export function Navbar() {
 
       if (res.data.success) {
         await removeCookie();
+        window.dispatchEvent(new Event("auth:cookie-changed"));
         setLoginStatus(false);
         router.push("/login");
       } else {
