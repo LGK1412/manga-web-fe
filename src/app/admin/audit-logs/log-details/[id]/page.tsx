@@ -732,11 +732,7 @@ export default function AuditLogDetailsPage() {
                 <CardTitle className="text-base font-semibold text-slate-950">
                   Change details
                 </CardTitle>
-                <p className="text-sm leading-6 text-slate-500">
-                  {hasEvidence
-                    ? "Compare snapshots and inspect the supporting evidence attached to this record."
-                    : "Compare the captured before and after snapshots for this record."}
-                </p>
+                
               </CardHeader>
 
               <CardContent>
@@ -930,16 +926,7 @@ export default function AuditLogDetailsPage() {
                     Refresh record
                   </Button>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    onClick={fetchMe}
-                    disabled={loading}
-                  >
-                    <RefreshCcw className="mr-2 h-4 w-4" />
-                    Retry role check
-                  </Button>
+                  
                 </div>
               </div>
             </CardContent>

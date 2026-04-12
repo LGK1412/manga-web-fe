@@ -107,8 +107,6 @@ type QuickFilterKey =
 
 type ActionDialogType =
   | null
-  | "approve-license"
-  | "reject-license"
   | "publish"
   | "unpublish"
   | "suspend"
@@ -230,7 +228,6 @@ export default function MangaManagementPage() {
   const [detailTab, setDetailTab] = useState<DetailTab>("overview");
 
   const [actionDialog, setActionDialog] = useState<ActionDialogType>(null);
-  const [rejectReason, setRejectReason] = useState("");
   const [enforcementReason, setEnforcementReason] = useState("");
 
   const totalPages = Math.max(1, Math.ceil(total / Number(limit || 5)));
@@ -324,7 +321,7 @@ export default function MangaManagementPage() {
     enforcementStatus: EnforcementStatus;
   }) => {
     if (manga.enforcementStatus !== "normal") return "Enforcement follow-up";
-    if (manga.licenseStatus === "pending") return "License review";
+    if (manga.licenseStatus === "pending") return "License pending";
     if (
       manga.publicationStatus !== "published" &&
       manga.licenseStatus === "approved"
@@ -370,7 +367,7 @@ export default function MangaManagementPage() {
     }
 
     if (manga.licenseStatus === "rejected") {
-      return "License review was rejected. Re-check the submission before any publication action.";
+      return "License was rejected. Re-check the submission before any publication action.";
     }
 
     if (
@@ -394,7 +391,7 @@ export default function MangaManagementPage() {
     }
 
     if (manga.licenseStatus === "pending") {
-      return `License review is still pending. Submitted ${formatDate(
+      return `License is still pending. Submitted ${formatDate(
         manga.licenseSubmittedAt,
       )}.`;
     }
@@ -403,7 +400,7 @@ export default function MangaManagementPage() {
       const latestRejectReason = getLatestRejectReason(manga);
       return latestRejectReason
         ? truncateText(latestRejectReason, 180)
-        : "The last license review was rejected. Check the supporting note and files before proceeding.";
+        : "The last license submission was rejected. Check the supporting note and files before proceeding.";
     }
 
     if (
@@ -426,16 +423,6 @@ export default function MangaManagementPage() {
     icon: LucideIcon;
     className: string;
   } | null => {
-    if (manga.licenseStatus === "pending") {
-      return {
-        label: "Review license",
-        tab: "overview",
-        icon: FileCheck,
-        className:
-          "border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800",
-      };
-    }
-
     if (manga.enforcementStatus !== "normal") {
       return {
         label: "Enforcement",
@@ -701,7 +688,6 @@ export default function MangaManagementPage() {
   const closeActionDialog = () => {
     if (actionLoading) return;
     setActionDialog(null);
-    setRejectReason("");
     setEnforcementReason("");
   };
 
@@ -716,50 +702,6 @@ export default function MangaManagementPage() {
       setActionLoading(true);
 
       switch (actionDialog) {
-        case "approve-license": {
-          await axios.patch(
-            `${API_URL}/api/manga/admin/license/${selectedManga.id}/review`,
-            {
-              status: "approved",
-              publishAfterApprove: false,
-            },
-            { withCredentials: true },
-          );
-
-          toast({
-            title: "License approved",
-            description: "The license has been approved successfully.",
-          });
-          break;
-        }
-
-        case "reject-license": {
-          if (!rejectReason.trim()) {
-            toast({
-              title: "Missing reason",
-              description: "Please enter a reject reason.",
-              variant: "destructive",
-            });
-            setActionLoading(false);
-            return;
-          }
-
-          await axios.patch(
-            `${API_URL}/api/manga/admin/license/${selectedManga.id}/review`,
-            {
-              status: "rejected",
-              rejectReason: rejectReason.trim(),
-            },
-            { withCredentials: true },
-          );
-
-          toast({
-            title: "License rejected",
-            description: "The license review has been completed.",
-          });
-          break;
-        }
-
         case "publish": {
           await axios.patch(
             `${API_URL}/api/manga/admin/story/${selectedManga.id}/publish`,
@@ -1504,7 +1446,8 @@ export default function MangaManagementPage() {
                 {selectedManga?.title || "Manga detail workspace"}
               </SheetTitle>
               <SheetDescription>
-                Review manga overview, license, publication, and enforcement.
+                Review manga overview, rights status, publication, and
+                enforcement.
               </SheetDescription>
             </SheetHeader>
 
@@ -2063,42 +2006,6 @@ export default function MangaManagementPage() {
                           </div>
 
                           <div className="space-y-4 xl:sticky xl:top-4">
-                            {isPendingLicenseReview ? (
-                              <Card className="rounded-[24px] border-slate-200 shadow-sm">
-                                <CardHeader className="pb-3">
-                                  <CardTitle className="flex items-center gap-2 text-lg">
-                                    <FileCheck className="h-5 w-5 text-slate-500" />
-                                    Follow-up Actions
-                                  </CardTitle>
-                                  <CardDescription className="text-sm">
-                                    Choose how to proceed with the pending
-                                    review.
-                                  </CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-3 p-5 pt-0">
-                                  <Button
-                                    className="w-full"
-                                    onClick={() =>
-                                      setActionDialog("approve-license")
-                                    }
-                                  >
-                                    <FileCheck className="mr-2 h-4 w-4" />
-                                    Approve License
-                                  </Button>
-
-                                  <Button
-                                    variant="outline"
-                                    className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                                    onClick={() =>
-                                      setActionDialog("reject-license")
-                                    }
-                                  >
-                                    Reject License
-                                  </Button>
-                                </CardContent>
-                              </Card>
-                            ) : null}
-
                             <Card className="rounded-[22px] border-slate-200 shadow-sm">
                               <CardHeader className="pb-3">
                                 <CardTitle className="flex items-center gap-2 text-base">
@@ -2378,233 +2285,6 @@ export default function MangaManagementPage() {
                         ) : null}
                       </TabsContent>
 
-                      <TabsContent value="license" className="mt-0 space-y-4">
-                        <div className="grid gap-3 xl:grid-cols-[0.95fr_1.05fr]">
-                          <Card className="rounded-2xl border-slate-200 shadow-sm">
-                            <CardHeader className="pb-3">
-                              <CardTitle className="flex items-center gap-2 text-base">
-                                <BadgeCheck className="h-5 w-5 text-slate-500" />
-                                Review Status
-                              </CardTitle>
-                              <CardDescription className="text-sm">
-                                Approval state and audit information for the
-                                license submission.
-                              </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-3 p-5 pt-0 min-h-[176px]">
-                              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                  License Status
-                                </p>
-                                <Badge
-                                  variant="outline"
-                                  className={`mt-3 capitalize ${getLicenseStatusColor(
-                                    selectedManga.licenseStatus,
-                                  )}`}
-                                >
-                                  {selectedManga.licenseStatus}
-                                </Badge>
-                              </div>
-
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Submitted At
-                                  </p>
-                                  <p className="mt-2 text-sm font-semibold text-slate-900">
-                                    {formatDate(
-                                      selectedManga.licenseSubmittedAt,
-                                    )}
-                                  </p>
-                                </div>
-
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Reviewed At
-                                  </p>
-                                  <p className="mt-2 text-sm font-semibold text-slate-900">
-                                    {formatDate(
-                                      selectedManga.licenseReviewedAt,
-                                    )}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                  Reviewed By
-                                </p>
-                                <p className="mt-2 text-sm font-semibold text-slate-900">
-                                  {selectedManga.licenseReviewedBy?.username ||
-                                    "--"}
-                                </p>
-                              </div>
-                            </CardContent>
-                          </Card>
-
-                          <Card className="rounded-2xl border-slate-200 shadow-sm">
-                            <CardHeader className="pb-4">
-                              <CardTitle className="flex items-center gap-2 text-lg">
-                                <FileText className="h-5 w-5 text-slate-500" />
-                                License Note
-                              </CardTitle>
-                              <CardDescription className="text-sm">
-                                Supporting note provided with the license
-                                submission.
-                              </CardDescription>
-                            </CardHeader>
-                            <CardContent className="p-6 pt-0 min-h-[220px]">
-                              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                <p className="text-sm leading-7 text-slate-700 break-words">
-                                  {selectedManga.licenseNote ||
-                                    "No note provided."}
-                                </p>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </div>
-
-                        <Card className="rounded-2xl border-slate-200 shadow-sm">
-                          <CardHeader className="pb-4">
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                              <FileText className="h-5 w-5 text-slate-500" />
-                              License Files
-                            </CardTitle>
-                            <CardDescription className="text-sm">
-                              Uploaded documents attached to this license
-                              review.
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="p-6 pt-0">
-                            {selectedManga.licenseFiles?.length ? (
-                              <div className="space-y-3">
-                                {selectedManga.licenseFiles.map(
-                                  (file, index) => {
-                                    const fileName =
-                                      file.split("/").pop() ||
-                                      `license-file-${index + 1}`;
-
-                                    return (
-                                      <a
-                                        key={`${file}-${index}`}
-                                        href={resolveFileUrl(file)}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-4 transition hover:border-slate-300 hover:bg-slate-50"
-                                      >
-                                        <div className="flex min-w-0 items-center gap-3">
-                                          <div className="rounded-xl bg-blue-50 p-2 text-blue-600">
-                                            <FileText className="h-4 w-4" />
-                                          </div>
-                                          <div className="min-w-0">
-                                            <p className="truncate text-sm font-medium text-slate-900">
-                                              {fileName}
-                                            </p>
-                                            <p className="truncate text-xs text-slate-500">
-                                              Open attached license document
-                                            </p>
-                                          </div>
-                                        </div>
-
-                                        <ExternalLink className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-slate-700" />
-                                      </a>
-                                    );
-                                  },
-                                )}
-                              </div>
-                            ) : (
-                              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center">
-                                <FileText className="mx-auto h-8 w-8 text-slate-400" />
-                                <p className="mt-3 text-sm font-medium text-slate-700">
-                                  No files uploaded
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                  This submission does not contain any license
-                                  attachments.
-                                </p>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-
-                        {selectedLatestRejectReason ||
-                        selectedRejectReasonHistory.length > 0 ? (
-                          <Card className="rounded-2xl border-red-200 bg-red-50 shadow-sm">
-                            <CardHeader className="pb-4">
-                              <CardTitle className="flex items-center gap-2 text-lg text-red-700">
-                                <AlertTriangle className="h-5 w-5" />
-                                {selectedManga.licenseStatus === "rejected"
-                                  ? "Latest Reject Reason"
-                                  : "Reject History"}
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-3 p-6 pt-0">
-                              {selectedLatestRejectReason ? (
-                                <p className="text-sm leading-7 text-red-700 break-words">
-                                  {selectedLatestRejectReason}
-                                </p>
-                              ) : null}
-                              {previousSelectedRejectReasons.length > 0 ? (
-                                <div className="space-y-2">
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-red-700/80">
-                                    Earlier review notes
-                                  </p>
-                                  <div className="space-y-2">
-                                    {previousSelectedRejectReasons.map(
-                                      (reason, index) => (
-                                        <div
-                                          key={`${reason}-${index}`}
-                                          className="rounded-xl border border-red-200/80 bg-white/70 px-3 py-2"
-                                        >
-                                          <p className="text-sm leading-7 text-red-700 break-words">
-                                            {reason}
-                                          </p>
-                                        </div>
-                                      ),
-                                    )}
-                                  </div>
-                                </div>
-                              ) : null}
-                            </CardContent>
-                          </Card>
-                        ) : null}
-
-                        {selectedManga.licenseStatus === "pending" && (
-                          <Card className="rounded-2xl border-slate-200 shadow-sm">
-                            <CardHeader className="pb-4">
-                              <CardTitle className="flex items-center gap-2 text-lg">
-                                <FileCheck className="h-5 w-5 text-slate-500" />
-                                Review Actions
-                              </CardTitle>
-                              <CardDescription className="text-sm">
-                                Choose how to proceed with this pending license.
-                              </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-3 p-6 pt-0">
-                              <Button
-                                className="w-full"
-                                onClick={() =>
-                                  setActionDialog("approve-license")
-                                }
-                              >
-                                <FileCheck className="mr-2 h-4 w-4" />
-                                Approve License
-                              </Button>
-
-                              <Button
-                                variant="outline"
-                                className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                                onClick={() =>
-                                  setActionDialog("reject-license")
-                                }
-                              >
-                                Reject License
-                              </Button>
-                            </CardContent>
-                          </Card>
-                        )}
-                      </TabsContent>
-
                       <TabsContent
                         value="enforcement"
                         className="mt-0 space-y-4"
@@ -2755,7 +2435,7 @@ export default function MangaManagementPage() {
                   </p>
                   <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
                     Select a story from the table to review its overview,
-                    license information, publication visibility, and enforcement
+                    rights status, publication visibility, and enforcement
                     status.
                   </p>
                 </div>
@@ -2771,8 +2451,6 @@ export default function MangaManagementPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {actionDialog === "approve-license" && "Approve License"}
-                {actionDialog === "reject-license" && "Reject License"}
                 {actionDialog === "publish" && "Publish Manga"}
                 {actionDialog === "unpublish" && "Unpublish Manga"}
                 {actionDialog === "suspend" && "Suspend Manga"}
@@ -2781,10 +2459,6 @@ export default function MangaManagementPage() {
               </DialogTitle>
 
               <DialogDescription>
-                {actionDialog === "approve-license" &&
-                  `Approve the license for "${dialogStoryTitle}"?`}
-                {actionDialog === "reject-license" &&
-                  `Reject the license for "${dialogStoryTitle}"?`}
                 {actionDialog === "publish" &&
                   `This will make "${dialogStoryTitle}" visible to users.`}
                 {actionDialog === "unpublish" &&
@@ -2797,18 +2471,6 @@ export default function MangaManagementPage() {
                   `Remove the current restriction from "${dialogStoryTitle}"?`}
               </DialogDescription>
             </DialogHeader>
-
-            {actionDialog === "reject-license" && (
-              <div className="space-y-2">
-                <Label htmlFor="rejectReason">Reject reason</Label>
-                <Textarea
-                  id="rejectReason"
-                  placeholder="Enter reason for rejection..."
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                />
-              </div>
-            )}
 
             {(actionDialog === "suspend" || actionDialog === "ban") && (
               <div className="space-y-2">
@@ -2846,8 +2508,6 @@ export default function MangaManagementPage() {
                   </>
                 ) : (
                   <>
-                    {actionDialog === "approve-license" && "Approve"}
-                    {actionDialog === "reject-license" && "Reject"}
                     {actionDialog === "publish" && "Publish"}
                     {actionDialog === "unpublish" && "Unpublish"}
                     {actionDialog === "suspend" && "Suspend"}
