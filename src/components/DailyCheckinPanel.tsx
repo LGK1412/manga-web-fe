@@ -61,6 +61,7 @@ export default function DailyCheckinPanel({
         `${process.env.NEXT_PUBLIC_API_URL}/api/checkin/status`,
         { withCredentials: true },
       );
+      console.log(data)
       setStatus(data);
     } catch (err) {
       console.error("Fetch status error:", err);
