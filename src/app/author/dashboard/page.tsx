@@ -467,7 +467,7 @@ export default function AuthorDashboard() {
 
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3">
           {visibleStories.map((story) => {
             const publicationBadge = getPublicationBadge(story);
             const licenseBadge = getLicenseBadge(story.licenseStatus);
@@ -479,17 +479,17 @@ export default function AuthorDashboard() {
             return (
               <Card
                 key={story._id}
-                className="group h-fit w-full self-start overflow-hidden rounded-2xl border border-border/70 bg-card pt-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                className="group flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-card pt-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
               >
-                <div className="relative overflow-hidden bg-muted/30">
+                <div className="relative aspect-[3/4] w-full shrink-0 overflow-hidden bg-muted/30">
                   {story.coverImage ? (
                     <img
                       src={getCoverUrl(story.coverImage)}
                       alt={story.title}
-                      className="block h-auto w-full transition-transform duration-300 group-hover:scale-[1.02]"
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                     />
                   ) : (
-                    <div className="flex min-h-[260px] items-center justify-center text-sm text-muted-foreground">
+                    <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
                       No cover
                     </div>
                   )}
@@ -519,11 +519,11 @@ export default function AuthorDashboard() {
 
                 <CardHeader className="space-y-4">
                   <div className="space-y-2">
-                    <CardTitle className="line-clamp-2 text-xl leading-snug">
+                    <CardTitle className="line-clamp-2 min-h-[3.5rem] text-xl leading-snug">
                       {story.title}
                     </CardTitle>
 
-                    <CardDescription className="line-clamp-3 text-sm leading-6">
+                    <CardDescription className="line-clamp-3 min-h-[4.5rem] text-sm leading-6">
                       {story.summary || "No summary yet."}
                     </CardDescription>
                   </div>
@@ -559,22 +559,30 @@ export default function AuthorDashboard() {
                     </div>
                   </div>
 
-                  <div className={`rounded-2xl border p-4 ${nextStep.tone}`}>
-                    <div className="flex items-start gap-3">
+                  <div className={`rounded-xl border px-3 py-2 ${nextStep.tone}`}>
+                    <div className="flex items-start gap-2">
                       {licenseStatus === "approved" ? (
-                        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       ) : (
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       )}
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold">{nextStep.title}</p>
-                        {nextStep.description ? (
-                          <p className="text-sm leading-6">{nextStep.description}</p>
-                        ) : null}
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <p className="line-clamp-2 min-h-[2.25rem] text-xs font-semibold leading-snug">
+                          {nextStep.title}
+                        </p>
+                        <div className="min-h-[2rem]">
+                          {nextStep.description ? (
+                            <p className="line-clamp-2 text-xs leading-snug text-foreground/90">
+                              {nextStep.description}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </CardHeader>
+
+                <div className="min-h-0 flex-1" aria-hidden />
 
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

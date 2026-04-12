@@ -40,15 +40,15 @@ export default function RegisterPage() {
   const router = useRouter()
   const { toast } = useToast()
 
+  const trimmedUsername = formData.name.trim()
+
   const validateForm = () => {
     const newErrors: typeof errors = {}
 
-    if (!formData.name || formData.name.trim().length < 3) {
+    if (!trimmedUsername || trimmedUsername.length < 3) {
       newErrors.name = "Username must be at least 3 characters"
-    } else if (formData.name.length > 30) {
-      newErrors.name = "Username must not exceed 30 characters"
-    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.name)) {
-      newErrors.name = "Username can only contain letters, numbers, and underscores"
+    } else if (trimmedUsername.length > 50) {
+      newErrors.name = "Username must not exceed 50 characters"
     }
 
     if (!formData.email) {
@@ -92,9 +92,24 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
+      const base = process.env.NEXT_PUBLIC_API_URL
+      if (base) {
+        try {
+          const { data } = await axios.get<{ taken: boolean }>(`${base}/api/auth/check-username`, {
+            params: { username: trimmedUsername },
+          })
+          if (data?.taken) {
+            setErrors((prev) => ({ ...prev, name: "Username is already taken" }))
+            return
+          }
+        } catch {
+          /* if check fails, still try register so user is not blocked */
+        }
+      }
+
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
-        { email: formData.email, password: formData.password, username: formData.name },
+        { email: formData.email, password: formData.password, username: trimmedUsername },
         { withCredentials: true }
       )
 
@@ -141,10 +156,18 @@ export default function RegisterPage() {
       }
     } catch (error) {
       let errorMessage = "An error occurred during registration"
-      
+      let isUsernameConflict = false
+
       if (axios.isAxiosError(error)) {
-        if (error.response?.data?.message) {
-          errorMessage = error.response.data.message
+        const raw = error.response?.data?.message
+        const text = Array.isArray(raw) ? raw[0] : raw
+        if (typeof text === "string" && /username already exists/i.test(text)) {
+          isUsernameConflict = true
+          setErrors((prev) => ({ ...prev, name: "Username is already taken" }))
+        } else if (error.response?.data?.message) {
+          errorMessage = Array.isArray(error.response.data.message)
+            ? error.response.data.message[0]
+            : error.response.data.message
         } else if (error.response?.status === 400) {
           errorMessage = "Invalid data"
         } else if (error.response?.status === 500) {
@@ -153,12 +176,14 @@ export default function RegisterPage() {
           errorMessage = "Unable to connect to server"
         }
       }
-      
-      toast({
-        title: "Registration failed",
-        description: errorMessage,
-        variant: "destructive",
-      })
+
+      if (!isUsernameConflict) {
+        toast({
+          title: "Registration failed",
+          description: errorMessage,
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsLoading(false)
     }

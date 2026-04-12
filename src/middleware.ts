@@ -31,8 +31,12 @@ export async function middleware(req: NextRequest) {
     const authorPages = ["/author/dashboard", "/author/static", "/author/story/create", "/author/story/edit/:id", "/author/chapter", "/author/chapter/:idStory", "/author/chapter/:idStory/imageChapter", "/author/chapter/:idStory/textChapter/create", "/author/chapter/:idStory/textChapter/edit/:id", "/author/manga/:id/license"]
     console.log("Role: ", role)
 
-    if (dontNeedLoginPages.includes(pathname) && isLogin) {
-        console.log("oke")
+ 
+    if (
+        dontNeedLoginPages.includes(pathname) &&
+        isLogin &&
+        pathname !== "/login"
+    ) {
         return NextResponse.redirect(new URL("/", req.url))
     }
 

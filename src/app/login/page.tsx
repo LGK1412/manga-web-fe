@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { BookOpen, Eye, EyeOff } from "lucide-react";
+import { BookOpen, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { setCookie } from "@/lib/cookie-func";
@@ -156,7 +156,19 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen bg-background p-4 flex flex-col">
+      <div className="w-full shrink-0 flex justify-start">
+        <Button
+          type="button"
+          onClick={() => router.push("/")}
+          variant="ghost"
+          className="group flex items-center gap-2 text-foreground transition-colors hover:bg-slate-800/50 hover:text-slate-100"
+        >
+          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+          Back
+        </Button>
+      </div>
+      <div className="flex flex-1 items-center justify-center min-h-0">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -254,6 +266,7 @@ export default function LoginPage() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
