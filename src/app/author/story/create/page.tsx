@@ -11,7 +11,6 @@ import {
   Image as ImageIcon,
   Lock,
   Loader2,
-  UploadCloud,
   X,
 } from "lucide-react";
 
@@ -585,7 +584,7 @@ export default function CreateStoryPage() {
                           </>
                         ) : (
                           <div className="flex flex-col items-center justify-center px-6 text-center">
-                            <UploadCloud className="mb-3 h-8 w-8 text-muted-foreground" />
+                            <ImageIcon className="mb-3 h-8 w-8 text-muted-foreground" />
                             <p className="text-sm font-medium">Upload cover</p>
                             <p className="mt-1 text-xs text-muted-foreground">
                               Click to choose an image

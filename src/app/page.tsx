@@ -365,7 +365,7 @@ export default function HomePage() {
   const [latestItems, setLatestItems] = useState<Card[]>([]);
   const [latestPage, setLatestPage] = useState(1);
   const [latestTotalPages, setLatestTotalPages] = useState(1);
-  const LATEST_LIMIT = 24;
+  const LATEST_LIMIT = 16;
 
   const [loading, setLoading] = useState(true);
   const [loadingPage, setLoadingPage] = useState(false);
@@ -551,7 +551,7 @@ export default function HomePage() {
 
             {loading && !latestItems.length ? (
               <div className="grid [grid-template-columns:repeat(auto-fill,minmax(192px,1fr))] gap-3 sm:gap-4">
-                {Array.from({ length: 12 }).map((_, i) => (
+                {Array.from({ length: LATEST_LIMIT }).map((_, i) => (
                   <div key={i} className="animate-pulse">
                     <div
                       className="relative w-full overflow-hidden rounded-lg bg-gray-200 dark:bg-muted"

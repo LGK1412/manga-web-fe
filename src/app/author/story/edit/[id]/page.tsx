@@ -14,7 +14,6 @@ import {
   Lock,
   Loader2,
   ShieldCheck,
-  UploadCloud,
 } from "lucide-react";
 
 import { Navbar } from "@/components/navbar";
@@ -988,7 +987,7 @@ export default function EditStoryPage() {
                             />
                             <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                               <div className="flex items-center gap-2 rounded-full bg-white/90 px-3 py-2 text-sm font-medium text-black">
-                                <UploadCloud className="h-4 w-4" />
+                                <ImageIcon className="h-4 w-4" />
                                 Change cover
                               </div>
                             </div>

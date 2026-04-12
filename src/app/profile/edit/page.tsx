@@ -27,6 +27,7 @@ export default function EditProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null); // Ref for the hidden file input
+  const MAX_BIO_CHARS = 200;
 
   useEffect(() => {
     const raw = Cookies.get("user_normal_info");
@@ -39,8 +40,7 @@ export default function EditProfilePage() {
       const parsed = JSON.parse(decoded);
       setName(parsed.username || "User");
       setEmail(parsed.email || "");
-      setBio(parsed.bio || "");
-      // Hiển thị avatar với full URL nếu có
+      setBio(String(parsed.bio || "").slice(0, MAX_BIO_CHARS));
       if (parsed.avatar && parsed.avatar !== "avatar-default.webp") {
         setAvatarPreview(
           `${process.env.NEXT_PUBLIC_API_URL}/assets/avatars/${parsed.avatar}`
@@ -65,7 +65,6 @@ export default function EditProfilePage() {
     }
   };
 
-  const MAX_BIO_CHARS = 200;
 
   const handleBioChange = (value: string) => {
     if (value.length <= MAX_BIO_CHARS) {
@@ -79,10 +78,11 @@ export default function EditProfilePage() {
   e.preventDefault();
 
   // --- Validation ---
-  if (name.length < 3 || name.length > 30) {
+  const trimmedName = name.trim();
+  if (trimmedName.length < 3 || trimmedName.length > 50) {
     toast({
       title: "Invalid name",
-      description: "Name must be between 3 and 30 characters",
+      description: "Name must be between 3 and 50 characters",
       variant: "destructive",
     });
     return; // dừng, không gọi API
@@ -102,7 +102,7 @@ export default function EditProfilePage() {
   setIsSaving(true);
   try {
     const formData = new FormData();
-    formData.append("username", name);
+    formData.append("username", trimmedName);
     formData.append("bio", bio);
     if (selectedFile) {
       formData.append("avatar", selectedFile);
@@ -127,10 +127,10 @@ export default function EditProfilePage() {
       const updated = {
         user_id: parsed.user_id,
         email: parsed.email,
-        username: name || parsed.username,
+        username: trimmedName || parsed.username,
         role: parsed.role,
         avatar: serverAvatar !== undefined ? serverAvatar : parsed.avatar,
-        bio: bio || parsed.bio,
+        bio: bio ?? parsed.bio,
       };
       Cookies.set("user_normal_info", JSON.stringify(updated), {
         expires: 360,
@@ -244,6 +244,7 @@ export default function EditProfilePage() {
                     placeholder="Enter username"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    maxLength={50}
                     required
                     className="pl-10"
                   />
