@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
-import { Star, BookOpen, Eye, Clock, TrendingUp } from "lucide-react";
+import { Star, BookOpen, Eye, Clock, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface Genre {
@@ -119,6 +119,28 @@ export default function StoryRecomment() {
   const [loading, setLoading] = useState(false);
   const { theme } = useTheme();
   const router = useRouter();
+
+  // Carousel ref for manual scrolling
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  // Scroll functions (smooth + fixed distance that matches one card + gap)
+  const scrollLeft = () => {
+    if (carouselRef.current) {
+      carouselRef.current.scrollBy({
+        left: -260, // w-48 (192px) + gap-4 (16px) + small buffer = feels natural
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const scrollRight = () => {
+    if (carouselRef.current) {
+      carouselRef.current.scrollBy({
+        left: 260,
+        behavior: "smooth",
+      });
+    }
+  };
 
   useEffect(() => {
     const raw = Cookies.get("user_normal_info");
@@ -263,117 +285,141 @@ export default function StoryRecomment() {
           <div className="mt-4 h-1 w-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mx-auto"></div>
         </motion.div>
 
-        <div className="flex gap-4 overflow-x-auto py-4 flex-nowrap snap-x snap-mandatory no-scrollbar">
-          {recommendations.map((manga) => (
-            <motion.div
-              key={manga._id}
-              onClick={() => router.push(`/story/${manga._id}`)}
-              className={`w-48 flex-shrink-0 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer snap-start ${
-                theme === "dark"
-                  ? "bg-gray-800 text-gray-100"
-                  : "bg-gray-100 text-gray-900"
-              }`}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <div className="relative overflow-hidden">
-                <div className="aspect-[3/4] relative">
-                  <SafeCoverImage
-                    src={manga.coverImage}
-                    alt={manga.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                </div>
-
-                <div className="absolute top-3 left-3">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      manga.status === "ongoing"
-                        ? theme === "dark"
-                          ? "bg-green-700 text-green-200"
-                          : "bg-green-100 text-green-800"
-                        : theme === "dark"
-                        ? "bg-gray-700 text-gray-200"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {manga.status === "ongoing" ? "Ongoing" : manga.status}
-                  </span>
-                </div>
-
-                <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-sm rounded-lg px-2 py-1">
-                  <div className="flex items-center space-x-1">
-                    <Star className="h-3 w-3 text-yellow-400 fill-current" />
-                    <span className="text-white text-xs font-semibold">
-                      {manga.rating_avg.toFixed(1)}
-                    </span>
+        {/* CAROUSEL WRAPPER WITH NAVIGATION BUTTONS */}
+        <div className="relative">
+          {/* Scrollable carousel */}
+          <div
+            ref={carouselRef}
+            className="flex gap-4 overflow-x-auto py-4 flex-nowrap snap-x snap-mandatory no-scrollbar scroll-smooth"
+          >
+            {recommendations.map((manga) => (
+              <motion.div
+                key={manga._id}
+                onClick={() => router.push(`/story/${manga._id}`)}
+                className={`w-48 flex-shrink-0 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer snap-start ${
+                  theme === "dark"
+                    ? "bg-gray-800 text-gray-100"
+                    : "bg-gray-100 text-gray-900"
+                }`}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <div className="relative overflow-hidden">
+                  <div className="aspect-[3/4] relative">
+                    <SafeCoverImage
+                      src={manga.coverImage}
+                      alt={manga.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
-                </div>
-              </div>
 
-              <div className="p-4">
-                <h3 className="font-bold mb-2 line-clamp-2 group-hover:text-blue-400 transition-colors">
-                  {manga.title}
-                </h3>
-
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {manga.genres.slice(0, 2).map((genre) => (
+                  <div className="absolute top-3 left-3">
                     <span
-                      key={genre._id}
-                      className={`inline-block px-2 py-1 text-xs rounded-md font-medium ${
-                        theme === "dark"
-                          ? "bg-blue-900 text-blue-300"
-                          : "bg-blue-50 text-blue-700"
+                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        manga.status === "ongoing"
+                          ? theme === "dark"
+                            ? "bg-green-700 text-green-200"
+                            : "bg-green-100 text-green-800"
+                          : theme === "dark"
+                          ? "bg-gray-700 text-gray-200"
+                          : "bg-gray-100 text-gray-800"
                       }`}
                     >
-                      {genre.name}
+                      {manga.status === "ongoing" ? "Ongoing" : manga.status}
                     </span>
-                  ))}
-
-                  {manga.genres.length > 2 && (
-                    <span
-                      className={`inline-block px-2 py-1 text-xs rounded-md font-medium ${
-                        theme === "dark"
-                          ? "bg-gray-700 text-gray-300"
-                          : "bg-gray-50 text-gray-600"
-                      }`}
-                    >
-                      +{manga.genres.length - 2}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between text-sm mb-3">
-                  <div className="flex items-center space-x-1">
-                    <Eye className="h-4 w-4" />
-                    <span>{formatViews(manga.views)}</span>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <BookOpen className="h-4 w-4" />
-                    <span>{manga.chapters_count} chapters</span>
-                  </div>
-                </div>
 
-                {manga.latest_chapter && (
-                  <div
-                    className={`border-t pt-3 ${
-                      theme === "dark" ? "border-gray-700" : "border-gray-200"
-                    }`}
-                  >
-                    <div className="flex items-start space-x-2">
-                      <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs">
-                          {formatDate(manga.latest_chapter.createdAt)}
-                        </p>
-                      </div>
+                  <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-sm rounded-lg px-2 py-1">
+                    <div className="flex items-center space-x-1">
+                      <Star className="h-3 w-3 text-yellow-400 fill-current" />
+                      <span className="text-white text-xs font-semibold">
+                        {manga.rating_avg.toFixed(1)}
+                      </span>
                     </div>
                   </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
+                </div>
+
+                <div className="p-4">
+                  <h3 className="font-bold mb-2 line-clamp-2 group-hover:text-blue-400 transition-colors">
+                    {manga.title}
+                  </h3>
+
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {manga.genres.slice(0, 2).map((genre) => (
+                      <span
+                        key={genre._id}
+                        className={`inline-block px-2 py-1 text-xs rounded-md font-medium ${
+                          theme === "dark"
+                            ? "bg-blue-900 text-blue-300"
+                            : "bg-blue-50 text-blue-700"
+                        }`}
+                      >
+                        {genre.name}
+                      </span>
+                    ))}
+
+                    {manga.genres.length > 2 && (
+                      <span
+                        className={`inline-block px-2 py-1 text-xs rounded-md font-medium ${
+                          theme === "dark"
+                            ? "bg-gray-700 text-gray-300"
+                            : "bg-gray-50 text-gray-600"
+                        }`}
+                      >
+                        +{manga.genres.length - 2}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm mb-3">
+                    <div className="flex items-center space-x-1">
+                      <Eye className="h-4 w-4" />
+                      <span>{formatViews(manga.views)}</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <BookOpen className="h-4 w-4" />
+                      <span>{manga.chapters_count} chapters</span>
+                    </div>
+                  </div>
+
+                  {manga.latest_chapter && (
+                    <div
+                      className={`border-t pt-3 ${
+                        theme === "dark" ? "border-gray-700" : "border-gray-200"
+                      }`}
+                    >
+                      <div className="flex items-start space-x-2">
+                        <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs">
+                            {formatDate(manga.latest_chapter.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Desktop navigation buttons (hidden on mobile) */}
+          <button
+            onClick={scrollLeft}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 hidden md:flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-xl rounded-2xl border border-gray-200 dark:border-gray-700 transition-all active:scale-95"
+            aria-label="Scroll left"
+          >
+            <ChevronLeft className="h-6 w-6 text-gray-700 dark:text-gray-200" />
+          </button>
+
+          <button
+            onClick={scrollRight}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 hidden md:flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-xl rounded-2xl border border-gray-200 dark:border-gray-700 transition-all active:scale-95"
+            aria-label="Scroll right"
+          >
+            <ChevronRight className="h-6 w-6 text-gray-700 dark:text-gray-200" />
+          </button>
         </div>
       </div>
     </section>

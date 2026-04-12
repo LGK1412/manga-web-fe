@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import axios from "axios";
 import { Navbar } from "@/components/navbar";
-import { Star, Eye, BookOpen } from "lucide-react";
+import { Star, Eye, BookOpen, ChevronLeft, ChevronRight, TrendingUp, Clock, Award } from "lucide-react";
 import { MangaCard } from "@/components/MangaCard";
 import { Footer } from "@/components/footer";
 import { useTheme } from "next-themes";
 import StoryRecomment from "@/components/StoryRecomment";
-
 // ================= Types
 type Genre = { _id: string; name: string };
 type StyleItem = { _id: string; name: string };
@@ -294,7 +293,7 @@ function NumberPager({
     "min-w-8 h-8 px-2 inline-flex items-center justify-center rounded border text-sm";
 
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <button
         className={`${btn} ${safePage === 1 ? "cursor-not-allowed opacity-50" : ""}`}
         onClick={() => safePage > 1 && onChange(1)}
@@ -326,8 +325,8 @@ function NumberPager({
             key={it}
             onClick={() => onChange(it)}
             className={`${btn} ${it === safePage
-                ? "bg-[#0D0D0D] dark:bg-primary text-white dark:text-primary-foreground border-black dark:border-primary"
-                : "border-gray-300 dark:border-input hover:bg-gray-50 dark:hover:bg-accent"
+              ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
+              : "border-gray-300 dark:border-input hover:bg-gray-50 dark:hover:bg-accent"
               }`}
             aria-current={it === safePage ? "page" : undefined}
           >
@@ -377,7 +376,25 @@ export default function HomePage() {
   const { theme } = useTheme();
 
   const [mounted, setMounted] = useState(false);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
+  const scrollLeft = () => {
+    if (carouselRef.current) {
+      carouselRef.current.scrollBy({
+        left: -260,   // tuned for w-48 + gap-3
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const scrollRight = () => {
+    if (carouselRef.current) {
+      carouselRef.current.scrollBy({
+        left: 260,
+        behavior: "smooth",
+      });
+    }
+  };
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -475,197 +492,216 @@ export default function HomePage() {
       .slice(0, 10);
   }, [summaryItems, tab]);
 
-  const topFollows = useMemo(
-    () =>
-      [...summaryItems]
-        .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
-        .slice(0, 10),
-    [summaryItems]
-  );
-
   if (!mounted) return null;
 
   return (
     <div className={`min-h-screen ${theme === "dark" ? "bg-[#1F1F1F]" : "bg-white"}`}>
       <Navbar />
 
-      <main className="mx-auto max-w-6xl p-4 space-y-8 pt-30">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12 pt-30">
         {err && (
-          <div className="rounded border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 p-3 text-red-700 dark:text-red-400">
-            {err}
+          <div className="rounded-xl border-2 border-red-200 dark:border-red-900/50 bg-gradient-to-r from-red-50 to-red-50/50 dark:from-red-950/30 dark:to-red-900/20 p-4 text-red-700 dark:text-red-400 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0 text-red-500">⚠️</div>
+              <p className="font-medium">{err}</p>
+            </div>
           </div>
         )}
 
         {loading && !summaryItems.length && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div
-                  className="relative w-full overflow-hidden rounded-lg bg-gray-200 dark:bg-muted"
-                  style={{ paddingBottom: "133%" }}
-                />
-                <div className="mt-2 h-4 w-3/4 rounded bg-gray-200 dark:bg-muted" />
-                <div className="mt-1 h-3 w-1/2 rounded bg-gray-200 dark:bg-muted" />
-              </div>
-            ))}
+          <div className="space-y-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div
+                    className="relative w-full overflow-hidden rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800"
+                    style={{ paddingBottom: "133%" }}
+                  />
+                  <div className="mt-3 h-4 w-3/4 rounded-lg bg-gray-200 dark:bg-gray-700" />
+                  <div className="mt-2 h-3 w-1/2 rounded-lg bg-gray-200 dark:bg-gray-700" />
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         <StoryRecomment />
 
         {!loading && featured.length > 0 && (
-          <section>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Featured</h2>
-              <Link
-                href="/stories"
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                View more
-              </Link>
+          <section className="space-y-6">
+            {/* SectionLabel: icon + gradient line */}
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg">
+                    <TrendingUp className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent">Featured Stories</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Handpicked stories you'll love</p>
+                  </div>
+                </div>
+                <Link
+                  href="/stories"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg hover:scale-105 transition-all duration-200"
+                >
+                  View more
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+              <div className="mt-4 h-1.5 w-24 bg-gradient-to-r from-amber-500 to-orange-400 rounded-full"></div>
             </div>
 
-            <div className="no-scrollbar flex snap-x gap-3 overflow-x-auto">
-              {featured.map((m) => (
-                <div key={m.key} className="snap-start w-48 shrink-0">
-                  <MangaCard item={m} compact />
-                </div>
-              ))}
+            {/* CAROUSEL WRAPPER WITH NAVIGATION BUTTONS */}
+            <div className="relative group">
+              {/* Scrollable carousel */}
+              <div
+                ref={carouselRef}
+                className="no-scrollbar flex snap-x gap-4 overflow-x-auto flex-nowrap snap-mandatory scroll-smooth py-6 px-2"
+              >
+                {featured.map((m) => (
+                  <div key={m.key} className="snap-start w-48 shrink-0">
+                    <MangaCard item={m} compact />
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop navigation buttons (hidden on mobile) */}
+              <button
+                onClick={scrollLeft}
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-20 hidden md:flex items-center justify-center w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 hover:shadow-xl rounded-full border-0 transition-all active:scale-95 shadow-lg opacity-0 group-hover:opacity-100"
+                aria-label="Scroll left"
+              >
+                <ChevronLeft className="h-6 w-6 text-white" />
+              </button>
+
+              <button
+                onClick={scrollRight}
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-20 hidden md:flex items-center justify-center w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 hover:shadow-xl rounded-full border-0 transition-all active:scale-95 shadow-lg opacity-0 group-hover:opacity-100"
+                aria-label="Scroll right"
+              >
+                <ChevronRight className="h-6 w-6 text-white" />
+              </button>
             </div>
           </section>
         )}
 
-        <section className="grid gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-9" id="latest">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">
-                Recently updated
-              </h2>
-              <Link
-                href="/stories"
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                View more
-              </Link>
+        <section className="grid gap-4 sm:gap-6 lg:gap-8 lg:grid-cols-[1fr_320px]">
+          <div id="latest">
+            {/* SectionLabel: icon + gradient line */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-blue-400 to-cyan-500 text-white shadow-lg">
+                    <Clock className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 dark:from-blue-400 dark:to-cyan-400 bg-clip-text text-transparent">Recently Updated</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Fresh content waiting for you</p>
+                  </div>
+                </div>
+                <Link
+                  href="/stories"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:shadow-lg hover:scale-105 transition-all duration-200"
+                >
+                  View more
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+              <div className="h-1.5 w-24 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full"></div>
             </div>
 
             {loading && !latestItems.length ? (
-              <div className="grid [grid-template-columns:repeat(auto-fill,minmax(192px,1fr))] gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 pt-4">
                 {Array.from({ length: LATEST_LIMIT }).map((_, i) => (
                   <div key={i} className="animate-pulse">
                     <div
-                      className="relative w-full overflow-hidden rounded-lg bg-gray-200 dark:bg-muted"
+                      className="relative w-full overflow-hidden rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800"
                       style={{ paddingBottom: "133%" }}
                     />
-                    <div className="mt-2 h-4 w-3/4 rounded bg-gray-200 dark:bg-muted" />
-                    <div className="mt-1 h-3 w-1/2 rounded bg-gray-200 dark:bg-muted" />
+                    <div className="mt-3 h-4 w-3/4 rounded-lg bg-gray-200 dark:bg-gray-700" />
+                    <div className="mt-2 h-3 w-1/2 rounded-lg bg-gray-200 dark:bg-gray-700" />
                   </div>
                 ))}
               </div>
             ) : (
               <>
-                <ul className="grid [grid-template-columns:repeat(auto-fill,minmax(192px,1fr))] gap-3 sm:gap-4">
-                  {latestItems.map((m) => (
-                    <li key={m.key} className="min-w-0">
-                      <MangaCard item={m} compact />
-                    </li>
-                  ))}
-                </ul>
+                <div
+                  className={`transition-opacity duration-300 ${loadingPage ? "opacity-50 pointer-events-none" : ""
+                    }`}
+                >
+                  <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
+                    {latestItems.map((m) => (
+                      <li key={m.key} className="min-w-0">
+                        <MangaCard item={m} compact />
+                      </li>
+                    ))}
+                  </ul>
 
-                <div className="flex items-center justify-between pt-4">
-                  <div className="text-sm text-gray-600 dark:text-muted-foreground">
-                    Page {Number.isFinite(latestPage) ? latestPage : 1} /{" "}
-                    {Number.isFinite(latestTotalPages) ? latestTotalPages : 1}
+                  {/* Pagination centered + gradient active */}
+                  <div className="pt-12 flex flex-col items-center gap-4">
+                    <NumberPager
+                      page={latestPage}
+                      totalPages={latestTotalPages}
+                      onChange={changeLatestPage}
+                    />
+                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Page {Number.isFinite(latestPage) ? latestPage : 1} of{" "}
+                      {Number.isFinite(latestTotalPages) ? latestTotalPages : 1}
+                    </div>
                   </div>
-
-                  <NumberPager
-                    page={latestPage}
-                    totalPages={latestTotalPages}
-                    onChange={changeLatestPage}
-                  />
                 </div>
 
                 {loadingPage && (
-                  <div className="mt-3 text-sm text-gray-500 dark:text-muted-foreground">
-                    Loading page…
+                  <div className="mt-8 flex justify-center items-center gap-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-3 border-blue-300 dark:border-blue-700 border-t-blue-500 dark:border-t-blue-400"></div>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Loading page…</span>
                   </div>
                 )}
               </>
             )}
           </div>
 
-          <aside className="lg:col-span-3">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Ranking</h2>
+          <aside>
+            {/* SectionLabel: icon + gradient line */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-400 to-pink-500 text-white shadow-lg">
+                  <Award className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">Top Ranked</h2>
+                </div>
+              </div>
 
-              <div className="flex gap-1 rounded-full border border-gray-300 dark:border-input p-1 bg-background">
+              {/* Redesigned tab pills - gradient active */}
+              <div className="flex gap-2 rounded-full border border-gray-200 dark:border-gray-700 p-1 bg-gray-50 dark:bg-gray-800">
                 {(["day", "week", "month"] as RankTab[]).map((k) => (
                   <button
                     key={k}
                     onClick={() => setTab(k)}
-                    className={`rounded-full px-3 py-1 text-xs ${tab === k
-                        ? "bg-black dark:bg-primary text-white dark:text-primary-foreground"
-                        : "bg-white dark:bg-card text-gray-800 dark:text-foreground"
+                    className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${tab === k
+                      ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
+                      : "bg-transparent hover:bg-white dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                       }`}
                   >
-                    {k === "day" ? "Day" : k === "week" ? "Week" : "Month"}
+                    {k === "day" ? "Today" : k === "week" ? "Week" : "Month"}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-2">
-              {hotViews.map((m, idx) => (
-                <Link
-                  href={m.href}
-                  key={m.key}
-                  className="flex items-center gap-3 rounded border border-gray-200 dark:border-input p-2 hover:bg-gray-50 dark:hover:bg-accent"
-                >
-                  <div className="relative h-16 w-12 overflow-hidden rounded">
-                    {m.coverUrl ? (
-                      <img
-                        src={m.coverUrl}
-                        alt={m.title}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gray-100 dark:bg-muted text-[10px] text-gray-500 dark:text-muted-foreground">
-                        No cover
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-foreground">
-                      {idx + 1}. {m.title}
-                    </div>
-                    <div className="mt-0.5 flex items-center justify-between text-xs text-gray-600 dark:text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <BookOpen className="h-3.5 w-3.5" /> {m.chapters} chapters
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Eye className="h-3.5 w-3.5" /> {fmtViews(m.views)}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            <div className="mt-6">
-              <h3 className="mb-2 text-sm font-semibold text-foreground">
-                Top rated
-              </h3>
-
-              <div className="space-y-2">
-                {topFollows.map((m) => (
+            {/* Sidebar card: modern border + gradient background */}
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 p-6 shadow-lg mt-6">
+              {/* Ranking rows with medal + gradient hover */}
+              <div className="space-y-3 mt-4">
+                {hotViews.map((m, idx) => (
                   <Link
                     href={m.href}
                     key={m.key}
-                    className="flex items-center gap-3 rounded border border-gray-200 dark:border-input p-2 hover:bg-gray-50 dark:hover:bg-accent"
+                    className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-md hover:bg-gradient-to-r hover:from-purple-50 dark:hover:from-purple-950/20 hover:to-pink-50 dark:hover:to-pink-950/20 transition-all duration-200 group"
                   >
-                    <div className="relative h-12 w-9 overflow-hidden rounded">
+                    <div className="relative h-16 w-12 overflow-hidden rounded-lg flex-shrink-0 shadow-md">
                       {m.coverUrl ? (
                         <img
                           src={m.coverUrl}
@@ -674,17 +710,32 @@ export default function HomePage() {
                           loading="lazy"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gray-100 dark:bg-muted text-[10px] text-gray-500 dark:text-muted-foreground">
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 text-[10px] text-gray-500 dark:text-gray-400">
                           No cover
                         </div>
                       )}
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm text-foreground">{m.title}</div>
-                      <div className="text-xs text-gray-600 dark:text-muted-foreground flex items-center gap-1">
-                        <Star className="h-3.5 w-3.5 fill-yellow-400 stroke-yellow-400" />
-                        {(m.rating || 0).toFixed(1)}
+                      <div className="truncate text-sm font-semibold text-foreground flex items-center gap-2">
+                        {idx === 0 ? (
+                          <span className="text-lg">🥇</span>
+                        ) : idx === 1 ? (
+                          <span className="text-lg">🥈</span>
+                        ) : idx === 2 ? (
+                          <span className="text-lg">🥉</span>
+                        ) : (
+                          <span className="font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent w-6">{idx + 1}</span>
+                        )}
+                        <span className="group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{m.title}</span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                        <span className="flex items-center gap-1 line-clamp-1">
+                          <BookOpen className="h-3.5 w-3.5 flex-shrink-0" /> {m.chapters}
+                        </span>
+                        <span className="flex items-center gap-1 flex-shrink-0 font-medium text-purple-600 dark:text-purple-400">
+                          <Eye className="h-3.5 w-3.5" /> {fmtViews(m.views)}
+                        </span>
                       </div>
                     </div>
                   </Link>

@@ -5,6 +5,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { Navbar } from "@/components/navbar";
 import { MangaCard } from "@/components/MangaCard";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  X,
+} from "lucide-react";
 
 // ===== Types
 type Genre = { _id: string; name: string; description?: string };
@@ -140,30 +148,30 @@ function mapToCard(x: MangaRaw): CardItem {
   const updatedAtMs = x.updatedAt
     ? new Date(x.updatedAt as any).getTime()
     : x.createdAt
-    ? new Date(x.createdAt as any).getTime()
-    : undefined;
+      ? new Date(x.createdAt as any).getTime()
+      : undefined;
 
   const views = toNumber(x.views ?? x.viewCount) ?? 0;
   const follows = toNumber(x.follows) ?? 0;
 
   const genresText: string[] = Array.isArray(x.genres)
     ? (x.genres as any[])
-        .map((g) => (typeof g === "string" ? g : g?.name))
-        .filter(Boolean)
+      .map((g) => (typeof g === "string" ? g : g?.name))
+      .filter(Boolean)
     : [];
 
   const stylesText: string[] = Array.isArray(x.styles)
     ? (x.styles as any[])
-        .map((s) => (typeof s === "string" ? s : s?.name))
-        .filter(Boolean)
+      .map((s) => (typeof s === "string" ? s : s?.name))
+      .filter(Boolean)
     : [];
 
   const statusNorm = x.status
     ? /complete|hoàn/i.test(x.status)
       ? "complete"
       : /ongoing|đang/i.test(x.status)
-      ? "ongoing"
-      : x.status
+        ? "ongoing"
+        : x.status
     : undefined;
 
   return {
@@ -172,11 +180,11 @@ function mapToCard(x: MangaRaw): CardItem {
     title: getTitle(x),
     coverUrl: buildCoverUrl(
       x.coverImage ||
-        x.coverUrl ||
-        x.cover ||
-        x.thumbnail ||
-        x.thumb ||
-        x.image_url
+      x.coverUrl ||
+      x.cover ||
+      x.thumbnail ||
+      x.thumb ||
+      x.image_url
     ),
     published: x.isPublish ?? true,
     status: statusNorm,
@@ -202,9 +210,8 @@ const SORTS: { key: "updated" | "views" | "follows"; label: string }[] = [
   { key: "follows", label: "Most Followed" },
 ];
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 20;
 
-// ===== API utils
 function buildGetAllUrl(page: number, limit: number) {
   const base = `${API_BASE}/api/manga/get/all`;
   const p = new URLSearchParams();
@@ -247,7 +254,7 @@ function buildFacetCounts(
     (it) =>
       matchQ(it) &&
       (!selectedStyleIds.length ||
-        (it._styleIds || []).some((id) => selectedStyleIds.includes(id)))
+        selectedStyleIds.every((id) => (it._styleIds || []).includes(id))) // SỬA: dùng every
   );
 
   for (const it of baseForGenre) {
@@ -261,7 +268,7 @@ function buildFacetCounts(
     (it) =>
       matchQ(it) &&
       (!selectedGenreIds.length ||
-        (it._genreIds || []).some((id) => selectedGenreIds.includes(id)))
+        selectedGenreIds.every((id) => (it._genreIds || []).includes(id))) // SỬA: dùng every
   );
 
   for (const it of baseForStyle) {
@@ -286,22 +293,22 @@ export default function StoriesPage() {
   const [availableStyles, setAvailableStyles] = useState<StyleItem[]>([]);
   const [loadingFilters, setLoadingFilters] = useState(false);
 
-  const [page, setPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [allItems, setAllItems] = useState<CardItem[]>([]);
   const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [firstLoaded, setFirstLoaded] = useState(false);
-
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [goToPageOpen, setGoToPageOpen] = useState(false);
+  const [goToPageInput, setGoToPageInput] = useState("");
+  const goToPageInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const syncQ = () => {
       try {
         const v = sessionStorage.getItem("stories:q") || "";
         if (v) setQ(v);
-      } catch {}
+      } catch { }
     };
 
     syncQ();
@@ -312,7 +319,7 @@ export default function StoriesPage() {
       try {
         sessionStorage.removeItem("stories:q");
         sessionStorage.removeItem("stories:q:ts");
-      } catch {}
+      } catch { }
     };
   }, []);
 
@@ -332,24 +339,17 @@ export default function StoriesPage() {
   }, []);
 
   useEffect(() => {
-    setPage(1);
-    setAllItems([]);
-    setHasMore(true);
-    setErr(null);
-    setTotal(null);
-    setFirstLoaded(false);
-  }, []);
+    setCurrentPage(1);
+  }, [q, selectedGenreIds.join(","), selectedStyleIds.join(","), sortKey]);
 
   useEffect(() => {
-    if (!hasMore) return;
-
     const controller = new AbortController();
     let cancelled = false;
 
     const fetchPage = async () => {
       setLoading(true);
       try {
-        const url = buildGetAllUrl(page, PAGE_SIZE);
+        const url = buildGetAllUrl(currentPage, PAGE_SIZE);
         const res = await axios.get(url, {
           withCredentials: true,
           signal: controller.signal,
@@ -359,16 +359,13 @@ export default function StoriesPage() {
         const raw = normalizeToArray<MangaRaw>(payload?.data ?? payload);
         const mapped = raw.map(mapToCard);
 
-        setAllItems((prev) => (page === 1 ? mapped : prev.concat(mapped)));
-
-        if (typeof payload?.total === "number") {
-          setTotal(payload.total);
-          setHasMore(page * PAGE_SIZE < payload.total);
-        } else {
-          setHasMore(mapped.length >= PAGE_SIZE);
+        if (!cancelled) {
+          setErr(null);
+          setAllItems(mapped);
+          if (typeof payload?.total === "number") {
+            setTotal(payload.total);
+          }
         }
-
-        if (page === 1) setFirstLoaded(true);
       } catch (e: any) {
         if (axios.isCancel(e)) return;
         if (!cancelled) {
@@ -376,7 +373,6 @@ export default function StoriesPage() {
             e?.response?.data?.message || e?.message || "Failed to load data"
           );
         }
-        setHasMore(false);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -389,26 +385,31 @@ export default function StoriesPage() {
       controller.abort();
       clearTimeout(t);
     };
-  }, [page, hasMore]);
+  }, [currentPage]);
 
   useEffect(() => {
-    if (!loadMoreRef.current || !firstLoaded) return;
+    if (total === null) return;
+    const max = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (currentPage > max) setCurrentPage(max);
+  }, [total, currentPage]);
 
-    const node = loadMoreRef.current;
+  useEffect(() => {
+    if (!goToPageOpen) return;
+    const id = requestAnimationFrame(() => {
+      goToPageInputRef.current?.focus();
+      goToPageInputRef.current?.select();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [goToPageOpen]);
 
-    const io = new IntersectionObserver(
-      (entries) => {
-        const [ent] = entries;
-        if (ent.isIntersecting && !loading && hasMore) {
-          setPage((p) => p + 1);
-        }
-      },
-      { rootMargin: "400px 0px" }
-    );
-
-    io.observe(node);
-    return () => io.disconnect();
-  }, [firstLoaded, loading, hasMore]);
+  const submitGoToPage = () => {
+    const n = parseInt(goToPageInput.trim(), 10);
+    if (!Number.isFinite(n) || n < 1 || n > totalPages) return;
+    setCurrentPage(n);
+    setGoToPageOpen(false);
+    setGoToPageInput("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const toggleGenre = (id: string) => {
     setSelectedGenreIds((prev) => {
@@ -432,7 +433,7 @@ export default function StoriesPage() {
     setSortKey("updated");
     try {
       sessionStorage.removeItem("stories:q");
-    } catch {}
+    } catch { }
     setQ("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -447,13 +448,12 @@ export default function StoriesPage() {
 
     if (selectedGenreIds.length) {
       list = list.filter((it) =>
-        (it._genreIds || []).some((id) => selectedGenreIds.includes(id))
+        selectedGenreIds.every((id) => (it._genreIds || []).includes(id))
       );
     }
-
     if (selectedStyleIds.length) {
       list = list.filter((it) =>
-        (it._styleIds || []).some((id) => selectedStyleIds.includes(id))
+        selectedStyleIds.every((id) => (it._styleIds || []).includes(id))
       );
     }
 
@@ -484,227 +484,449 @@ export default function StoriesPage() {
   const activeFiltersCount =
     selectedGenreIds.length + selectedStyleIds.length + (q ? 1 : 0);
 
+  const hasClientFilters =
+    Boolean(q.trim()) ||
+    selectedGenreIds.length > 0 ||
+    selectedStyleIds.length > 0;
+
+  // SỬA TẠI ĐÂY: Nếu có filter thì chia trang theo độ dài mảng đã filter, nếu không thì lấy tổng (total) từ server
+  const totalPages = hasClientFilters
+    ? Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE))
+    : total !== null && total > 0
+      ? Math.max(1, Math.ceil(total / PAGE_SIZE))
+      : 1;
+  const storiesCountDisplay = hasClientFilters
+    ? filteredSorted.length.toLocaleString("en-US")
+    : (total ?? filteredSorted.length).toLocaleString("en-US");
+
+  const canPrev = currentPage > 1;
+  const canNext = currentPage < totalPages;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <br />
-      <br />
-      <br />
+      <div className="h-32"></div>
 
-      <div className="mx-auto max-w-6xl p-4">
-        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-xl font-semibold text-foreground">
-            {q ? (
-              <>
-                Results for <span className="italic">"{q}"</span>
-              </>
-            ) : (
-              "All Stories"
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
+        {/* Header Section */}
+        <div className="mb-8 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 dark:from-blue-400 dark:to-cyan-400 bg-clip-text text-transparent">
+                {q ? (
+                  <>
+                    Search results for <span className="italic">"{q}"</span>
+                  </>
+                ) : (
+                  "All Stories"
+                )}
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                <span className="font-semibold">{storiesCountDisplay}</span>{" "}
+                stories found
+                {hasClientFilters && (
+                  <span className="text-gray-500 dark:text-gray-500">
+                    {" "}
+                    (on this page)
+                  </span>
+                )}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {SORTS.map((s) => {
+                const active = s.key === sortKey;
+                return (
+                  <button
+                    key={s.key}
+                    onClick={() => setSortKey(s.key)}
+                    className={`rounded-full px-4 py-2 text-sm font-medium border transition-all ${active
+                      ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-transparent shadow-md"
+                      : "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-700 text-foreground"
+                      }`}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Mobile Filter Toggle */}
+          <button
+            onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+            className="md:hidden w-full flex items-center justify-between px-4 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold shadow-md hover:shadow-lg transition-all"
+          >
+            <span>🔍 {activeFiltersCount ? `Filters (${activeFiltersCount})` : "Filters"}</span>
+            <ChevronDown className={`h-5 w-5 transition-transform ${mobileFilterOpen ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+
+        {/* Main Layout: Filters + Content */}
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6 lg:gap-8">
+          {/* Left Sidebar - Filters (Desktop) / Collapsible (Mobile) */}
+          <div>
+            {/* Desktop Sidebar */}
+            <div className="hidden md:block">
+              <FilterSidebar
+                loadingFilters={loadingFilters}
+                availableGenres={availableGenres}
+                availableStyles={availableStyles}
+                selectedGenreIds={selectedGenreIds}
+                selectedStyleIds={selectedStyleIds}
+                byGenre={byGenre}
+                byStyle={byStyle}
+                activeFiltersCount={activeFiltersCount}
+                toggleGenre={toggleGenre}
+                toggleStyle={toggleStyle}
+                clearFilters={clearFilters}
+              />
+            </div>
+
+            {/* Mobile Filter Modal */}
+            {mobileFilterOpen && (
+              <div className="fixed inset-0 z-50 md:hidden">
+                {/* Backdrop */}
+                <div
+                  className="absolute inset-0 bg-black/50"
+                  onClick={() => setMobileFilterOpen(false)}
+                />
+
+                {/* Modal */}
+                <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-t-2xl shadow-lg p-6 space-y-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold">Filters</h3>
+                    <button
+                      onClick={() => setMobileFilterOpen(false)}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  <FilterSidebar
+                    loadingFilters={loadingFilters}
+                    availableGenres={availableGenres}
+                    availableStyles={availableStyles}
+                    selectedGenreIds={selectedGenreIds}
+                    selectedStyleIds={selectedStyleIds}
+                    byGenre={byGenre}
+                    byStyle={byStyle}
+                    activeFiltersCount={activeFiltersCount}
+                    toggleGenre={toggleGenre}
+                    toggleStyle={toggleStyle}
+                    clearFilters={clearFilters}
+                  />
+                </div>
+              </div>
             )}
-            <span className="ml-2 text-sm text-muted-foreground">
-              ({filteredSorted.length.toLocaleString("en-US")} items)
-            </span>
-          </h1>
+          </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {SORTS.map((s) => {
-              const active = s.key === sortKey;
+          {/* Right Content - Stories */}
+          <div className="space-y-8">
+            {err && (
+              <div className="rounded-xl border-2 border-red-200 dark:border-red-900/50 bg-gradient-to-r from-red-50 to-red-50/50 dark:from-red-950/30 dark:to-red-900/20 p-4 text-red-700 dark:text-red-400 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0 text-2xl">⚠️</div>
+                  <div>
+                    <p className="font-semibold">Error loading stories</p>
+                    <p className="text-sm mt-1">{err}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!err && !loading && filteredSorted.length === 0 && (
+              <div className="rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600 p-12 text-center">
+                <div className="text-5xl mb-3">📭</div>
+                <p className="text-lg font-semibold text-foreground mb-2">No stories found</p>
+                <p className="text-gray-600 dark:text-gray-400">Try adjusting your filters or search terms</p>
+              </div>
+            )}
+
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 sm:gap-4 md:gap-5">
+              {loading &&
+                allItems.length === 0 &&
+                Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                  <li key={`sk-${i}`} className="animate-pulse">
+                    <div
+                      className="relative w-full overflow-hidden rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 shadow-sm"
+                      style={{ paddingBottom: "150%" }}
+                    />
+                    <div className="mt-3 h-4 w-5/6 rounded-lg bg-gray-200 dark:bg-gray-700" />
+                    <div className="mt-2 h-3 w-1/3 rounded-lg bg-gray-200 dark:bg-gray-700" />
+                  </li>
+                ))}
+
+              {(Array.isArray(filteredSorted) ? filteredSorted : []).map((m) => (
+                <li key={m.key} className="min-w-0">
+                  <MangaCard item={m} compact />
+                </li>
+              ))}
+            </ul>
+
+            {!err && (total !== null ? total > 0 : allItems.length > 0) && (
+              <nav
+                className="mt-10 flex flex-wrap items-center justify-center gap-2 sm:gap-3"
+                aria-label="Story pages"
+              >
+                <button
+                  type="button"
+                  aria-label="First page"
+                  disabled={!canPrev || loading}
+                  onClick={() => {
+                    setCurrentPage(1);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-foreground shadow-sm transition-all hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+                >
+                  <ChevronsLeft className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Previous page"
+                  disabled={!canPrev || loading}
+                  onClick={() => {
+                    setCurrentPage((p) => Math.max(1, p - 1));
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-foreground shadow-sm transition-all hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGoToPageInput(String(currentPage));
+                    setGoToPageOpen(true);
+                  }}
+                  disabled={loading}
+                  className="min-w-[8.5rem] rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold tabular-nums text-foreground shadow-sm transition-all hover:bg-gray-50 hover:ring-2 hover:ring-blue-400/40 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+                >
+                  Page {currentPage} / {totalPages}
+                </button>
+
+                <button
+                  type="button"
+                  aria-label="Next page"
+                  disabled={!canNext || loading}
+                  onClick={() => {
+                    setCurrentPage((p) => Math.min(totalPages, p + 1));
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-foreground shadow-sm transition-all hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Last page"
+                  disabled={!canNext || loading}
+                  onClick={() => {
+                    setCurrentPage(totalPages);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-foreground shadow-sm transition-all hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+                >
+                  <ChevronsRight className="h-5 w-5" />
+                </button>
+              </nav>
+            )}
+
+            {goToPageOpen && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                <div
+                  className="absolute inset-0 bg-black/50"
+                  onClick={() => {
+                    setGoToPageOpen(false);
+                    setGoToPageInput("");
+                  }}
+                  aria-hidden
+                />
+                <div
+                  className="relative z-10 w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-900"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="goto-page-title"
+                >
+                  <h2
+                    id="goto-page-title"
+                    className="text-lg font-bold text-foreground"
+                  >
+                    Go to page
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                    Enter a page between 1 and {totalPages}.
+                  </p>
+                  <input
+                    ref={goToPageInputRef}
+                    type="text"
+                    inputMode="numeric"
+                    value={goToPageInput}
+                    onChange={(e) => setGoToPageInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        submitGoToPage();
+                      }
+                      if (e.key === "Escape") {
+                        setGoToPageOpen(false);
+                        setGoToPageInput("");
+                      }
+                    }}
+                    className="mt-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-foreground outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-800"
+                    placeholder={`1–${totalPages}`}
+                  />
+                  <div className="mt-5 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGoToPageOpen(false);
+                        setGoToPageInput("");
+                      }}
+                      className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={submitGoToPage}
+                      className="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:shadow-md"
+                    >
+                      Go
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Filter Sidebar Component
+function FilterSidebar({
+  loadingFilters,
+  availableGenres,
+  availableStyles,
+  selectedGenreIds,
+  selectedStyleIds,
+  byGenre,
+  byStyle,
+  activeFiltersCount,
+  toggleGenre,
+  toggleStyle,
+  clearFilters,
+}: {
+  loadingFilters: boolean;
+  availableGenres: Genre[];
+  availableStyles: StyleItem[];
+  selectedGenreIds: string[];
+  selectedStyleIds: string[];
+  byGenre: Record<string, number>;
+  byStyle: Record<string, number>;
+  activeFiltersCount: number;
+  toggleGenre: (id: string) => void;
+  toggleStyle: (id: string) => void;
+  clearFilters: () => void;
+}) {
+  return (
+    <div className="space-y-6 sticky top-24">
+      {/* Filter Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold text-foreground">
+          Filters
+          {activeFiltersCount > 0 && (
+            <span className="ml-2 inline-block px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs font-bold">
+              {activeFiltersCount}
+            </span>
+          )}
+        </h3>
+        {activeFiltersCount > 0 && (
+          <button
+            onClick={clearFilters}
+            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Category Filter */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-bold text-foreground uppercase tracking-wider">📚 Category</h4>
+        <div className="space-y-2">
+          {loadingFilters ? (
+            <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>
+          ) : availableGenres.length ? (
+            availableGenres.map((g) => {
+              const active = selectedGenreIds.includes(g._id);
+              const count = byGenre[g._id] || 0;
+              const disabled = !active && count === 0;
+
               return (
                 <button
-                  key={s.key}
-                  onClick={() => setSortKey(s.key)}
-                  className={`rounded-full px-3 py-1 text-sm border transition ${
-                    active
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background hover:bg-muted border-border text-foreground"
-                  }`}
+                  key={g._id}
+                  onClick={() => !disabled && toggleGenre(g._id)}
+                  disabled={disabled}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-between ${active
+                    ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-sm"
+                    : "bg-gray-100 dark:bg-gray-800 text-foreground hover:bg-gray-200 dark:hover:bg-gray-700"
+                    }
+                  ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  title={g.description || g.name}
                 >
-                  {s.label}
+                  <span className="truncate">{g.name}</span>
+                  <span className="text-xs font-bold ml-2 flex-shrink-0">
+                    {count}
+                  </span>
                 </button>
               );
-            })}
-          </div>
+            })
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400">No categories</div>
+          )}
         </div>
+      </div>
 
-        <div className="mb-4 rounded-lg border border-border bg-muted p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm font-medium text-foreground">
-              Filter by{activeFiltersCount ? ` (${activeFiltersCount})` : ""}
-            </div>
+      {/* Style Filter */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-bold text-foreground uppercase tracking-wider">🎨 Style</h4>
+        <div className="space-y-2">
+          {loadingFilters ? (
+            <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>
+          ) : availableStyles.length ? (
+            availableStyles.map((s) => {
+              const active = selectedStyleIds.includes(s._id);
+              const count = byStyle[s._id] || 0;
+              const disabled = !active && count === 0;
 
-            <div className="flex items-center gap-2">
-              <button
-                disabled={loadingFilters}
-                onClick={clearFilters}
-                className="rounded border border-border px-3 py-1 text-xs hover:bg-background disabled:opacity-50 text-foreground"
-              >
-                Clear All
-              </button>
-            </div>
-          </div>
-
-          <div className="mb-2">
-            <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Category
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {loadingFilters && (
-                <div className="text-xs text-muted-foreground">
-                  Loading category…
-                </div>
-              )}
-
-              {!loadingFilters &&
-                (availableGenres.length ? (
-                  availableGenres.map((g) => {
-                    const active = selectedGenreIds.includes(g._id);
-                    const count = byGenre[g._id] || 0;
-                    const disabled = !active && count === 0;
-
-                    return (
-                      <button
-                        key={g._id}
-                        onClick={() => !disabled && toggleGenre(g._id)}
-                        disabled={disabled}
-                        className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition
-                          ${
-                            active
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-background text-foreground hover:bg-muted"
-                          }
-                          ${
-                            disabled
-                              ? "opacity-50 cursor-not-allowed hover:bg-background"
-                              : ""
-                          }`}
-                        title={g.description || g.name}
-                      >
-                        <span>{g.name}</span>
-                        <span
-                          className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
-                            active
-                              ? "bg-primary-foreground/20"
-                              : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="text-xs text-muted-foreground">
-                    Không có category khả dụng
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Style
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {loadingFilters && (
-                <div className="text-xs text-muted-foreground">
-                  Loading style…
-                </div>
-              )}
-
-              {!loadingFilters &&
-                (availableStyles.length ? (
-                  availableStyles.map((s) => {
-                    const active = selectedStyleIds.includes(s._id);
-                    const count = byStyle[s._id] || 0;
-                    const disabled = !active && count === 0;
-
-                    return (
-                      <button
-                        key={s._id}
-                        onClick={() => !disabled && toggleStyle(s._id)}
-                        disabled={disabled}
-                        className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition
-                          ${
-                            active
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-background text-foreground hover:bg-muted"
-                          }
-                          ${
-                            disabled
-                              ? "opacity-50 cursor-not-allowed hover:bg-background"
-                              : ""
-                          }`}
-                        title={s.description || s.name}
-                      >
-                        <span>{s.name}</span>
-                        <span
-                          className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
-                            active
-                              ? "bg-primary-foreground/20"
-                              : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="text-xs text-muted-foreground">
-                    Không có style khả dụng
-                  </div>
-                ))}
-            </div>
-          </div>
+              return (
+                <button
+                  key={s._id}
+                  onClick={() => !disabled && toggleStyle(s._id)}
+                  disabled={disabled}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-between ${active
+                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                    : "bg-gray-100 dark:bg-gray-800 text-foreground hover:bg-gray-200 dark:hover:bg-gray-700"
+                    }
+                  ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  title={s.description || s.name}
+                >
+                  <span className="truncate">{s.name}</span>
+                  <span className="text-xs font-bold ml-2 flex-shrink-0">
+                    {count}
+                  </span>
+                </button>
+              );
+            })
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400">No styles</div>
+          )}
         </div>
-
-        {err && <p className="mb-3 text-destructive">Error: {err}</p>}
-
-        {!err && !loading && filteredSorted.length === 0 && (
-          <p className="mb-3 text-muted-foreground">
-            No matching results (try changing filters).
-          </p>
-        )}
-
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 sm:gap-4">
-          {loading &&
-            allItems.length === 0 &&
-            Array.from({ length: 12 }).map((_, i) => (
-              <li key={`sk-${i}`} className="animate-pulse">
-                <div
-                  className="relative w-full overflow-hidden rounded-xl bg-muted ring-1 ring-inset ring-border"
-                  style={{ paddingBottom: "150%" }}
-                />
-                <div className="mt-2 h-4 w-5/6 rounded bg-muted" />
-                <div className="mt-1 h-3 w-1/3 rounded bg-muted" />
-              </li>
-            ))}
-
-          {(Array.isArray(filteredSorted) ? filteredSorted : []).map((m) => (
-            <li key={m.key} className="min-w-0">
-              <MangaCard item={m} compact />
-            </li>
-          ))}
-        </ul>
-
-        <div ref={loadMoreRef} className="h-12" />
-
-        {!loading && hasMore && allItems.length > 0 && (
-          <div className="mt-4 flex justify-center">
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded border border-border px-4 py-2 text-sm hover:bg-muted text-foreground"
-            >
-              Tải thêm
-            </button>
-          </div>
-        )}
-
-        {loading && allItems.length > 0 && (
-          <div className="mt-4 flex justify-center text-sm text-muted-foreground">
-            Loading more…
-          </div>
-        )}
       </div>
     </div>
   );
