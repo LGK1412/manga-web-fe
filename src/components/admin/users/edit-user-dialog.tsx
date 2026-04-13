@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 
 import {
+  ADMIN_ROLE_ASSIGNMENT_VALUES,
   ROLE_OPTIONS,
   type ConfirmActionType,
   type UserRow,
@@ -169,15 +170,16 @@ export function EditUserDialog({
   const isContentMod = actorRole === "content_moderator";
   const isCommunityManager = actorRole === "community_manager";
   const canAdminChangeRole =
-    isAdmin && !!selectedUser && selectedUser.role === "user";
+    isAdmin &&
+    !!selectedUser &&
+    ADMIN_ROLE_ASSIGNMENT_VALUES.includes(
+      selectedUser.role as (typeof ADMIN_ROLE_ASSIGNMENT_VALUES)[number]
+    );
   const roleOptions = canAdminChangeRole
     ? ROLE_OPTIONS.filter((role) =>
-        [
-          "user",
-          "content_moderator",
-          "community_manager",
-          "financial_manager",
-        ].includes(role.value)
+        ADMIN_ROLE_ASSIGNMENT_VALUES.includes(
+          role.value as (typeof ADMIN_ROLE_ASSIGNMENT_VALUES)[number]
+        )
       )
     : ROLE_OPTIONS.filter((role) => role.value === selectedUser?.role);
 
@@ -382,8 +384,10 @@ export function EditUserDialog({
                   </Select>
 
                   <p className="text-xs text-slate-500">
-                    Only <RoleName role="admin" /> can change a User account to
-                    Content Moderator, Community Manager, or Financial Manager.
+                    Only <RoleName role="admin" /> can switch User and staff
+                    accounts between User, Content Moderator, Community
+                    Manager, and Financial Manager. Admin and Author roles are
+                    locked.
                   </p>
                 </div>
 

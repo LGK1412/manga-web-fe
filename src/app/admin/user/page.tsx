@@ -47,6 +47,7 @@ import { UserManagementPagination } from "@/components/admin/users/user-manageme
 import { UserManagementStats } from "@/components/admin/users/user-management-stats";
 import { UserManagementTable } from "@/components/admin/users/user-management-table";
 import {
+  ADMIN_ROLE_ASSIGNMENT_VALUES,
   type ConfirmActionType,
   type ModerationHistoryItem,
   type UserListPreset,
@@ -81,7 +82,7 @@ const WORKSPACE_COPY: Record<
     description:
       "Cross-team workspace for account access, recent activity, and moderation controls.",
     focus:
-      "Admin can change roles, manage staff status, and reset moderated User/Author accounts.",
+      "Admin can change User/staff roles except Admin and Author, manage staff status, and reset moderated User/Author accounts.",
   },
   content_moderator: {
     description:
@@ -524,6 +525,10 @@ export default function UserManagementPage() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const handleFilterStatusChange = useCallback((value: string) => {
+    setFilterStatus(parseStatus(value));
+  }, []);
 
   const workspaceCopy = WORKSPACE_COPY[actorRole] ?? WORKSPACE_COPY.default;
   const clearSelection = useCallback(() => {
@@ -1001,8 +1006,17 @@ Manga Platform Team`;
   const requestRoleUpdate = () => {
     if (!selectedUser || draftRole === selectedUser.role) return;
 
-    if (selectedUser.role === "author" && draftRole === "user") {
-      toast.error("The current rule does not allow downgrading Author to User.");
+    const canChangeSelectedRole = ADMIN_ROLE_ASSIGNMENT_VALUES.includes(
+      selectedUser.role as (typeof ADMIN_ROLE_ASSIGNMENT_VALUES)[number]
+    );
+    const canAssignDraftRole = ADMIN_ROLE_ASSIGNMENT_VALUES.includes(
+      draftRole as (typeof ADMIN_ROLE_ASSIGNMENT_VALUES)[number]
+    );
+
+    if (!canChangeSelectedRole || !canAssignDraftRole) {
+      toast.error(
+        "Admin can only switch User and staff roles between User, Content Moderator, Community Manager, and Financial Manager."
+      );
       return;
     }
 
@@ -1576,7 +1590,7 @@ Manga Platform Team`;
               isLoading={isLoading}
               onApplyPreset={setFilterPreset}
               onSetRoleFilter={setFilterRole}
-              onSetStatusFilter={setFilterStatus}
+              onSetStatusFilter={handleFilterStatusChange}
               onResetFilters={clearFilters}
             />
 
@@ -1592,7 +1606,7 @@ Manga Platform Team`;
               activeFilterChips={activeFilterChips}
               onSearchChange={setSearchTerm}
               onRoleChange={setFilterRole}
-              onStatusChange={setFilterStatus}
+              onStatusChange={handleFilterStatusChange}
               onPresetChange={setFilterPreset}
               onClearFilters={clearFilters}
               onReload={loadUsers}

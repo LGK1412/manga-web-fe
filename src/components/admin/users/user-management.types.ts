@@ -7,6 +7,13 @@ export const ROLE_OPTIONS = [
   { value: "admin", label: "Admin" },
 ] as const;
 
+export const ADMIN_ROLE_ASSIGNMENT_VALUES = [
+  "user",
+  "content_moderator",
+  "community_manager",
+  "financial_manager",
+] as const;
+
 export const STAFF_ROLE_VALUES = [
   "admin",
   "content_moderator",
