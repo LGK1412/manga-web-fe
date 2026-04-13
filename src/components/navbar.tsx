@@ -294,7 +294,7 @@ export function Navbar() {
                   </Button>
                 )}
 
-                <DropdownMenu>
+                <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
