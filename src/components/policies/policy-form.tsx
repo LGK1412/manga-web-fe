@@ -187,16 +187,16 @@ export default function PolicyForm({
                   </p>
                   <ul className="list-inside list-disc space-y-1">
                     <li>
-                      <strong>Draft</strong> = đang soạn, chưa áp dụng
+                      <strong>Draft</strong> = in preparation, not yet applied
                     </li>
                     <li>
-                      <strong>Active</strong> = đang có hiệu lực
+                      <strong>Active</strong> = is in effect
                     </li>
                     <li>
-                      <strong>Archived</strong> = ngừng dùng nhưng vẫn lưu lịch sử
+                      <strong>Archived</strong> = stop using but still save history
                     </li>
                     <li>
-                      <strong>Public</strong> chỉ quyết định khả năng hiển thị cho user
+                      <strong>Public</strong> only decides visibility for the user
                     </li>
                   </ul>
                 </>
@@ -395,8 +395,8 @@ Policy overview...
 2. Users must not...`}
               />
               <p className="text-xs text-gray-500">
-                Mẹo: dùng heading như <strong># Title</strong>, hoặc{" "}
-                <strong>Section 1</strong>, <strong>Điều 1</strong> để preview tự chia section đẹp hơn.
+                Tip: use headings like <strong># Title</strong>, or{" "}
+                <strong>Section 1</strong> so that the preview can divide itself into better sections.
               </p>
             </div>
 

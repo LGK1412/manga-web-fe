@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search, Edit, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,7 +62,7 @@ export default function GenreManagement() {
   const [editGenre, setEditGenre] = useState<Genre | null>(null);
   const { toast } = useToast();
 
-  // Fetch genres từ API
+  // Fetch genres from API
   const fetchGenres = async () => {
     try {
       const res = await axios.get(
@@ -75,8 +75,8 @@ export default function GenreManagement() {
     } catch (error) {
       console.error("Error fetching genres:", error);
       toast({
-        title: "Lỗi tải dữ liệu",
-        description: "Không thể lấy danh sách thể loại",
+        title: "Failed to load data",
+        description: "Unable to fetch the genre list.",
         variant: "destructive",
       });
     }
@@ -102,14 +102,14 @@ export default function GenreManagement() {
       setIsAddDialogOpen(false);
 
       toast({
-        title: "Thêm thành công",
-        description: `Đã thêm thể loại ${res.data.name}`,
+        title: "Added successfully",
+        description: `Genre ${res.data.name} has been added.`,
       });
     } catch (error) {
       console.error("Error adding genre:", error);
       toast({
-        title: "Lỗi thêm thể loại",
-        description: "Vui lòng thử lại sau",
+        title: "Failed to add genre",
+        description: "Please try again later.",
         variant: "destructive",
       });
     }
@@ -119,56 +119,34 @@ export default function GenreManagement() {
   const handleUpdateGenre = async () => {
     if (!editGenre) return;
 
+    const payload = {
+      name: editGenre.name,
+      description: editGenre.description,
+      status: editGenre.status,
+    };
+
     try {
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/genre/${editGenre._id}`,
-        editGenre,
+        payload,
         { withCredentials: true }
       );
 
-      toast({ title: "Cập nhật thành công" });
+      toast({ title: "Updated successfully" });
       setIsEditDialogOpen(false);
+      setEditGenre(null);
       fetchGenres();
     } catch (error) {
       console.error("Error updating genre:", error);
       toast({
-        title: "Lỗi cập nhật thể loại",
-        description: "Vui lòng thử lại sau",
+        title: "Failed to update genre",
+        description: "Please try again later.",
         variant: "destructive",
       });
     }
   };
 
-  // Toggle status thay vì delete
-  const handleToggleStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === "normal" ? "hide" : "normal";
-
-    try {
-      await axios.patch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/genre/${id}/toggle-status`,
-        { status: newStatus },
-        { withCredentials: true }
-      );
-
-      setGenres(
-        genres.map((g) => (g._id === id ? { ...g, status: newStatus } : g))
-      );
-
-      toast({
-        title: "Cập nhật thành công",
-        description: `Thể loại đã được chuyển sang trạng thái ${newStatus}`,
-      });
-    } catch (error) {
-      console.error("Error updating genre status:", error);
-      toast({
-        title: "Lỗi cập nhật trạng thái",
-        description: "Vui lòng thử lại sau",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Lọc theo search + filter trạng thái
+  // Filter by search and status
   const filteredGenres = genres.filter((genre) => {
     const matchesSearch =
       genre.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -206,7 +184,7 @@ export default function GenreManagement() {
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Genre&apos;s Name</Label>
+                  <Label htmlFor="name">Genre Name</Label>
                   <Input
                     id="name"
                     value={newGenre.name}
@@ -224,7 +202,7 @@ export default function GenreManagement() {
                     onChange={(e) =>
                       setNewGenre({ ...newGenre, description: e.target.value })
                     }
-                    placeholder="Enter a description of the category..."
+                    placeholder="Enter a description for the genre..."
                   />
                 </div>
               </div>
@@ -275,18 +253,18 @@ export default function GenreManagement() {
           <CardHeader>
             <CardTitle>List of Genres ({filteredGenres.length})</CardTitle>
             <CardDescription>
-              Manage all types of stories in the system.
+              Manage all story genres in the system.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Genre&apos;s Name</TableHead>
+                  <TableHead>Genre Name</TableHead>
                   <TableHead>Short Description</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Quantity of stories</TableHead>
-                  <TableHead>Thao tác</TableHead>
+                  <TableHead>Number of Stories</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -323,13 +301,6 @@ export default function GenreManagement() {
                         >
                           <Edit className="h-4 w-4 mr-1" /> Update
                         </Button>
-                        {/* <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleStatus(genre._id, genre.status)}
-                        >
-                          {genre.status === "active" ? "Ẩn" : "Kích hoạt"}
-                        </Button> */}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -346,12 +317,12 @@ export default function GenreManagement() {
               <DialogHeader>
                 <DialogTitle>Update Genre</DialogTitle>
                 <DialogDescription>
-                  Update Information of the genre
+                  Update the selected genre information
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="edit-name">Genre&apos;s Name</Label>
+                  <Label htmlFor="edit-name">Genre Name</Label>
                   <Input
                     id="edit-name"
                     value={editGenre.name}
@@ -384,7 +355,7 @@ export default function GenreManagement() {
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[90]">
                       <SelectItem value="normal">Normal</SelectItem>
                       <SelectItem value="hide">Hide</SelectItem>
                     </SelectContent>

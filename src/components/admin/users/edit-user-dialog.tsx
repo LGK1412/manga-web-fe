@@ -168,6 +168,18 @@ export function EditUserDialog({
   const isAdmin = actorRole === "admin";
   const isContentMod = actorRole === "content_moderator";
   const isCommunityManager = actorRole === "community_manager";
+  const canAdminChangeRole =
+    isAdmin && !!selectedUser && selectedUser.role === "user";
+  const roleOptions = canAdminChangeRole
+    ? ROLE_OPTIONS.filter((role) =>
+        [
+          "user",
+          "content_moderator",
+          "community_manager",
+          "financial_manager",
+        ].includes(role.value)
+      )
+    : ROLE_OPTIONS.filter((role) => role.value === selectedUser?.role);
 
   const isTargetUserOrAuthor =
     selectedUser?.role === "user" || selectedUser?.role === "author";
@@ -354,14 +366,14 @@ export function EditUserDialog({
                   <Select
                     value={draftRole}
                     onValueChange={onDraftRoleChange}
-                    disabled={isSubmitting || actorRole !== "admin"}
+                    disabled={isSubmitting || !canAdminChangeRole}
                   >
                     <SelectTrigger id="user-role">
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
 
-                    <SelectContent>
-                      {ROLE_OPTIONS.map((role) => (
+                    <SelectContent className="z-[90]">
+                      {roleOptions.map((role) => (
                         <SelectItem key={role.value} value={role.value}>
                           {role.label}
                         </SelectItem>
@@ -370,7 +382,8 @@ export function EditUserDialog({
                   </Select>
 
                   <p className="text-xs text-slate-500">
-                    Only <RoleName role="admin" /> can change account role.
+                    Only <RoleName role="admin" /> can change a User account to
+                    Content Moderator, Community Manager, or Financial Manager.
                   </p>
                 </div>
 
@@ -380,7 +393,7 @@ export function EditUserDialog({
                   onClick={onRequestRoleUpdate}
                   disabled={
                     isSubmitting ||
-                    actorRole !== "admin" ||
+                    !canAdminChangeRole ||
                     draftRole === selectedUser.role
                   }
                 >
@@ -410,7 +423,7 @@ export function EditUserDialog({
                       <SelectValue placeholder="Select staff status" />
                     </SelectTrigger>
 
-                    <SelectContent>
+                    <SelectContent className="z-[90]">
                       <SelectItem value="Normal">Normal</SelectItem>
                       <SelectItem value="Muted">Muted</SelectItem>
                       <SelectItem value="Banned">Banned</SelectItem>
