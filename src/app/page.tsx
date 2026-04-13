@@ -608,7 +608,7 @@ export default function HomePage() {
                   <ChevronRight className="h-4 w-4" />
                 </Link>
               </div>
-              <div className="h-1.5 w-24 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full"></div>
+              <div className="h-1.5 w-24 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full mb-5"></div>
             </div>
 
             {loading && !latestItems.length ? (
