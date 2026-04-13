@@ -97,7 +97,7 @@ export function Navbar() {
     try {
       sessionStorage.setItem("stories:q", query);
       sessionStorage.setItem("stories:q:ts", String(Date.now()));
-    } catch {}
+    } catch { }
     if (pathname === "/stories") {
       window.dispatchEvent(new Event("stories:syncQ"));
     } else {
@@ -328,6 +328,30 @@ export function Navbar() {
                       >
                         <User className="mr-2 h-4 w-4" />
                         Profile
+                      </Link>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={
+                          user?.user_id ? "/game" : "/login"
+                        }
+                        className="flex items-center"
+                      >
+                        <Gamepad2 className="mr-2 h-4 w-4" />
+                        Game
+                      </Link>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={
+                          user?.user_id ? "/achievement" : "/login"
+                        }
+                        className="flex items-center"
+                      >
+                        <Trophy className="mr-2 h-4 w-4" />
+                        Achievement
                       </Link>
                     </DropdownMenuItem>
 
