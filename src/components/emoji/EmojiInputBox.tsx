@@ -231,14 +231,15 @@ export default function EmojiInputBox({ onChange, clear }: EmojiInputBoxProps) {
             {showPicker && (
                 <div
                     ref={pickerRef}
-                    className="fixed z-[60]"
+                    className="absolute z-[60] mt-2"   // ← thay fixed thành absolute
                     style={{
-                        top: "65%",
-                        left: "87.5%",
-                        transform: "translate(-50%, -50%)",
+                        // Không dùng top/left % cứng nữa
+                        right: "0",           // Căn phải theo button
+                        bottom: "100%",       // Hiển thị phía trên button
+                        transform: "none",    // Bỏ transform
                     }}
                 >
-                    <div className="shadow-xl rounded-xl">
+                    <div className="shadow-xl rounded-xl bg-white dark:bg-gray-900">
                         <Picker
                             data={data}
                             custom={customFromApi}
@@ -249,19 +250,19 @@ export default function EmojiInputBox({ onChange, clear }: EmojiInputBoxProps) {
                             emojiSize={20}
                             emojiButtonSize={28}
                             onEmojiSelect={(emoji: any) => {
-                                const value = emoji.native || emoji.src || emoji.skins?.[0]?.src
-                                if (!value) return
+                                const value = emoji.native || emoji.skins?.[0]?.src || emoji.src;
+                                if (!value) return;
 
                                 if (value.startsWith("http")) {
                                     insertAtCursor(
                                         `<span><img src="${value}" class="inline w-10 h-10 align-middle"/></span>`
-                                    )
+                                    );
                                 } else {
-                                    insertAtCursor(value)
+                                    insertAtCursor(value);
                                 }
 
                                 if (onChange && inputRef.current) {
-                                    onChange(inputRef.current.innerHTML)
+                                    onChange(inputRef.current.innerHTML);
                                 }
                             }}
                         />
@@ -271,24 +272,3 @@ export default function EmojiInputBox({ onChange, clear }: EmojiInputBoxProps) {
         </div>
     )
 }
-
-
-
-
-{/* <div className="border p-2 rounded">
-        <strong>Nội dung hiện tại:</strong>
-        <div className="mt-1 break-all">{message || "(trống)"}</div>
-        <EmojiInputBox
-          onChange={(html) => {
-            setMessage(html)
-            console.log("📨 Data từ EmojiInputBox:", html)
-          }}
-        />
-        <div>Cái 2</div>
-        <EmojiInputBox
-          onChange={(html) => {
-            setMessage(html)
-            console.log("📨 Data từ EmojiInputBox:", html)
-          }}
-        />
-      </div> */}

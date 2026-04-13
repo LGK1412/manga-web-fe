@@ -602,6 +602,7 @@ export function Navbar() {
                         setTheme(theme === "dark" ? "light" : "dark")
                       }
                       className="bg-transparent"
+                      suppressHydrationWarning
                     >
                       {mounted ? (
                         theme === "dark" ? (
