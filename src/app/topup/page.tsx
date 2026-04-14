@@ -44,7 +44,7 @@ export default function TopupPage() {
       );
       setUser(res.data);
     } catch (error) {
-      console.error("Không lấy được user:", error);
+      console.error("Unable to fetch user:", error);
       setUser(null);
     } finally {
       setLoadingUser(false);

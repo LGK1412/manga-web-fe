@@ -125,7 +125,7 @@ export default function ViewBankRefModal({
                         target="_blank"
                         rel="noreferrer"
                         className="p-2 bg-white rounded-full hover:bg-slate-100"
-                        title="Xem toàn màn hình"
+                        title="Open fullscreen"
                       >
                         <ExternalLink className="w-4 h-4 text-slate-900" />
                       </a>

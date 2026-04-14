@@ -286,9 +286,9 @@ export default function DonationShopModal({
               variant="outline"
               onClick={() => setMessageModalOpen(false)}
             >
-              Hủy
+              Cancel
             </Button>
-            <Button onClick={handleConfirmDonation}>Xác nhận tặng</Button>
+            <Button onClick={handleConfirmDonation}>Confirm gift</Button>
           </div>
         </DialogContent>
       </Dialog>

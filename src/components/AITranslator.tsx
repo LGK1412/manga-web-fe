@@ -6,7 +6,6 @@ import {
     Loader2,
     Save,
     Languages,
-    Globe,
     Copy,
     AlertCircle,
     X,
@@ -79,8 +78,6 @@ export default function AITranslator({
     onClose,
 }: AITranslatorProps) {
     const [selectedLanguage, setSelectedLanguage] = useState("Vietnamese");
-    const [customLanguage, setCustomLanguage] = useState("");
-    const [isCustomMode, setIsCustomMode] = useState(false);
 
     // Three distinct loading states
     const [isFetching, setIsFetching] = useState(false); // get-novel-translation
@@ -89,6 +86,7 @@ export default function AITranslator({
 
     const [error, setError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
+    const [copyFailed, setCopyFailed] = useState(false);
     const [hasManualInput, setHasManualInput] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -96,7 +94,7 @@ export default function AITranslator({
 
     const [result, setResult] = useState<TranslationResult>(EMPTY_RESULT);
 
-    const finalLanguage = isCustomMode ? customLanguage.trim() : selectedLanguage;
+    const finalLanguage = selectedLanguage;
 
     // ── Push translation text into the editable div ──────────────────
     useEffect(() => {
@@ -207,6 +205,7 @@ export default function AITranslator({
                 target_language: finalLanguage,
             });
             setSaveSuccess(true);
+            onApply?.(finalHtml);
         } catch (err: unknown) {
             if (axios.isAxiosError(err)) {
                 setError(err.response?.data?.message ?? "Failed to save translation.");
@@ -220,15 +219,21 @@ export default function AITranslator({
 
     const handleCopy = async () => {
         const text = translationEditableRef.current?.innerText || stripHtml(result.translated_text);
-        if (!text) return;
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    const handleLanguageSelect = (langId: string) => {
-        setIsCustomMode(false);
-        setSelectedLanguage(langId);
+        if (!text) {
+            setCopyFailed(true);
+            setTimeout(() => setCopyFailed(false), 2000);
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            setCopyFailed(false);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            setCopyFailed(true);
+            setCopied(false);
+            setTimeout(() => setCopyFailed(false), 2000);
+        }
     };
 
     const isLoading = isFetching || isTranslating || isSaving;
@@ -302,11 +307,11 @@ export default function AITranslator({
                         Target:
                     </span>
                     {PRESET_LANGUAGES.map((lang) => {
-                        const active = !isCustomMode && selectedLanguage === lang.id;
+                        const active = selectedLanguage === lang.id;
                         return (
                             <button
                                 key={lang.id}
-                                onClick={() => handleLanguageSelect(lang.id)}
+                                onClick={() => setSelectedLanguage(lang.id)}
                                 disabled={isLoading}
                                 className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border disabled:opacity-50 ${active
                                     ? "bg-blue-600 text-white border-blue-600 shadow-sm"
@@ -318,37 +323,6 @@ export default function AITranslator({
                             </button>
                         );
                     })}
-
-                    <button
-                        onClick={() => setIsCustomMode(true)}
-                        disabled={isLoading}
-                        className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border disabled:opacity-50 ${isCustomMode
-                            ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                            : "bg-white text-slate-500 border-dashed border-slate-300 hover:border-blue-300 hover:text-blue-600"
-                            }`}
-                    >
-                        <Globe className="w-3 h-3" />
-                        Custom
-                    </button>
-
-                    {isCustomMode && (
-                        <input
-                            type="text"
-                            placeholder="e.g. Thai"
-                            value={customLanguage}
-                            onChange={(e) => setCustomLanguage(e.target.value)}
-                            onBlur={() => {
-                                if (customLanguage.trim()) fetchCached(customLanguage.trim());
-                            }}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && customLanguage.trim()) {
-                                    fetchCached(customLanguage.trim());
-                                }
-                            }}
-                            autoFocus
-                            className="flex-shrink-0 px-3 py-1.5 text-xs border border-blue-300 rounded-full outline-none focus:ring-2 focus:ring-blue-100 text-slate-800 placeholder-slate-400 w-32 sm:w-48 bg-white transition-all"
-                        />
-                    )}
                 </div>
 
                 {/* ── DUAL PANEL EDITORS ── */}
@@ -479,6 +453,7 @@ export default function AITranslator({
                     </div>
                 )}
 
+                {/* ── FOOTER ACTION BAR ── */}
                 <div className="flex-shrink-0 flex flex-col-reverse sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-slate-100 bg-white">
                     <button
                         onClick={onClose}
@@ -492,11 +467,31 @@ export default function AITranslator({
                         <button
                             onClick={handleCopy}
                             disabled={!result.isLoaded && !hasManualInput}
-                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 transition-all focus:outline-none focus:ring-2 focus:ring-slate-200"
+                            className={`w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all focus:outline-none focus:ring-2 disabled:opacity-40 ${
+                                copyFailed
+                                    ? "text-red-600 border border-red-200 hover:bg-red-50 focus:ring-red-200"
+                                    : "text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 focus:ring-slate-200"
+                            }`}
                         >
-                            {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                            {copied ? "Copied!" : "Copy Text"}
+                            {copyFailed ? (
+                                <>
+                                    <AlertCircle className="w-4 h-4 text-red-600" />
+                                    Copy Failed!
+                                </>
+                            ) : copied ? (
+                                <>
+                                    <Check className="w-4 h-4 text-emerald-600" />
+                                    Copied!
+                                </>
+                            ) : (
+                                <>
+                                    <Copy className="w-4 h-4" />
+                                    Copy Text
+                                </>
+                            )}
                         </button>
+
+                        {/* AI Translate → calls fast-novel-translation */}
                         <button
                             onClick={handleTranslate}
                             disabled={isLoading || !content}
@@ -515,6 +510,8 @@ export default function AITranslator({
                                     : "AI Translate"
                             }
                         </button>
+
+                        {/* Apply → calls save-novel-translation then onApply */}
                         <button
                             onClick={handleApply}
                             disabled={isLoading || (!result.isLoaded && !hasManualInput)}
@@ -524,7 +521,7 @@ export default function AITranslator({
                                 ? <Loader2 className="w-4 h-4 animate-spin" />
                                 : <Save className="w-4 h-4" />
                             }
-                            {isSaving ? "Saving…" : "Save Translation"}
+                            {isSaving ? "Saving…" : "Apply to Chapter"}
                         </button>
                     </div>
                 </div>

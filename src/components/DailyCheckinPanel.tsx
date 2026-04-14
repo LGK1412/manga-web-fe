@@ -187,7 +187,7 @@ export default function DailyCheckinPanel({
               )}
             >
               {loading ? (
-                "Đang xử lý..."
+                "Processing..."
               ) : status.canCheckin ? (
                 <>
                   <Sparkles size={18} />

@@ -1022,7 +1022,7 @@ export default function CreateImageChapterPage({
                       </h3>
                       <p className="text-xs text-slate-500 mt-1">
                         {translationMode
-                          ? "Đang ở chế độ OCR & Dịch toàn chapter"
+                          ? "OCR & full-chapter translation mode is active"
                           : isEditMode
                             ? "Edit and rearrange images..."
                             : "Upload and arrange images..."}
@@ -1041,7 +1041,7 @@ export default function CreateImageChapterPage({
                         ) : (
                           <ScanText className="h-5 w-5" />
                         )}
-                        🚀 OCR & Dịch Toàn Bộ Chapter
+                       OCR & Translate Full Chapter
                       </button>
                     )}
 
@@ -1192,8 +1192,8 @@ export default function CreateImageChapterPage({
                                   <div className="mt-4 text-center">
                                     <p className="text-sm font-medium text-slate-700">
                                       {imageFile.isExisting
-                                        ? `Ảnh ${index + 1} (cũ)`
-                                        : imageFile.filename || `Ảnh ${index + 1}`}
+                                        ? `Image ${index + 1} (existing)`
+                                        : imageFile.filename || `Image ${index + 1}`}
                                     </p>
                                   </div>
                                 </div>
@@ -1204,7 +1204,7 @@ export default function CreateImageChapterPage({
                                   <button
                                     onClick={() => setOcrTargetUrl(imageFile.previewUrl)}
                                     className="p-2 rounded-xl hover:bg-emerald-50 text-emerald-600"
-                                    title="OCR & Dịch ảnh này"
+                                    title="OCR & translate this image"
                                   >
                                     <ScanText className="h-7 w-7" />
                                   </button>
@@ -1212,7 +1212,7 @@ export default function CreateImageChapterPage({
                                   <button
                                     onClick={() => removeImage(imageFile.id)}
                                     className="p-2 rounded-xl hover:bg-red-50 text-red-500"
-                                    title="Xóa ảnh"
+                                    title="Delete image"
                                   >
                                     <Trash2 className="h-7 w-7" />
                                   </button>

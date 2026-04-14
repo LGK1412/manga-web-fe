@@ -70,7 +70,7 @@ export default function PublicUserProfile({
         );
         setCurrentUserId(res.data.user_id);
       } catch (err) {
-        console.error("Chưa đăng nhập hoặc token hết hạn", err);
+        console.error("Not logged in or token expired", err);
         setCurrentUserId(null);
       }
     };
@@ -354,7 +354,7 @@ export default function PublicUserProfile({
                           onClick={() => setDonationOpen(true)}
                         >
                           <Gift className="w-4 h-4 mr-2" />
-                          <span>Tặng quà</span>
+                          <span>Send gift</span>
                         </Button>
 
                         <DonationModal
@@ -376,7 +376,7 @@ export default function PublicUserProfile({
                       <p className="text-lg font-semibold">{followersCount}</p>
                     )}
                     <p className="text-sm text-muted-foreground">
-                      Người theo dõi
+                      Followers
                     </p>
                     {statsError && (
                       <p className="text-xs text-red-500 mt-1">{statsError}</p>
@@ -389,7 +389,7 @@ export default function PublicUserProfile({
                       <p className="text-lg font-semibold">{followingCount}</p>
                     )}
                     <p className="text-sm text-muted-foreground">
-                      Đang theo dõi
+                      Following
                     </p>
                   </div>
                 </div>

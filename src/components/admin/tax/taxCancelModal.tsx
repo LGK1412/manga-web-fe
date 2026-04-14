@@ -31,8 +31,8 @@ export default function CancelTaxModal({
     if (!note.trim()) {
       return toast({
         variant: "destructive",
-        title: "Thiếu thông tin",
-        description: "Vui lòng nhập lý do hủy",
+        title: "Missing information",
+        description: "Please enter a cancellation reason",
       });
     }
 
@@ -45,17 +45,17 @@ export default function CancelTaxModal({
       );
 
       toast({
-        title: "Đã hủy",
+        title: "Cancelled",
         description:
-          "Hồ sơ quyết toán đã được chuyển sang trạng thái Cancelled",
+          "The settlement has been moved to Cancelled status",
       });
       setOpen(false);
       onSuccess();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể hủy hồ sơ này",
+        title: "Error",
+        description: "Unable to cancel this settlement",
       });
     } finally {
       setLoading(false);

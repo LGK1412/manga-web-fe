@@ -298,7 +298,7 @@ export default function MangaOCRModal({
                     if (!response.ok) continue;
 
                     const data = await response.json();
-                    console.log(`✅ Dịch bubble ${item.id}:`, data);
+                    console.log(`✅ Translated bubble ${item.id}:`, data);
 
                     const translatedText = data.translation_text || data.text; // ← an toàn hơn
 
@@ -322,14 +322,14 @@ export default function MangaOCRModal({
                         });
                     }
                 } catch (err) {
-                    console.error(`Lỗi bubble ${item.id}:`, err);
+                    console.error(`Bubble error ${item.id}:`, err);
                 }
             }
 
-            alert("✅ Đã dịch xong toàn bộ!");
+            alert("✅ All translations completed!");
         } catch (error: any) {
-            console.error("Lỗi tổng:", error);
-            alert("❌ Có lỗi khi dịch toàn bộ");
+            console.error("Translation error:", error);
+            alert("❌ An error occurred while translating");
         } finally {
             setProcessingItems(prev => ({ ...prev, translateAll: false }));
         }
@@ -376,7 +376,7 @@ export default function MangaOCRModal({
             console.log("✅ Response from n8n:", data);
             alert("✅ Data saved successfully!");
         } catch (error) {
-            console.error("Lỗi khi lưu data:", error);
+            console.error("Error saving data:", error);
             alert("❌ Error occurred while saving!");
         } finally {
             setIsSaving(false);
@@ -663,7 +663,7 @@ export default function MangaOCRModal({
                                             >
                                                 <div className="absolute -top-6 left-0 flex gap-1 bg-black/80 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded border border-white/20 whitespace-nowrap max-w-[200px] overflow-hidden">
                                                     {isOcrProcessing && <Loader2 size={12} className="animate-spin text-blue-400" />}
-                                                    <span>{bubble.text ? bubble.text.substring(0, 20) + "..." : "Trống"}</span>
+                                                    <span>{bubble.text ? bubble.text.substring(0, 20) + "..." : "Empty"}</span>
                                                 </div>
                                             </Rnd>
                                         );
@@ -687,7 +687,7 @@ export default function MangaOCRModal({
             ) : (
                 <div className="text-gray-500 flex flex-col items-center justify-center h-full gap-4 mt-20">
                     <ImagePlus size={80} className="opacity-20" />
-                    <p>Chưa có ảnh nào được tải lên</p>
+                    <p>No images uploaded yet</p>
                 </div>
             )}
             </div>

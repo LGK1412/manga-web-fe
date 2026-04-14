@@ -57,10 +57,10 @@ export default function AuthorStatisticsPage() {
         )
         setStats(data)
       } catch (err: any) {
-        console.error("Lỗi khi fetch stats:", err)
+        console.error("Error fetching stats:", err)
         toast({
-          title: "Lỗi",
-          description: "Không thể tải thống kê. Vui lòng thử lại.",
+          title: "Error",
+          description: "Unable to load statistics. Please try again.",
           variant: "destructive",
         })
       } finally {
@@ -90,7 +90,7 @@ export default function AuthorStatisticsPage() {
           <div className="flex items-center justify-center py-24">
             <div className="text-center">
               <div className="inline-block w-8 h-8 border-3 border-muted-foreground border-t-foreground rounded-full animate-spin mb-4"></div>
-              <p className="text-muted-foreground">Đang tải...</p>
+              <p className="text-muted-foreground">Loading...</p>
             </div>
           </div>
         ) : stats ? (

@@ -145,7 +145,7 @@ export default function PayoutProfilePage() {
     } catch (err: any) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
+        title: "Error",
         description:
           err.response?.data?.message || "An error while submit request",
       });
@@ -192,7 +192,7 @@ export default function PayoutProfilePage() {
     } catch (err: any) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
+        title: "Error",
         description: err.response?.data?.message || "Cannot update profile",
       });
     } finally {
@@ -273,7 +273,7 @@ export default function PayoutProfilePage() {
           <div>
             <p className="font-bold">Your profile has been rejected</p>
             <p className="text-sm opacity-90">
-              Please check your information again và resubmit
+              Please check your information again and resubmit
             </p>
           </div>
         </div>

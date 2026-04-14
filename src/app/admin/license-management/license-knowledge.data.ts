@@ -7,15 +7,15 @@ import type {
 
 export const OFFICIAL_LICENSE_REFERENCE_LINKS: LicenseReferenceLink[] = [
   {
-    label: "Luật Sở hữu trí tuệ Việt Nam (VBHN 2025)",
+    label: "Vietnam Intellectual Property Law (Consolidated 2025)",
     href: "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/9/155-vbhn-vpqh.pdf",
   },
   {
-    label: "Nghị định số 17/2023/NĐ-CP",
+    label: "Decree No. 17/2023/ND-CP",
     href: "https://datafiles.chinhphu.vn/cpp/files/vbpq/2023/5/17-cp.signed.pdf",
   },
   {
-    label: "WIPO Lex - Các điều ước áp dụng tại Việt Nam",
+    label: "WIPO Lex - Treaties applicable to Vietnam",
     href: "https://www.wipo.int/wipolex/en/members/profile/VN",
   },
   {
@@ -33,14 +33,14 @@ export const OFFICIAL_LICENSE_REFERENCE_LINKS: LicenseReferenceLink[] = [
 ];
 
 export const THEORY_TOPIC_META: TheoryTopicMeta[] = [
-  { id: "proof", label: "Chứng cứ" },
-  { id: "authorization", label: "Ủy quyền" },
-  { id: "translation", label: "Dịch / chuyển thể" },
+  { id: "proof", label: "Proof" },
+  { id: "authorization", label: "Authorization" },
+  { id: "translation", label: "Translation / adaptation" },
   { id: "open_license", label: "Open license" },
   { id: "public_domain", label: "Public domain" },
   { id: "claim", label: "Claim" },
-  { id: "scope", label: "Phạm vi quyền" },
-  { id: "references", label: "Nguồn luật" },
+  { id: "scope", label: "Rights scope" },
+  { id: "references", label: "Legal references" },
 ];
 
 export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
@@ -56,8 +56,8 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
       "Verify whether the new license submission actually addresses the reason for the block or only adds surface-level proof.",
     ],
     sourceChecks: [
-      "Kiểm tra log moderation hoặc bối cảnh xử lý gần nhất trước khi ra quyết định.",
-      "Nếu proof mới không liên quan trực tiếp đến lý do enforcement, không dùng approval license để gỡ chặn.",
+      "Check moderation logs or the most recent handling context before deciding.",
+      "If the new proof does not directly address the enforcement reason, do not use license approval to unblock it.",
     ],
     redFlags: [
       "The proof looks complete, but the real reason for the block is a different violation.",
@@ -73,13 +73,13 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
     rejectTemplates: [
       {
         id: "enforcement-blocked",
-        label: "Đang bị enforcement",
-        text: "Story hiện đang bị hạn chế bởi trạng thái enforcement. Vui lòng xử lý hoặc làm rõ nguyên nhân enforcement trước khi tiếp tục yêu cầu duyệt license.",
+        label: "Under enforcement",
+        text: "This story is currently restricted due to enforcement status. Please resolve or clarify the enforcement reason before requesting license approval.",
       },
       {
         id: "enforcement-not-resolved",
-        label: "Chưa đủ để mở publish",
-        text: "Hồ sơ proof hiện tại chưa đủ để xử lý trạng thái enforcement của story. Approval license không thể thay thế cho bước rà soát enforcement riêng.",
+        label: "Not enough to re-enable publishing",
+        text: "The current proof is not sufficient to resolve the story's enforcement status. License approval cannot replace the separate enforcement review step.",
       },
     ],
     theoryTopics: ["claim", "proof", "references"],
@@ -96,8 +96,8 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
       "Compare the new proof against the disputed details: rights holder, work, usage scope, and term.",
     ],
     sourceChecks: [
-      "Kiểm tra rõ proof có trả lời trực tiếp claim đang mở hay không.",
-      "Đối chiếu title, source, owner, phạm vi quyền và thời hạn nếu có.",
+      "Verify whether the proof directly addresses the open claim.",
+      "Cross-check title, source, owner, rights scope, and term (if any).",
     ],
     redFlags: [
       "The proof is only a loose screenshot and does not connect directly to the current claim.",
@@ -114,13 +114,13 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
     rejectTemplates: [
       {
         id: "claim-not-resolved",
-        label: "Claim chưa được làm rõ",
-        text: "Story hiện đang trong trạng thái có copyright claim mở. Hồ sơ proof hiện tại chưa đủ để làm rõ tranh chấp quyền và chưa thể được duyệt.",
+        label: "Claim not clarified",
+        text: "This story currently has an open copyright claim. The submitted proof is not sufficient to clarify the rights dispute and cannot be approved yet.",
       },
       {
         id: "claim-proof-insufficient",
-        label: "Proof chưa trả lời claim",
-        text: "Tài liệu được nộp chưa giải quyết trực tiếp các thông tin đang bị contest trong claim hiện tại. Vui lòng bổ sung hồ sơ thể hiện rõ chủ thể quyền, phạm vi sử dụng và căn cứ khai thác tác phẩm.",
+        label: "Proof does not address the claim",
+        text: "The submitted documents do not directly address the contested details in the current claim. Please provide proof that clearly shows the rightsholder, usage scope, and legal basis for exploitation.",
       },
     ],
     theoryTopics: ["claim", "authorization", "proof", "references"],
@@ -137,8 +137,8 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
       "Look for signs that the work was taken from another source, mirrored, or previously claimed.",
     ],
     sourceChecks: [
-      "Nếu có source hoặc external link, kiểm tra xem chúng có vô tình cho thấy story là repost hay adaptation hay không.",
-      "Nếu có history reject cũ, kiểm tra lý do cũ đã được giải quyết chưa.",
+      "If there is a source or external link, check whether it unintentionally indicates reposting or adaptation.",
+      "If there is prior reject history, check whether the previous issues were resolved.",
     ],
     redFlags: [
       "The author declares the story as original, but the content or art shows signs of coming from another source.",
@@ -154,13 +154,13 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
     rejectTemplates: [
       {
         id: "self-declaration-mismatch",
-        label: "Tự khai chưa khớp",
-        text: "Thông tin tự khai hiện tại chưa đủ nhất quán để xác nhận bạn là chủ thể quyền trực tiếp của tác phẩm. Vui lòng bổ sung chứng cứ rõ hơn về quyền sở hữu hoặc nguồn gốc sáng tác.",
+        label: "Self-declaration mismatch",
+        text: "The current self-declaration is not consistent enough to confirm you are the direct rightsholder. Please provide clearer proof of ownership or creation origin.",
       },
       {
         id: "self-declaration-red-flag",
-        label: "Có dấu hiệu cần làm rõ",
-        text: "Hồ sơ hiện tại có dấu hiệu cần làm rõ thêm về nguồn gốc tác phẩm. Vui lòng bổ sung tài liệu hoặc hình ảnh chứng minh quyền sở hữu trực tiếp trước khi gửi duyệt lại.",
+        label: "Needs clarification",
+        text: "This submission shows signs that require clarification about the work’s origin. Please provide documents or images proving direct ownership before resubmitting for review.",
       },
     ],
     theoryTopics: ["proof", "scope", "references"],
@@ -178,8 +178,8 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
       "Check whether the source link or original title matches the submitted story.",
     ],
     sourceChecks: [
-      "Source title/source URL cần trỏ đúng tác phẩm gốc.",
-      "Nếu có contract hoặc authorization, phải đọc được bên cấp quyền và phạm vi cho phép đăng tải/phân phối.",
+      "Source title/source URL must point to the correct original work.",
+      "If there is a contract/authorization, the granting party and permitted publishing/distribution scope must be readable.",
     ],
     redFlags: [
       "Only raw screenshots or original cover images are provided, with no translation rights.",
@@ -195,13 +195,13 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
     rejectTemplates: [
       {
         id: "translated-missing-authorization",
-        label: "Thiếu quyền dịch",
-        text: "Đây là nội dung dịch nhưng hồ sơ hiện tại chưa thể hiện rõ quyền dịch hoặc quyền khai thác từ chủ sở hữu tác phẩm gốc. Vui lòng bổ sung văn bản ủy quyền hoặc hợp đồng phù hợp.",
+        label: "Missing translation rights",
+        text: "This is translated content, but the current proof does not clearly show translation rights or exploitation rights from the original rightsholder. Please provide an authorization letter or a suitable contract.",
       },
       {
         id: "translated-scope-unclear",
-        label: "Phạm vi khai thác chưa rõ",
-        text: "Tài liệu đã nộp chưa làm rõ phạm vi sử dụng cho bản dịch trên nền tảng. Vui lòng bổ sung hồ sơ thể hiện rõ tác phẩm, chủ thể cấp quyền, phạm vi đăng tải/phân phối và thời hạn hiệu lực.",
+        label: "Exploitation scope unclear",
+        text: "The submitted documents do not clearly specify the usage scope for the translation on this platform. Please provide proof clearly stating the work, granting party, publishing/distribution scope, and effective term.",
       },
     ],
     theoryTopics: ["translation", "authorization", "proof", "scope"],
@@ -218,8 +218,8 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
       "Check whether the license covers adaptation, publishing, or distribution.",
     ],
     sourceChecks: [
-      "Source title/source URL phải cho thấy tác phẩm gốc liên quan.",
-      "Nếu có hợp đồng, đọc kỹ xem có quyền derivative/adaptation hay không.",
+      "Source title/source URL must show the related original work.",
+      "If there is a contract, read carefully to confirm derivative/adaptation rights are included.",
     ],
     redFlags: [
       "The document only allows reposting or general use and says nothing about adaptation.",
@@ -234,13 +234,13 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
     rejectTemplates: [
       {
         id: "adapted-derivative-rights",
-        label: "Thiếu quyền phái sinh",
-        text: "Hồ sơ hiện tại chưa chứng minh rõ quyền chuyển thể hoặc khai thác tác phẩm phái sinh từ nguồn gốc. Vui lòng bổ sung văn bản thể hiện rõ quyền này trước khi gửi duyệt lại.",
+        label: "Missing derivative rights",
+        text: "The current proof does not clearly demonstrate adaptation rights or exploitation rights for the derivative work. Please provide documents explicitly granting these rights before resubmitting.",
       },
       {
         id: "adapted-scope-gap",
-        label: "Thiếu phạm vi chuyển thể",
-        text: "Tài liệu được nộp chưa thể hiện rõ phạm vi cho phép chuyển thể và đăng tải tác phẩm trên nền tảng. Vui lòng bổ sung hợp đồng hoặc giấy phép phù hợp.",
+        label: "Adaptation scope missing",
+        text: "The submitted documents do not clearly state the scope allowing adaptation and publishing on the platform. Please provide an appropriate contract or license.",
       },
     ],
     theoryTopics: ["translation", "authorization", "scope", "references"],
@@ -257,8 +257,8 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
       "Cross-check the title, author, origin source, and allowed platform scope.",
     ],
     sourceChecks: [
-      "Nếu có source URL, kiểm tra đó có phải nơi phát hành gốc hoặc nơi đại diện hợp pháp hay không.",
-      "Nếu proof là chat/email, cần nhìn rõ danh tính bên cấp quyền và nội dung cho phép.",
+      "If there is a source URL, verify it is the original publisher or a legitimate representative.",
+      "If the proof is chat/email, the granting party identity and explicit permission must be clear.",
     ],
     redFlags: [
       "There is only a source link or images from another platform but no repost permission.",
@@ -274,13 +274,13 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
     rejectTemplates: [
       {
         id: "repost-no-permission",
-        label: "Thiếu quyền repost",
-        text: "Hồ sơ hiện tại chưa chứng minh rõ quyền đăng lại hoặc phân phối lại nội dung này trên nền tảng. Vui lòng bổ sung giấy phép hoặc văn bản ủy quyền phù hợp.",
+        label: "Missing repost rights",
+        text: "The current proof does not clearly demonstrate permission to repost or redistribute this content on the platform. Please provide a suitable license or authorization document.",
       },
       {
         id: "repost-source-only",
-        label: "Chỉ có link nguồn",
-        text: "Việc cung cấp link nguồn hoặc hình ảnh từ nơi khác chưa đủ để xác nhận quyền repost. Vui lòng bổ sung tài liệu thể hiện rõ chủ thể cấp quyền và phạm vi cho phép sử dụng.",
+        label: "Source link only",
+        text: "Providing a source link or images from elsewhere is not sufficient to confirm repost rights. Please provide documents clearly showing the granting party and permitted usage scope.",
       },
     ],
     theoryTopics: ["authorization", "proof", "scope"],
@@ -297,8 +297,8 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
       "Read the specific license and verify whether it restricts commercial or derivative use.",
     ],
     sourceChecks: [
-      "License URL phải là nguồn nêu điều khoản, không chỉ là trang giới thiệu chung.",
-      "Source URL phải gắn với tác phẩm đang được dùng, không phải tác phẩm khác tương tự.",
+      "The license URL must contain the actual license terms, not just a general introduction page.",
+      "The source URL must correspond to the exact work being used, not a similar one.",
     ],
     redFlags: [
       "The submission says Creative Commons but provides no specific license link.",
@@ -314,13 +314,13 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
     rejectTemplates: [
       {
         id: "open-license-missing-reference",
-        label: "Thiếu reference open license",
-        text: "Story được khai báo theo open license nhưng hồ sơ hiện tại chưa cung cấp đầy đủ source URL và license URL để đối chiếu. Vui lòng bổ sung liên kết rõ ràng tới tác phẩm nguồn và điều khoản license áp dụng.",
+        label: "Missing open license reference",
+        text: "This story is declared under an open license, but the current proof does not provide sufficient source URL and license URL for verification. Please provide clear links to the source work and the applicable license terms.",
       },
       {
         id: "open-license-incompatible",
-        label: "Điều kiện license chưa phù hợp",
-        text: "Hồ sơ hiện tại chưa chứng minh rằng điều kiện open license cho phép cách khai thác trên nền tảng. Vui lòng bổ sung hoặc làm rõ loại license, phạm vi sử dụng và các hạn chế liên quan.",
+        label: "License terms incompatible",
+        text: "The current proof does not demonstrate that the open license terms allow the platform’s usage. Please clarify the license type, usage scope, and any relevant restrictions.",
       },
     ],
     theoryTopics: ["open_license", "proof", "scope", "references"],
@@ -337,8 +337,8 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
       "Verify whether the version being used adds a new layer of rights, such as a new translation, editorial version, or illustration set.",
     ],
     sourceChecks: [
-      "Source phải chỉ rõ tác phẩm hoặc edition cụ thể đang ở public domain.",
-      "Nếu là bản dịch/bản dàn dựng mới, cần cẩn trọng vì phần đó có thể vẫn còn quyền.",
+      "The source must clearly identify the specific work/edition that is in the public domain.",
+      "If it is a new translation or new editorial version, be cautious because that layer may still be protected.",
     ],
     redFlags: [
       "The original author may be public domain, but the translation or reused version may still be protected.",
@@ -353,13 +353,13 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
     rejectTemplates: [
       {
         id: "public-domain-not-proven",
-        label: "Chưa chứng minh public domain",
-        text: "Hồ sơ hiện tại chưa cung cấp đủ căn cứ để xác nhận tác phẩm hoặc phiên bản đang sử dụng thuộc public domain. Vui lòng bổ sung nguồn đối chiếu rõ ràng.",
+        label: "Public domain not proven",
+        text: "The current proof does not provide sufficient basis to confirm that the work or edition in use is in the public domain. Please provide a clear reference source.",
       },
       {
         id: "public-domain-version-risk",
-        label: "Rủi ro lớp quyền mới",
-        text: "Tài liệu hiện tại chưa làm rõ liệu bản dịch, bản biên tập hoặc phiên bản đang khai thác có phát sinh lớp quyền mới hay không. Vui lòng bổ sung thông tin rõ hơn trước khi gửi duyệt lại.",
+        label: "Risk of new rights layer",
+        text: "The current documents do not clarify whether the translation/editorial/used edition introduces a new rights layer. Please provide clearer information before resubmitting.",
       },
     ],
     theoryTopics: ["public_domain", "proof", "references"],
@@ -376,8 +376,8 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
       "Check whether the document actually allows publishing or distribution on a digital platform.",
     ],
     sourceChecks: [
-      "Đối chiếu tên story, source title, license name và identity của bên cấp quyền.",
-      "Nếu giấy tờ dẫn chiếu phụ lục hoặc URL bổ sung, kiểm tra cả tài liệu đó.",
+      "Cross-check the story name, source title, license name, and granting party identity.",
+      "If the document references appendices or additional URLs, review those materials as well.",
     ],
     redFlags: [
       "The contract is missing signature pages, appendices, or the scope clause is cropped out.",
@@ -393,13 +393,13 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
     rejectTemplates: [
       {
         id: "authorization-scope-missing",
-        label: "Thiếu phạm vi quyền",
-        text: "Tài liệu được nộp chưa làm rõ phạm vi quyền cho phép đăng tải, phân phối hoặc khai thác tác phẩm trên nền tảng. Vui lòng bổ sung giấy phép/hợp đồng đọc được rõ chủ thể, phạm vi và thời hạn hiệu lực.",
+        label: "Rights scope missing",
+        text: "The submitted documents do not clearly state the rights scope allowing publishing, distribution, or exploitation on the platform. Please provide a readable license/contract showing parties, scope, and effective term.",
       },
       {
         id: "authorization-expired-or-unclear",
-        label: "Hiệu lực chưa rõ",
-        text: "Hồ sơ hiện tại chưa chứng minh rõ giấy phép hoặc hợp đồng còn hiệu lực tại thời điểm gửi duyệt. Vui lòng bổ sung tài liệu có thông tin thời hạn và điều kiện hiệu lực đầy đủ hơn.",
+        label: "Validity unclear",
+        text: "The current proof does not clearly demonstrate that the license/contract is still valid at the time of submission. Please provide documents with clearer term and validity conditions.",
       },
     ],
     theoryTopics: ["authorization", "proof", "scope", "references"],
@@ -415,7 +415,7 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
       "Read the reject history to avoid repeating previously noted issues.",
     ],
     sourceChecks: [
-      "Nếu có source hoặc license reference, kiểm tra khả năng truy xuất và tính liên quan.",
+      "If there is a source or license reference, verify accessibility and relevance.",
     ],
     redFlags: [],
     recommendedAction: "",
@@ -423,13 +423,13 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
     rejectTemplates: [
       {
         id: "general-proof-insufficient",
-        label: "Proof chưa đủ rõ",
-        text: "Hồ sơ hiện tại chưa đủ rõ để xác nhận quyền đăng tải hoặc khai thác tác phẩm trên nền tảng. Vui lòng bổ sung tài liệu thể hiện rõ chủ thể quyền, phạm vi sử dụng và hiệu lực nếu có.",
+        label: "Proof not clear enough",
+        text: "The current proof is not clear enough to confirm the right to publish or exploit the work on the platform. Please provide documents clearly showing the rightsholder, usage scope, and validity (if any).",
       },
       {
         id: "general-proof-unreadable",
-        label: "Ảnh/chứng cứ khó đọc",
-        text: "Proof được nộp hiện khó đọc hoặc chưa đủ thông tin quan trọng để đối chiếu. Vui lòng tải lại ảnh rõ hơn hoặc bổ sung hồ sơ đầy đủ hơn trước khi gửi duyệt lại.",
+        label: "Unreadable proof",
+        text: "The submitted proof is hard to read or missing key details for verification. Please re-upload clearer images or provide more complete documentation before resubmitting.",
       },
     ],
     theoryTopics: ["proof", "authorization", "scope", "references"],
@@ -439,18 +439,18 @@ export const LICENSE_CASE_GUIDES: LicenseCaseGuide[] = [
 export const LICENSE_THEORY_ENTRIES: LicenseTheoryEntry[] = [
   {
     id: "proof-quality",
-    title: "Chứng cứ hợp lệ cần có gì",
+    title: "What valid proof should include",
     topics: ["proof", "scope"],
     summary:
-      "Chứng cứ tốt là chứng cứ đọc được, gắn trực tiếp với tác phẩm đang review, và thể hiện được ai có quyền gì trong thời hạn nào.",
+      "Good proof is readable, directly tied to the work under review, and clearly shows who has what rights for what period.",
     appliesWhen: [
-      "Mọi case license review, đặc biệt khi proof được nộp bằng ảnh chụp, screenshot, email hoặc chat.",
-      "Các case đã từng bị reject vì proof mờ, thiếu trang hoặc không đủ thông tin đối chiếu.",
+      "All license review cases, especially when proof is submitted via photos, screenshots, email, or chat.",
+      "Cases previously rejected due to blurry proof, missing pages, or insufficient verifiable details.",
     ],
     commonMistakes: [
-      "Chỉ nộp ảnh bìa, ảnh raw hoặc link nguồn nhưng không nộp căn cứ quyền.",
-      "Chụp thiếu phần chữ ký, ngày, phụ lục hoặc phạm vi sử dụng.",
-      "Nộp nhiều ảnh nhưng không ảnh nào cho thấy rõ chủ thể cấp quyền.",
+      "Submitting only cover/raw images or source links without any rights basis.",
+      "Missing signature pages, dates, appendices, or usage scope.",
+      "Submitting many images but none clearly show the granting party.",
     ],
     references: [
       OFFICIAL_LICENSE_REFERENCE_LINKS[0],
@@ -459,18 +459,18 @@ export const LICENSE_THEORY_ENTRIES: LicenseTheoryEntry[] = [
   },
   {
     id: "authorization-scope",
-    title: "Ủy quyền phải đúng chủ thể, đúng phạm vi, đúng hiệu lực",
+    title: "Authorization must match party, scope, and validity",
     topics: ["authorization", "scope", "proof"],
     summary:
-      "Khi review văn bản ủy quyền hoặc hợp đồng, content cần kiểm tra ba điểm cốt lõi: ai cấp quyền, quyền gì được cấp, và còn hiệu lực hay không.",
+      "When reviewing an authorization document or contract, check three essentials: who grants the rights, which rights are granted, and whether it is still valid.",
     appliesWhen: [
-      "Case có owner authorization hoặc publisher contract.",
-      "Case dịch, repost, adapted, hoặc bất kỳ hồ sơ nào dựa trên quyền được cấp từ bên khác.",
+      "Cases with owner authorization or publisher contract.",
+      "Cases involving translation, reposting, adaptation, or any submission based on rights granted by a third party.",
     ],
     commonMistakes: [
-      "Có giấy tờ nhưng thiếu phạm vi đăng tải/phân phối trên nền tảng số.",
-      "Giấy tờ còn logo/tiêu đề nhưng không đọc được nội dung pháp lý chính.",
-      "Thời hạn hoặc điều kiện hiệu lực bị bỏ sót.",
+      "Documents exist but lack publishing/distribution scope for the digital platform.",
+      "Documents show logos/headings but the key legal text is not readable.",
+      "The term or validity conditions are omitted.",
     ],
     references: [
       OFFICIAL_LICENSE_REFERENCE_LINKS[0],
@@ -480,18 +480,18 @@ export const LICENSE_THEORY_ENTRIES: LicenseTheoryEntry[] = [
   },
   {
     id: "translation-and-adaptation",
-    title: "Dịch và chuyển thể là nhóm cần review chặt",
+    title: "Translation and adaptation require strict review",
     topics: ["translation", "authorization", "scope"],
     summary:
-      "Quyền dịch và quyền chuyển thể thường không thể suy ra chỉ từ quyền sử dụng bản gốc. Cần proof chỉ ra rõ việc được phép tạo hoặc khai thác bản phái sinh.",
+      "Translation and adaptation rights usually cannot be inferred from basic usage rights. Proof must explicitly allow creating or exploiting derivative works.",
     appliesWhen: [
-      "Origin type là translated hoặc adapted.",
-      "Story lấy từ nguồn khác nhưng đã thay đổi ngôn ngữ, kịch bản, nhân vật, hoặc format.",
+      "Origin type is translated or adapted.",
+      "The story comes from another source but has changed language, script, characters, or format.",
     ],
     commonMistakes: [
-      "Cho rằng có source URL là đủ để chứng minh quyền dịch.",
-      "Nhầm quyền repost với quyền chuyển thể.",
-      "Không kiểm tra giới hạn lãnh thổ, thương mại hoặc derivative use.",
+      "Assuming a source URL alone proves translation rights.",
+      "Confusing repost rights with adaptation rights.",
+      "Not checking territory, commercial, or derivative-use restrictions.",
     ],
     references: [
       OFFICIAL_LICENSE_REFERENCE_LINKS[0],
@@ -502,18 +502,18 @@ export const LICENSE_THEORY_ENTRIES: LicenseTheoryEntry[] = [
   },
   {
     id: "open-license-fundamentals",
-    title: "Open license không đồng nghĩa với dùng tự do",
+    title: "Open license does not mean unrestricted use",
     topics: ["open_license", "scope", "references"],
     summary:
-      "Creative Commons hoặc open license chỉ dùng được theo đúng điều kiện đi kèm. Content cần kiểm tra license cụ thể, tác phẩm cụ thể và cách nền tảng khai thác story.",
+      "Creative Commons/open licenses must be used under their conditions. Verify the exact license, the exact work, and how the platform exploits the story.",
     appliesWhen: [
-      "Case cc_licensed hoặc backend trả về basis gần với open_license.",
-      "Author nộp source URL và license URL thay cho contract/authorization.",
+      "Cases under cc_licensed or when the backend basis is close to open_license.",
+      "When the author submits source URL and license URL instead of a contract/authorization.",
     ],
     commonMistakes: [
-      "Không kiểm tra điều kiện non-commercial hoặc no-derivatives.",
-      "Dùng link giới thiệu chung thay cho link license áp dụng cho tác phẩm.",
-      "Không đối chiếu license với mô hình monetization thực tế.",
+      "Not checking non-commercial or no-derivatives conditions.",
+      "Providing a general intro link instead of the work’s license link.",
+      "Not mapping license terms to the actual monetization model.",
     ],
     references: [
       OFFICIAL_LICENSE_REFERENCE_LINKS[2],
@@ -523,17 +523,17 @@ export const LICENSE_THEORY_ENTRIES: LicenseTheoryEntry[] = [
   },
   {
     id: "public-domain-basics",
-    title: "Public domain phải đúng tác phẩm và đúng phiên bản",
+    title: "Public domain must match the work and edition",
     topics: ["public_domain", "proof", "references"],
     summary:
-      "Tác phẩm gốc có thể public domain nhưng bản dịch, bản biên tập hoặc bản minh họa mới vẫn có thể phát sinh quyền riêng. Content cần nhìn đúng lớp quyền đang được khai thác.",
+      "The original work may be public domain, but translations, editorial versions, or new illustrations can create new rights layers. Review the exact rights layer being exploited.",
     appliesWhen: [
-      "Case public_domain hoặc author viện dẫn tác phẩm gốc đã hết thời hạn bảo hộ.",
-      "Story dùng lại classic work, archive work hoặc edition cũ.",
+      "Cases marked as public_domain or when the author cites that the original work's protection term has expired.",
+      "Stories reusing classic works, archived works, or old editions.",
     ],
     commonMistakes: [
-      "Chỉ dựa vào nhận định cảm tính rằng tác phẩm quá cũ nên chắc chắn public domain.",
-      "Không phân biệt tác phẩm gốc với phiên bản đang dùng.",
+      "Assuming a work is public domain just because it is old.",
+      "Not distinguishing the original work from the edition being used.",
     ],
     references: [
       OFFICIAL_LICENSE_REFERENCE_LINKS[0],
@@ -542,17 +542,17 @@ export const LICENSE_THEORY_ENTRIES: LicenseTheoryEntry[] = [
   },
   {
     id: "claim-handling",
-    title: "Khi có claim đang mở",
+    title: "When there is an open claim",
     topics: ["claim", "proof", "authorization"],
     summary:
-      "Case under claim không chỉ là thiếu giấy tờ. Trọng tâm là xác định proof mới có thực sự trả lời nội dung bị tranh chấp hay không.",
+      "Under-claim cases are not just about missing paperwork. The key is whether the new proof actually resolves the disputed details.",
     appliesWhen: [
-      "rights.claimStatus là open hoặc rightsStatus là under_claim.",
-      "Case có reject history, phản hồi của bên thứ ba, hoặc dấu hiệu tranh chấp quyền.",
+      "rights.claimStatus is open or rightsStatus is under_claim.",
+      "Cases with reject history, third-party feedback, or signs of a rights dispute.",
     ],
     commonMistakes: [
-      "Approve vì nhìn thấy giấy tờ mới nhưng không so với nội dung claim.",
-      "Không ghi rõ claim đang contest điều gì: chủ thể, tác phẩm, phạm vi, hay hiệu lực.",
+      "Approving because there is new paperwork without comparing it to the claim details.",
+      "Not documenting what the claim contests: party, work, scope, or validity.",
     ],
     references: [
       OFFICIAL_LICENSE_REFERENCE_LINKS[0],
@@ -561,17 +561,17 @@ export const LICENSE_THEORY_ENTRIES: LicenseTheoryEntry[] = [
   },
   {
     id: "legal-foundation",
-    title: "Nền luật và điều ước cần nhớ khi review",
+    title: "Legal foundations and treaties to keep in mind",
     topics: ["references", "scope"],
     summary:
-      "Guide nội bộ chỉ là lớp hỗ trợ thao tác. Khi case nhạy cảm, content nên đối chiếu lại với Luật SHTT Việt Nam, Nghị định 17/2023/NĐ-CP và các điều ước như Berne, TRIPS, WCT.",
+      "This internal guide is only a workflow aid. For sensitive cases, cross-check against Vietnam's IP law, Decree 17/2023/ND-CP, and treaties such as Berne, TRIPS, and WCT.",
     appliesWhen: [
-      "Case có rủi ro pháp lý cao hoặc proof dùng ngôn ngữ hợp đồng phức tạp.",
-      "Case có yếu tố quyền phái sinh, phân phối xuyên nền tảng, hoặc tranh chấp nhiều bên.",
+      "Cases with high legal risk or proof that uses complex contract language.",
+      "Cases involving derivative rights, cross-platform distribution, or multi-party disputes.",
     ],
     commonMistakes: [
-      "Dùng guide nội bộ như kết luận pháp lý cuối cùng.",
-      "Không bám vào nguồn chính thức khi case vượt quá triage thông thường.",
+      "Treating the internal guide as the final legal conclusion.",
+      "Not relying on official sources when the case exceeds normal triage.",
     ],
     references: OFFICIAL_LICENSE_REFERENCE_LINKS,
   },
