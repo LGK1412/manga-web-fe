@@ -156,11 +156,11 @@ export function LicenseDetailCard({
                 >
                   License: {LICENSE_STATUS_META[selected.licenseStatus].label}
                 </Badge>
-                <Badge
+                {/* <Badge
                   className={`border ${RIGHTS_STATUS_META[selected.rightsStatus].className}`}
                 >
                   Rights: {RIGHTS_STATUS_META[selected.rightsStatus].label}
-                </Badge>
+                </Badge> */}
                 <Badge
                   className={`border ${
                     selected.isPublish

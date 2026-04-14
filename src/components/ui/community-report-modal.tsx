@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Ban,
   CalendarClock,
   CheckCircle,
   Clock3,
@@ -32,7 +31,6 @@ import {
   MergedReportItem,
   formatReasonLabel,
   formatReportDateTime,
-  getAllowedResolutionActions,
   getInitial,
   getPageNumbers,
   resolveAvatarUrl,
@@ -92,20 +90,6 @@ function getReasonMeta(reason: string) {
     className: "border-slate-200 bg-slate-100 text-slate-700",
     icon: FileText,
   };
-}
-
-function getActionMeta(action: ReportResolutionAction) {
-  switch (action) {
-    case "user_banned":
-      return {
-        label: "Ban User & Resolve",
-        variant: "destructive" as const,
-        className: "rounded-xl",
-        icon: Ban,
-      };
-    default:
-      return null;
-  }
 }
 
 function sanitizeContent(content: string, apiUrl?: string) {
@@ -556,11 +540,6 @@ export default function CommunityReportModal({
                     const reporterAvatar = resolveAvatarUrl(item.reporter.avatar, API);
                     const noteValue =
                       noteDrafts[item.key] ?? item.latestResolutionNote ?? "";
-                    const resolutionActions = getAllowedResolutionActions(
-                      item.reports
-                    ).filter(
-                      (action) => action !== "none" && action !== "user_muted"
-                    );
 
                     return (
                       <article
@@ -749,36 +728,6 @@ export default function CommunityReportModal({
                                   )}
                                   Mark Done
                                 </Button>
-
-                                {resolutionActions.map((action) => {
-                                  const meta = getActionMeta(action);
-                                  if (!meta) return null;
-                                  const ActionIcon = meta.icon;
-
-                                  return (
-                                    <Button
-                                      key={action}
-                                      variant={meta.variant}
-                                      className={meta.className}
-                                      disabled={itemBusy || item.isDone}
-                                      onClick={() =>
-                                        onSubmitItemAction(item, {
-                                          status: "resolved",
-                                          note: noteValue,
-                                          resolutionAction: action,
-                                        })
-                                      }
-                                    >
-                                      {itemBusy ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <ActionIcon className="h-4 w-4" />
-                                      )}
-                                      {meta.label}
-                                    </Button>
-                                  );
-                                })}
-
                               </div>
                             </div>
                           </div>

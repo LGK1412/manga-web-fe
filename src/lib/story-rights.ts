@@ -72,6 +72,7 @@ export type StoryRightsResponse = {
   rights?: Partial<StoryRights>;
   rightsStatus?: RightsReviewStatus | string;
   licenseStatus?: LicenseStatus | string;
+  licenseFiles?: string[] | null;
   verifiedBadge?: boolean;
   publishEligibility?: PublishEligibility;
   publishReason?: string | null;
@@ -458,6 +459,11 @@ export function normalizeStoryRightsResponse(
   input: StoryRightsResponse | null | undefined,
 ): StoryRights {
   const base = getDefaultRights();
+  const fallbackProofFiles = Array.isArray(input?.licenseFiles)
+    ? input.licenseFiles.filter(
+        (item): item is string => typeof item === "string",
+      )
+    : [];
   const rawRights = {
     ...base,
     ...(input?.rights ?? {}),
@@ -508,11 +514,12 @@ export function normalizeStoryRightsResponse(
     licenseUrl:
       typeof rawRights.licenseUrl === "string" ? rawRights.licenseUrl : "",
 
-    proofFiles: Array.isArray(rawRights.proofFiles)
-      ? rawRights.proofFiles.filter(
-          (item): item is string => typeof item === "string",
-        )
-      : [],
+    proofFiles:
+      Array.isArray(rawRights.proofFiles) && rawRights.proofFiles.length > 0
+        ? rawRights.proofFiles.filter(
+            (item): item is string => typeof item === "string",
+          )
+        : fallbackProofFiles,
     proofNote: typeof rawRights.proofNote === "string" ? rawRights.proofNote : "",
 
     reviewedAt:
