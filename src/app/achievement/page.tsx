@@ -13,8 +13,7 @@ export default function AchievementsPage() {
   const [achievements, setAchievements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState<string | null>(null);
-  const { point, authorPoint, setPointsDirectly, refreshPoints } =
-    useUserPoint();
+  const { refreshPoints } = useUserPoint();
 
   useEffect(() => {
     fetchAchievements();
@@ -24,7 +23,7 @@ export default function AchievementsPage() {
     try {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/achievements/me`,
-        { withCredentials: true }
+        { withCredentials: true },
       );
       setAchievements(res.data);
     } catch (err) {
@@ -44,44 +43,22 @@ export default function AchievementsPage() {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/achievements/${id}/claim`,
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
-      const reward = res.data.reward;
+      if (res.data?.success) {
+        await Promise.all([refreshPoints(), fetchAchievements()]);
 
-      if (reward) {
-        setPointsDirectly(
-          point + (reward.point ?? 0),
-          authorPoint + (reward.author_point ?? 0)
-        );
+        toast({
+          title: "Claim successfully",
+          description: "Reward claimed successfully",
+          variant: "success",
+        });
       }
-
-      toast({
-        title: "Success",
-        description: res.data.message || "Reward claimed successfully",
-      });
-
-      fetchAchievements();
     } catch (err: any) {
-      let errorMessage = "Unable to claim reward. Please try again.";
-      if (axios.isAxiosError(err)) {
-        if (err.response?.status === 401) {
-          errorMessage = "Session expired. Please log in again.";
-        } else if (err.response?.status === 400) {
-          errorMessage = err.response?.data?.message || "Invalid data";
-        } else if (err.response?.status === 404) {
-          errorMessage = err.response?.data?.message || "Achievement not found";
-        } else if (err.response?.status === 500) {
-          errorMessage = "Server error, please try again later";
-        } else if (err.message === "Network Error") {
-          errorMessage = "Unable to connect to server";
-        } else if (err.response?.data?.message) {
-          errorMessage = err.response.data.message;
-        }
-      }
       toast({
-        title: "Error",
-        description: errorMessage,
+        title: "Unable to claim reward",
+        description: err?.response?.data?.message || "Something went wrong",
         variant: "destructive",
       });
     } finally {
@@ -92,7 +69,9 @@ export default function AchievementsPage() {
   if (loading)
     return (
       <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900">
-        <p className="text-gray-500 dark:text-gray-400">Loading achievements...</p>
+        <p className="text-gray-500 dark:text-gray-400">
+          Loading achievements...
+        </p>
       </div>
     );
 
@@ -224,7 +203,7 @@ export default function AchievementsPage() {
                           ) : (
                             <span className="flex items-center gap-2">
                               <Gift className="w-4 h-4" />
-                              Claim Reward
+                              Claim
                             </span>
                           )}
                         </Button>

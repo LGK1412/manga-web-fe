@@ -1,5 +1,6 @@
 "use client";
 import { useRef } from "react";
+import { twMerge } from "tailwind-merge";
 
 export default function ImageBox({
   file,
@@ -7,39 +8,61 @@ export default function ImageBox({
   disabled,
   label,
   onChange,
+  className, // 1. Receive the prop
 }: {
   file: File | null;
   imageUrl?: string;
   disabled?: boolean;
   label: string;
   onChange: (file: File | null) => void;
+  className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const preview = file ? URL.createObjectURL(file) : imageUrl || null;
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium">{label}</p>
-
+    <div className="space-y-1 w-full h-full">
+      {/* 3. Wrap the main container with the passed className */}
       <div
         onClick={() => !disabled && inputRef.current?.click()}
-        className={`
-          w-24 h-36
+        className={twMerge(
+          `
+          relative
+          w-full h-full
           border-2 border-dashed
-          rounded-lg
-          flex items-center justify-center
+          rounded-xl
+          flex flex-col items-center justify-center
           cursor-pointer
           overflow-hidden
-          hover:bg-gray-50
-          transition
+          bg-gray-50/50
+          hover:bg-gray-100/80
+          transition-all
           ${disabled ? "opacity-50 cursor-not-allowed" : ""}
-        `}
+          `,
+          className, // This allows the parent to override styles
+        )}
       >
         {preview ? (
-          <img src={preview} className="w-full h-full object-cover" />
+          <img
+            src={preview}
+            alt={label}
+            className="w-full h-full object-cover"
+          />
         ) : (
-          <span className="text-3xl text-gray-400">+</span>
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-2xl text-gray-400">+</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase">
+              Upload {label}
+            </span>
+          </div>
+        )}
+
+        {/* Overlay for change on hover */}
+        {preview && !disabled && (
+          <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
+            <span className="text-white text-xs font-bold">Change Image</span>
+          </div>
         )}
       </div>
 

@@ -75,7 +75,6 @@ export default function DailyCheckinPanel({
     try {
       const { data } = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/checkin/today`,
-        { role },
         { withCredentials: true },
       );
       setStatus((prev) => ({
@@ -160,7 +159,9 @@ export default function DailyCheckinPanel({
                       ) : (
                         <Award
                           size={20}
-                          className={isToday ? "text-teal-500" : "text-muted-foreground"}
+                          className={
+                            isToday ? "text-teal-500" : "text-muted-foreground"
+                          }
                         />
                       )}
                     </div>
