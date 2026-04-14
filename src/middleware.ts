@@ -34,8 +34,7 @@ export async function middleware(req: NextRequest) {
  
     if (
         dontNeedLoginPages.includes(pathname) &&
-        isLogin &&
-        pathname !== "/login"
+        isLogin
     ) {
         return NextResponse.redirect(new URL("/", req.url))
     }
