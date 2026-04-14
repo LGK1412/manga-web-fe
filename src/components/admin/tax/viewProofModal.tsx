@@ -235,7 +235,7 @@ function FilePreviewFromServer({
               <div className="py-20 text-center">
                 <FileText className="w-12 h-12 mx-auto text-slate-300" />
                 <p className="mt-2 text-sm text-slate-500">
-                  Định dạng này không hỗ trợ xem trực tiếp
+                  This file type cannot be previewed
                 </p>
               </div>
             )}

@@ -63,10 +63,10 @@ export function TransactionHistoryModal({
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">
-                Lịch sử giao dịch
+                Transaction history
               </h2>
               <p className="text-xs text-slate-400">
-                Theo dõi các khoản nạp của bạn
+                Track your top-up transactions
               </p>
             </div>
           </div>
@@ -85,7 +85,7 @@ export function TransactionHistoryModal({
               <div className="p-4 rounded-full bg-slate-800/50 mb-4">
                 <History size={40} className="opacity-20" />
               </div>
-              <p>Chưa có dữ liệu giao dịch</p>
+              <p>No transaction data yet</p>
             </div>
           ) : (
             <div className="grid gap-4">
@@ -99,7 +99,7 @@ export function TransactionHistoryModal({
         {/* Footer */}
         <div className="p-4 bg-slate-900/80 border-t border-teal-500/10 text-center">
           <p className="text-[10px] uppercase tracking-widest text-slate-500">
-            Hệ thống thanh toán bảo mật bởi VNPay
+            Secure payments powered by VNPay
           </p>
         </div>
       </div>
@@ -114,21 +114,21 @@ function TransactionCard({ tx }: { tx: Transaction }) {
       bg: "bg-emerald-500/10",
       border: "border-emerald-500/20",
       icon: <CheckCircle2 size={16} />,
-      label: "Thành công",
+      label: "Success",
     },
     failed: {
       color: "text-red-400",
       bg: "bg-red-500/10",
       border: "border-red-500/20",
       icon: <XCircle size={16} />,
-      label: "Thất bại",
+      label: "Failed",
     },
     pending: {
       color: "text-amber-400",
       bg: "bg-amber-500/10",
       border: "border-amber-500/20",
       icon: <Clock size={16} />,
-      label: "Đang chờ",
+      label: "Pending",
     },
   };
 
@@ -151,7 +151,7 @@ function TransactionCard({ tx }: { tx: Transaction }) {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-sm font-medium text-slate-400 text-xs">
-                Mã: {tx.txnRef.slice(0, 10)}...
+                Ref: {tx.txnRef.slice(0, 10)}...
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -159,7 +159,7 @@ function TransactionCard({ tx }: { tx: Transaction }) {
                 +{tx.pointReceived}
               </span>
               <span className="text-xs text-teal-400 font-semibold uppercase tracking-tighter">
-                Điểm
+                Points
               </span>
             </div>
           </div>
@@ -186,7 +186,7 @@ function TransactionCard({ tx }: { tx: Transaction }) {
       {/* Giá tiền nằm dưới cùng tinh tế */}
       <div className="px-4 py-2 bg-slate-950/30 flex justify-between items-center border-t border-white/5">
         <span className="text-[11px] text-slate-500 uppercase">
-          Số tiền thanh toán
+          Payment amount
         </span>
         <span className="text-sm font-semibold text-slate-300">
           {tx.price.toLocaleString()} VND

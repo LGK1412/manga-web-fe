@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -37,12 +37,9 @@ interface AuthorStoryItem {
   status?: string;
 }
 
-export default function PublicUserProfile({
-  searchParams,
-}: {
-  searchParams: { id?: string };
-}) {
-  const userId = useMemo(() => searchParams?.id || "", [searchParams]);
+export default function PublicUserProfile() {
+  const searchParams = useSearchParams();
+  const userId = searchParams.get("id") || "";
 
   const [user, setUser] = useState<PublicUser | null>(null);
   const [stories, setStories] = useState<AuthorStoryItem[]>([]);
@@ -70,7 +67,7 @@ export default function PublicUserProfile({
         );
         setCurrentUserId(res.data.user_id);
       } catch (err) {
-        console.error("Chưa đăng nhập hoặc token hết hạn", err);
+        console.error("Not logged in or token expired", err);
         setCurrentUserId(null);
       }
     };
@@ -171,7 +168,7 @@ export default function PublicUserProfile({
         }
       } catch (e: any) {
         let errorMessage = "Unable to load user profile";
-        
+
         if (axios.isAxiosError(e)) {
           if (e.response?.status === 404) {
             errorMessage = "User not found";
@@ -185,7 +182,7 @@ export default function PublicUserProfile({
             errorMessage = e.response.data.message;
           }
         }
-        
+
         setError(errorMessage);
         toast({
           title: "Error",
@@ -322,7 +319,7 @@ export default function PublicUserProfile({
                     {user.bio}
                   </p>
                 )}
-                <Badge variant="secondary">
+                <Badge variant="secondary" className="mb-2">
                   {user.role === "author" ? (
                     <>
                       <PenTool className="w-3 h-3 mr-1" /> Author
@@ -354,7 +351,7 @@ export default function PublicUserProfile({
                           onClick={() => setDonationOpen(true)}
                         >
                           <Gift className="w-4 h-4 mr-2" />
-                          <span>Tặng quà</span>
+                          <span>Send gift</span>
                         </Button>
 
                         <DonationModal
@@ -376,7 +373,7 @@ export default function PublicUserProfile({
                       <p className="text-lg font-semibold">{followersCount}</p>
                     )}
                     <p className="text-sm text-muted-foreground">
-                      Người theo dõi
+                      Followers
                     </p>
                     {statsError && (
                       <p className="text-xs text-red-500 mt-1">{statsError}</p>
@@ -389,7 +386,7 @@ export default function PublicUserProfile({
                       <p className="text-lg font-semibold">{followingCount}</p>
                     )}
                     <p className="text-sm text-muted-foreground">
-                      Đang theo dõi
+                      Following
                     </p>
                   </div>
                 </div>

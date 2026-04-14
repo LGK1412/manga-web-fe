@@ -162,7 +162,7 @@ function applySpellHighlights(el: HTMLElement, errors: SpellError[]) {
 export default function NativeRichEditor({
   value,
   onChange,
-  placeholder = "Bắt đầu nhập...",
+  placeholder = "Start typing...",
   className,
   minHeight = 200,
 }: NativeRichEditorProps) {
@@ -391,9 +391,9 @@ export default function NativeRichEditor({
         {/* Format group */}
         <div className="flex items-center gap-0.5 rounded-lg bg-white border border-gray-200 p-1 shadow-sm">
           {[
-            { icon: Bold, cmd: "bold", key: "bold", title: "Đậm (Ctrl+B)" },
-            { icon: Italic, cmd: "italic", key: "italic", title: "Nghiêng (Ctrl+I)" },
-            { icon: Underline, cmd: "underline", key: "underline", title: "Gạch chân (Ctrl+U)" },
+            { icon: Bold, cmd: "bold", key: "bold", title: "Bold (Ctrl+B)" },
+            { icon: Italic, cmd: "italic", key: "italic", title: "Italic (Ctrl+I)" },
+            { icon: Underline, cmd: "underline", key: "underline", title: "Underline (Ctrl+U)" },
           ].map(({ icon: Icon, cmd, key, title }) => (
             <button
               key={key}
@@ -413,9 +413,9 @@ export default function NativeRichEditor({
         {/* Align group */}
         <div className="flex items-center gap-0.5 rounded-lg bg-white border border-gray-200 p-1 shadow-sm">
           {[
-            { icon: AlignLeft, cmd: "justifyLeft", title: "Trái" },
-            { icon: AlignCenter, cmd: "justifyCenter", title: "Giữa" },
-            { icon: AlignRight, cmd: "justifyRight", title: "Phải" },
+            { icon: AlignLeft, cmd: "justifyLeft", title: "Left" },
+            { icon: AlignCenter, cmd: "justifyCenter", title: "Center" },
+            { icon: AlignRight, cmd: "justifyRight", title: "Right" },
           ].map(({ icon: Icon, cmd, title }) => (
             <button
               key={cmd}
@@ -431,7 +431,7 @@ export default function NativeRichEditor({
         {/* Color picker */}
         <label
           className="flex items-center gap-1.5 rounded-lg bg-white border border-gray-200 px-2.5 py-1.5 shadow-sm cursor-pointer hover:bg-gray-50 transition-all"
-          title="Màu chữ"
+          title="Text color"
         >
           <Palette className="w-4 h-4 text-gray-600" />
           <input
@@ -474,7 +474,7 @@ export default function NativeRichEditor({
 
         {/* Font size */}
         <label className="flex items-center gap-1.5 rounded-lg bg-white border border-gray-200 px-2.5 py-1.5 shadow-sm hover:bg-gray-50 transition-all">
-          <span className="text-xs text-gray-500 font-medium">Cỡ</span>
+          <span className="text-xs text-gray-500 font-medium">Size</span>
           <div className="relative">
             <select
               onChange={(e) => onFontSize(e.target.value)}
@@ -529,7 +529,7 @@ export default function NativeRichEditor({
             style={{ left: `${suggestionPos.x}px`, top: `${suggestionPos.y}px` }}
           >
             <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100">
-              <span className="text-xs font-medium text-gray-500">Gợi ý thay thế</span>
+              <span className="text-xs font-medium text-gray-500">Suggestions</span>
             </div>
             {selectedError.suggestions.map((s, i) => (
               <button
@@ -548,13 +548,13 @@ export default function NativeRichEditor({
       <div className="mt-1.5 flex items-center justify-between px-1">
         <span className="text-xs text-gray-400">
           {spellErrors.length > 0
-            ? `${spellErrors.length} lỗi chính tả`
+            ? `${spellErrors.length} spelling issues`
             : isFocused
-            ? "Đang soạn thảo..."
+            ? "Editing..."
             : ""}
         </span>
         <span className="text-xs text-gray-400">
-          {value.replace(/<[^>]+>/g, "").trim().length} ký tự
+          {value.replace(/<[^>]+>/g, "").trim().length} characters
         </span>
       </div>
     </div>

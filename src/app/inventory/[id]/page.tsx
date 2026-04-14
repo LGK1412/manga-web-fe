@@ -32,8 +32,8 @@ export default function InventoryPage() {
                 // Check user ID trùng URL
                 if (parsed.user_id !== params.id) {
                     toast({
-                        title: "Không có quyền truy cập",
-                        description: "Bạn không thể xem inventory của người khác.",
+                        title: "Access denied",
+                        description: "You cannot view another user's inventory.",
                         variant: "destructive",
                     });
                     router.push("/"); // quay lại trang chính
@@ -65,7 +65,7 @@ export default function InventoryPage() {
             } catch (err) {
                 console.error("Error fetching inventory:", err);
                 toast({
-                    title: "Không thể tải inventory",
+                    title: "Unable to load inventory",
                     variant: "destructive",
                 });
             } finally {
@@ -80,11 +80,11 @@ export default function InventoryPage() {
             <Navbar />
 
             <div className="container mx-auto px-4 py-8 pt-20">
-                <h1 className="text-3xl font-bold mb-6 text-center">Inventory của bạn</h1>
+                <h1 className="text-3xl font-bold mb-6 text-center">Your inventory</h1>
 
                 {loading ? (
                     <div className="flex justify-center items-center py-20 text-muted-foreground">
-                        <Loader2 className="animate-spin w-6 h-6 mr-2" /> Đang tải...
+                        <Loader2 className="animate-spin w-6 h-6 mr-2" /> Loading...
                     </div>
                 ) : (
                     <Tabs defaultValue="emoji" className="w-full">
@@ -100,14 +100,14 @@ export default function InventoryPage() {
                         {/* Skins */}
                         <TabsContent value="skins">
                             <div className="text-center text-muted-foreground py-12">
-                                Chưa có skins nào.
+                                No skins yet.
                             </div>
                         </TabsContent>
 
                         {/* Badges */}
                         <TabsContent value="badges">
                             <div className="text-center text-muted-foreground py-12">
-                                Chưa có badges nào.
+                                No badges yet.
                             </div>
                         </TabsContent>
                     </Tabs>

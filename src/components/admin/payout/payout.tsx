@@ -279,7 +279,7 @@ export default function PayoutCard({ onWithdrawUpdated }: PayoutCardProps) {
         variant: "destructive",
         title: "Error while downloading",
         description:
-          err.response?.data?.message || "File không tồn tại hoặc lỗi kết nối.",
+          err.response?.data?.message || "File not found or connection error.",
       });
     }
   };

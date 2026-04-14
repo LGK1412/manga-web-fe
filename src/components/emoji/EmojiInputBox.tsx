@@ -157,7 +157,7 @@ export default function EmojiInputBox({ onChange, clear }: EmojiInputBoxProps) {
 
                 setPacks(mergedPacks);
             } catch (err) {
-                console.error("Lỗi fetch emoji pack:", err);
+                console.error("Error fetching emoji packs:", err);
             }
         };
 

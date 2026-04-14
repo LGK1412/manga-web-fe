@@ -55,15 +55,15 @@ type MangaDetailResponse = {
 
 const LICENSE_REFERENCE_LINKS = [
   {
-    label: "Luật Sở hữu trí tuệ Việt Nam (VBHN 2025)",
+    label: "Vietnam Intellectual Property Law (Consolidated 2025)",
     href: "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/9/155-vbhn-vpqh.pdf",
   },
   {
-    label: "Nghị định số 17/2023/NĐ-CP",
+    label: "Decree No. 17/2023/ND-CP",
     href: "https://datafiles.chinhphu.vn/cpp/files/vbpq/2023/5/17-cp.signed.pdf",
   },
   {
-    label: "WIPO Lex - Các điều ước quốc tế áp dụng tại Việt Nam",
+    label: "WIPO Lex - Treaties applicable to Vietnam",
     href: "https://www.wipo.int/wipolex/en/members/profile/VN",
   },
 ] as const;

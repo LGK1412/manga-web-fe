@@ -73,8 +73,8 @@ export default function ChapterNavigation() {
       .catch((err) => {
         console.error(err);
         toast({
-          title: "Lỗi",
-          description: "Không tải được danh sách chapter",
+          title: "Error",
+          description: "Unable to load the chapter list",
           variant: "destructive",
         });
       })
@@ -100,8 +100,8 @@ export default function ChapterNavigation() {
       );
 
       toast({
-        title: "Mua thành công 🎉",
-        description: `Bạn đã mua chapter với ${price} points!`,
+        title: "Purchase successful",
+        description: `You purchased this chapter for ${price} points.`,
       });
 
       // Cập nhật lại list (bỏ lock cho chapter vừa mua)
@@ -112,8 +112,8 @@ export default function ChapterNavigation() {
       );
     } catch (err: any) {
       toast({
-        title: "Mua thất bại",
-        description: err.response?.data?.message || "Vui lòng thử lại!",
+        title: "Purchase failed",
+        description: err.response?.data?.message || "Please try again.",
         variant: "destructive",
       });
     }
@@ -224,7 +224,7 @@ export default function ChapterNavigation() {
         </div>
       )}
 
-      {loading && <p className="text-sm text-muted-foreground">Đang tải danh sách chapter...</p>}
+      {loading && <p className="text-sm text-muted-foreground">Loading chapter list...</p>}
     </div>
   );
 }

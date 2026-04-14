@@ -112,14 +112,14 @@ export default function UpdatePaidTaxModal({
         },
       );
 
-      toast({ title: "Cập nhật thành công", variant: "success" });
+      toast({ title: "Updated successfully", variant: "success" });
       setOpen(false);
       onSuccess();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Lỗi",
-        description: "Cập nhật thất bại",
+        title: "Error",
+        description: "Update failed",
       });
     } finally {
       setSubmitting(false);
@@ -162,7 +162,7 @@ export default function UpdatePaidTaxModal({
                 <Input
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="Ghi chú..."
+                  placeholder="Note..."
                 />
               </div>
             </div>
@@ -317,10 +317,10 @@ function FilePreviewFromServer({
             ) : (
               <div className="text-white text-center p-10">
                 <FileText className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                <p>Định dạng này không hỗ trợ xem trước.</p>
+                <p>This file type cannot be previewed.</p>
                 <Button asChild variant="outline" className="mt-4">
                   <a href={fileUrl} target="_blank">
-                    Tải về
+                    Download
                   </a>
                 </Button>
               </div>
@@ -378,7 +378,7 @@ function FilePreviewItem({ file, onRemove }: any) {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-1 flex flex-col bg-slate-900 border-none">
           <DialogHeader className="p-2 bg-white rounded-t-lg">
             <DialogTitle className="text-sm truncate">
-              Xem trước: {file.name}
+              Preview: {file.name}
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-auto flex items-center justify-center">
@@ -391,7 +391,7 @@ function FilePreviewItem({ file, onRemove }: any) {
             ) : isPdf ? (
               <iframe src={url} className="w-full h-[75vh] bg-white" />
             ) : (
-              <p className="text-white">Chứng từ: {file.name}</p>
+              <p className="text-white">Document: {file.name}</p>
             )}
           </div>
         </DialogContent>

@@ -41,6 +41,16 @@ import {
   PaginationItem,
 } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type MangaLicenseStatus =
   | "none"
@@ -275,6 +285,12 @@ export default function AuthorDashboard() {
   });
   const [isFetching, setIsFetching] = useState(false);
   const [togglingStoryId, setTogglingStoryId] = useState<string | null>(null);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [pendingStory, setPendingStory] = useState<{
+    storyId: string;
+    title: string;
+    isDeleted: boolean;
+  } | null>(null);
 
   const { toast } = useToast();
 
@@ -309,7 +325,7 @@ export default function AuthorDashboard() {
           ),
         );
       } catch (error) {
-        console.error("Lỗi khi fetch data:", error);
+        console.error("Error fetching data:", error);
         toast({
           title: "Error",
           description: "Failed to load your stories.",
@@ -349,16 +365,20 @@ export default function AuthorDashboard() {
     [currentStories],
   );
 
+  const openToggleDeleteDialog = (story: Manga) => {
+    setPendingStory({
+      storyId: story._id,
+      title: story.title,
+      isDeleted: !!story.isDeleted,
+    });
+    setIsConfirmOpen(true);
+  };
+
   const handleToggleDelete = async (storyId: string) => {
     const allStories = [...textStories, ...imageStories];
     const story = allStories.find((item) => item._id === storyId);
     const isCurrentlyDeleted = story?.isDeleted || false;
-
     const action = isCurrentlyDeleted ? "restore" : "delete";
-
-    if (!confirm(`Are you sure you want to ${action} the story "${story?.title}"?`)) {
-      return;
-    }
 
     setTogglingStoryId(storyId);
 
@@ -391,7 +411,7 @@ export default function AuthorDashboard() {
         variant: "success",
       });
     } catch (error) {
-      console.error("Lỗi khi toggle delete:", error);
+      console.error("Error toggling delete:", error);
       toast({
         title: "Error",
         description: "An error occurred",
@@ -400,6 +420,18 @@ export default function AuthorDashboard() {
     } finally {
       setTogglingStoryId(null);
     }
+  };
+
+  const handleConfirmToggleDelete = async () => {
+    if (!pendingStory) return;
+    setIsConfirmOpen(false);
+    await handleToggleDelete(pendingStory.storyId);
+    setPendingStory(null);
+  };
+
+  const handleCancelToggleDelete = () => {
+    setIsConfirmOpen(false);
+    setPendingStory(null);
   };
 
   const handlePageChange = (tab: StoryTab, page: number) => {
@@ -633,7 +665,7 @@ export default function AuthorDashboard() {
                       <Button
                         variant={story.isDeleted ? "outline" : "destructive"}
                         size="sm"
-                        onClick={() => handleToggleDelete(story._id)}
+                        onClick={() => openToggleDeleteDialog(story)}
                         disabled={Boolean(togglingStoryId)}
                         className="rounded-xl"
                       >
@@ -811,6 +843,28 @@ export default function AuthorDashboard() {
                 currentPage,
                 (page) => handlePageChange("image", page),
               )}
+
+          <AlertDialog open={isConfirmOpen} onOpenChange={(open) => !open && handleCancelToggleDelete()}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {pendingStory?.isDeleted ? "Restore story" : "Delete story"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to {pendingStory?.isDeleted ? "restore" : "delete"} the story
+                  "{pendingStory?.title}"?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={handleCancelToggleDelete}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmToggleDelete}>
+                  {pendingStory?.isDeleted ? "Restore" : "Delete"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </main>
     </div>

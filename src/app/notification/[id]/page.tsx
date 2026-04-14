@@ -51,10 +51,10 @@ export default function NotificationPage() {
             setNotifications(sorted);
         } catch (err: any) {
             console.error(err);
-            setError(err?.response?.data?.message || "Lỗi khi tải thông báo");
+            setError(err?.response?.data?.message || "Failed to load notifications");
             toast({
-                title: "Lỗi",
-                description: err?.response?.data?.message || "Lỗi khi tải thông báo",
+                title: "Error",
+                description: err?.response?.data?.message || "Failed to load notifications",
                 variant: "destructive",
             })
         } finally {
@@ -142,7 +142,7 @@ export default function NotificationPage() {
     };
 
 
-    if (loading) return <p className="p-4 text-gray-500">Đang tải thông báo...</p>;
+    if (loading) return <p className="p-4 text-gray-500">Loading notifications...</p>;
     if (error) return <p className="p-4 text-red-500">{error}</p>;
 
     return (
@@ -154,21 +154,21 @@ export default function NotificationPage() {
                 {/* Header */}
                 <div className="flex justify-between items-center">
                     <h1 className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500">
-                        Thông báo của người dùng {user?.username}
+                        Notifications for {user?.username}
                     </h1>
 
                     <button
                         onClick={markAllAsRead}
                         className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
                     >
-                        <CheckSquare className="w-4 h-4" /> Đánh dấu tất cả là đã đọc
+                        <CheckSquare className="w-4 h-4" /> Mark all as read
                     </button>
                 </div>
 
                 {/* Notification list */}
                 <div className="max-h-[600px] overflow-y-auto space-y-3 custom-scroll">
                     {notifications.length === 0 && (
-                        <p className="text-sm text-gray-500">Chưa có thông báo nào.</p>
+                        <p className="text-sm text-gray-500">No notifications yet.</p>
                     )}
                     {notifications.map(noti => (
                         <div
@@ -193,7 +193,7 @@ export default function NotificationPage() {
                                         onClick={() => markAsRead(noti._id)}
                                         className="flex items-center gap-1 text-green-600 text-sm hover:underline"
                                     >
-                                        <Check className="w-4 h-4" /> Đã đọc
+                                        <Check className="w-4 h-4" /> Mark as read
                                     </button>
                                 )}
                                 <button
@@ -202,11 +202,11 @@ export default function NotificationPage() {
                                 >
                                     {noti.is_save ? (
                                         <>
-                                            <Bookmark className="w-4 h-4" /> Đã lưu
+                                            <Bookmark className="w-4 h-4" /> Saved
                                         </>
                                     ) : (
                                         <>
-                                            <BookmarkPlus className="w-4 h-4" /> Lưu
+                                            <BookmarkPlus className="w-4 h-4" /> Save
                                         </>
                                     )}
                                 </button>
@@ -214,7 +214,7 @@ export default function NotificationPage() {
                                     onClick={() => deleteNotification(noti._id)}
                                     className="flex items-center gap-1 text-red-600 text-sm hover:underline"
                                 >
-                                    <Trash2 className="w-4 h-4" /> Xóa
+                                    <Trash2 className="w-4 h-4" /> Delete
                                 </button>
                             </div>
                         </div>
