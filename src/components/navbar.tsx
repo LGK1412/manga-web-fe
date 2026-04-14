@@ -88,7 +88,11 @@ export function Navbar() {
   const canShowDaily =
     !isPointLoading && (role === "user" || role === "author");
 
-  const mounted = typeof window !== "undefined";
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const submitSearch = (q: string) => {
