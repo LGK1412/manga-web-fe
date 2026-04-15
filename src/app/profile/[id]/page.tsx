@@ -190,7 +190,9 @@ export default function ProfileByIdPage({
           title: result.autoApproved
             ? "Congratulations! You are now an author"
             : "Request sent",
-          description: result.message,
+          description: result.autoApproved
+            ? "Your request to become an author has been automatically approved."
+            : "Your request has been submitted. The system will automatically approve when you meet all requirements.",
         });
       }
     } catch (error) {
@@ -465,7 +467,7 @@ export default function ProfileByIdPage({
               <div className="space-y-4">
                 <AuthorRequestBanner
                   status={authorRequest.status}
-                  message={authorRequest.message}
+                  criteria={authorRequest.criteria}
                   requestedAt={authorRequest.requestedAt}
                   approvedAt={authorRequest.approvedAt}
                   autoApproved={authorRequest.autoApproved}

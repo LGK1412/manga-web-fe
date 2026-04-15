@@ -18,7 +18,6 @@ export interface AuthorRequestStatusResponse {
   autoApproved?: boolean;
   criteria: EligibilityCriteria[];
   canRequest: boolean;
-  message?: string;
 }
 
 interface UseAuthorRequestReturn {
@@ -29,7 +28,6 @@ interface UseAuthorRequestReturn {
   refresh: () => Promise<void>;
   requestAuthor: () => Promise<{
     success: boolean;
-    message: string;
     autoApproved?: boolean;
   } | null>;
 }
@@ -73,7 +71,6 @@ export function useAuthorRequest(enabled: boolean): UseAuthorRequestReturn {
     try {
       const res = await axios.post<{
         success: boolean;
-        message: string;
         autoApproved?: boolean;
       }>(
         `${process.env.NEXT_PUBLIC_API_URL}/api/user/author-request`,
