@@ -35,7 +35,7 @@ interface TaxItem {
   totalTax: number;
   totalNet: number;
   withdrawIds: string[];
-  proofFiles: string[];
+  proofFiles?: string[];
 }
 
 interface TaxSettlement {
@@ -148,7 +148,7 @@ function AuthorProofRow({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {item.proofFiles.map((file, idx) => (
+        {item.proofFiles?.map((file, idx) => (
           <FilePreviewFromServer
             key={idx}
             file={file}

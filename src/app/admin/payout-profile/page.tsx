@@ -4,7 +4,39 @@ import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { useToast } from "@/components/ui/use-toast";
 import AdminLayout from "../adminLayout/page";
-import { X, Check, Search, Eye, ChevronLeft, ChevronRight } from "lucide-react"; // Import thêm icon cho đẹp
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
+import {
+  X,
+  Check,
+  Search,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react"; // Import thêm icon cho đẹp
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type KycStatus = "pending" | "verified" | "rejected";
 
@@ -35,25 +67,85 @@ export interface ProfileItem {
 export default function PayoutProfileManagement() {
   const { toast } = useToast();
   const [items, setItems] = useState<ProfileItem[]>([]);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("all");
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
-
-  // State cho việc phóng to ảnh
+  const [dialogType, setDialogType] = useState<"approve" | "reject" | null>(
+    null,
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
+
+  const getStatusBadge = (status: string, note?: string) => {
+    const styles: Record<string, any> = {
+      pending: {
+        color: "bg-amber-50 text-amber-600 border-amber-200",
+        icon: Clock,
+        label: "Pending",
+      },
+      verified: {
+        color: "bg-emerald-50 text-emerald-600 border-emerald-200",
+        icon: CheckCircle2,
+        label: "Verified",
+      },
+      rejected: {
+        color: "bg-rose-50 text-rose-600 border-rose-200",
+        icon: XCircle,
+        label: "Rejected",
+      },
+    };
+
+    const s = styles[status];
+
+    const Icon = s.icon;
+
+    const badge = (
+      <Badge
+        variant="outline"
+        className={`${s.color} flex items-center gap-1 font-medium capitalize py-0.5 cursor-default`}
+      >
+        <Icon className="w-3 h-3" />
+        {s.label}
+      </Badge>
+    );
+
+    if (status === "rejected" && note) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>{badge}</TooltipTrigger>
+            <TooltipContent className="bg-rose-600 text-white border-none">
+              <p className="text-xs">Reason: {note}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return badge;
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+
     try {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/payout-profile/list`,
         {
-          params: { kycStatus: status || undefined, keyword, page, limit: 10 },
+          params: {
+            kycStatus: status === "all" ? undefined : status,
+            keyword,
+            page,
+            limit: 10,
+          },
           withCredentials: true,
         },
       );
+
       setItems(res.data.items);
       setTotalPages(res.data.totalPages);
     } catch (error) {
@@ -67,35 +159,66 @@ export default function PayoutProfileManagement() {
     fetchData();
   }, [fetchData]);
 
-  const handleApprove = async (id: string) => {
-    if (!confirm("Confirm approve?")) return;
+  const handleApprove = async () => {
+    if (!selectedId) return;
+
     try {
+      setIsSubmitting(true);
+
       await axios.patch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/payout-profile/approve/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/payout-profile/approve/${selectedId}`,
         {},
         { withCredentials: true },
       );
-      toast({ title: "Approved successfully!", variant: "default" });
+
+      toast({
+        title: "Approved successfully!",
+        description: "The request has been approved",
+        variant: "success",
+      });
+
+      setDialogType(null);
       fetchData();
     } catch (err) {
-      toast({ title: "Error while approving", variant: "destructive" });
+      toast({
+        title: "Error while approving",
+        description: `${err}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleReject = async (id: string) => {
-    const reason = prompt("Reject reason:");
-    if (!reason) return;
+  const handleReject = async () => {
+    if (!selectedId || !rejectReason) return;
 
     try {
+      setIsSubmitting(true);
+
       await axios.patch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/payout-profile/reject/${id}`,
-        { reason },
+        `${process.env.NEXT_PUBLIC_API_URL}/api/payout-profile/reject/${selectedId}`,
+        { reason: rejectReason },
         { withCredentials: true },
       );
-      toast({ title: "Rejected successfully!", variant: "default" });
+
+      toast({
+        title: "Rejected successfully!",
+        description: "The request has been rejected",
+        variant: "destructive",
+      });
+
+      setDialogType(null);
+      setRejectReason("");
       fetchData();
     } catch (err) {
-      toast({ title: "Error while rejecting", variant: "destructive" });
+      toast({
+        title: "Error while rejecting",
+        description: `${err}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -132,19 +255,25 @@ export default function PayoutProfileManagement() {
 
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-slate-500">Status:</span>
-            <select
-              className="bg-slate-50 border-none text-sm p-2.5 rounded-xl outline-none cursor-pointer font-medium text-slate-700 min-w-[120px]"
+
+            <Select
               value={status}
-              onChange={(e) => {
-                setStatus(e.target.value);
+              onValueChange={(value) => {
+                setStatus(value);
                 setPage(1);
               }}
             >
-              <option value="">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="verified">Verified</option>
-              <option value="rejected">Rejected</option>
-            </select>
+              <SelectTrigger className="w-[160px] bg-slate-50 border-slate-200 rounded-xl h-10 text-sm font-medium">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="verified">Verified</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -263,29 +392,36 @@ export default function PayoutProfileManagement() {
                     </td>
 
                     <td className="px-6 py-5 text-center">
-                      <span
-                        className={`px-3 py-1 rounded-full text-[10px] font-bold border ${badgeColor(p.kycStatus)}`}
-                      >
-                        {p.kycStatus.toUpperCase()}
-                      </span>
+                      {getStatusBadge(p.kycStatus, p.rejectReason)}
                     </td>
 
                     <td className="px-6 py-5 text-right">
                       <div className="flex justify-end gap-2">
                         {p.kycStatus === "pending" && !p.isHistory && (
                           <>
-                            <button
-                              onClick={() => handleApprove(p._id)}
-                              className="p-2 text-green-600 hover:bg-green-100 rounded-xl transition-all shadow-sm hover:shadow-md bg-white border border-green-100"
+                            <Button
+                              onClick={() => {
+                                setSelectedId(p._id);
+                                setDialogType("reject");
+                              }}
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-rose-600 hover:bg-rose-50"
                             >
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleReject(p._id)}
-                              className="p-2 text-red-600 hover:bg-red-100 rounded-xl transition-all shadow-sm hover:shadow-md bg-white border border-red-100"
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                              onClick={() => {
+                                setSelectedId(p._id);
+                                setDialogType("approve");
+                              }}
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
                             >
-                              <X className="w-4 h-4" />
-                            </button>
+                              <CheckCircle2 className="h-4 w-4" />
+                            </Button>
                           </>
                         )}
                       </div>
@@ -320,6 +456,46 @@ export default function PayoutProfileManagement() {
             </div>
           </div>
         </div>
+        <Dialog open={!!dialogType} onOpenChange={() => setDialogType(null)}>
+          <DialogContent className="sm:max-w-xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {dialogType === "approve"
+                  ? "Approve Profile"
+                  : "Reject Profile"}
+              </DialogTitle>
+            </DialogHeader>
+
+            {dialogType === "reject" && (
+              <textarea
+                placeholder="Reject reason..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full border rounded-lg p-3 text-sm"
+              />
+            )}
+
+            <DialogFooter className="mt-4 gap-2">
+              <Button variant="outline" onClick={() => setDialogType(null)}>
+                Cancel
+              </Button>
+
+              <Button
+                variant={dialogType === "approve" ? "default" : "destructive"}
+                onClick={
+                  dialogType === "approve" ? handleApprove : handleReject
+                }
+                disabled={isSubmitting}
+              >
+                {isSubmitting
+                  ? "Processing..."
+                  : dialogType === "approve"
+                    ? "Approve & Process"
+                    : "Reject Request"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* IMAGE MODAL LIGHTBOX */}
@@ -333,7 +509,7 @@ export default function PayoutProfileManagement() {
           </button>
           <img
             src={selectedImg}
-            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+            className="w-auto h-auto max-w-[95vw] max-h-[95vh] object-contain animate-in zoom-in-95 duration-300"
             alt="Enlarged KYC"
           />
         </div>

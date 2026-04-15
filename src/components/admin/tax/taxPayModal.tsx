@@ -162,7 +162,7 @@ export default function PayTaxModal({
           variant="outline"
           className="text-green-600 border-green-200 hover:bg-green-50"
         >
-          <CheckCircle2 className="w-4 h-4 mr-1" /> Confirm Payment
+          <CheckCircle2 className="w-4 h-4 mr-1" /> Confirm
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[620px] max-h-[90vh] flex flex-col p-0">

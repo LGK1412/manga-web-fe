@@ -69,12 +69,18 @@ export default function DonationShopModal({
             onlyAvailable: true,
             rarity: selectedRarity || undefined,
           },
-        }
+          withCredentials: true,
+        },
       );
+
       setItems(res.data.data);
       setQuantities({});
     } catch (error) {
-      console.error("Failed to fetch donation items:", error);
+      toast({
+        title: "Error while loading donation item",
+        description: `${error}`,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -110,12 +116,13 @@ export default function DonationShopModal({
           quantity: selectedQuantity,
           message,
         },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       toast({
-        title: "Success",
+        title: "Donate successfully",
         description: `Sent ${selectedQuantity} ${selectedItem?.name} successfully!`,
+        variant: "success",
       });
     } catch (err: any) {
       toast({
@@ -223,7 +230,7 @@ export default function DonationShopModal({
                           onChange={(e) =>
                             handleQuantityChange(
                               item._id,
-                              parseInt(e.target.value) || 1
+                              parseInt(e.target.value) || 1,
                             )
                           }
                           className="w-16 border rounded-lg px-2 py-1 text-center text-sm focus:outline-none"
@@ -261,7 +268,7 @@ export default function DonationShopModal({
               Send message with gift
             </DialogTitle>
             <DialogDescription className="text-gray-500">
-              You can leave it empty if you don't want to send a message.
+              You can leave it empty if you don&apos;t want to send a message.
             </DialogDescription>
           </DialogHeader>
 
