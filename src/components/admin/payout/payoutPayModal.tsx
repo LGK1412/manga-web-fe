@@ -32,7 +32,13 @@ interface PayoutSettlement {
   ];
   totalNet: number;
   withdrawCount: number;
-  status: "draft" | "exported" | "processing" | "paid" | "failed" | "cancelled";
+  status:
+    | "pending"
+    | "exported"
+    | "processing"
+    | "paid"
+    | "failed"
+    | "cancelled";
   fileName: string;
   bankBatchRef?: string[];
   paidAt?: string;

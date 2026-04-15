@@ -158,69 +158,78 @@ export default function WithdrawHistoryTable() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 p-4">
-      {/* HEADER & DATE FILTER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="max-w-5xl mx-auto space-y-6 p-4">
+      {/* HEADER */}
+      <div className="flex flex-col gap-4">
         <h2 className="text-2xl font-bold text-slate-800">
           Withdrawal History
         </h2>
-        <Popover>
-          <PopoverTrigger asChild>
+
+        {/* FILTER BAR */}
+        <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+          <div className="flex gap-2 items-center flex-wrap">
+            {/* DATE FILTER */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-[260px] justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date?.from ? (
+                    date.to ? (
+                      <>
+                        {format(date.from, "dd/MM/yyyy")} -{" "}
+                        {format(date.to, "dd/MM/yyyy")}
+                      </>
+                    ) : (
+                      format(date.from, "dd/MM/yyyy")
+                    )
+                  ) : (
+                    <span>Pick date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  defaultMonth={date?.from}
+                  selected={date}
+                  onSelect={(range) => {
+                    setDate(range);
+                    setPage(1);
+                  }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+
+            {/* CLEAR */}
             <Button
               variant="outline"
-              className="w-[260px] justify-start text-left font-normal"
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {date?.from ? (
-                date.to ? (
-                  <>
-                    {format(date.from, "dd/MM/yyyy")} -{" "}
-                    {format(date.to, "dd/MM/yyyy")}
-                  </>
-                ) : (
-                  format(date.from, "dd/MM/yyyy")
-                )
-              ) : (
-                <span>Pick date range</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-
-          <PopoverContent className="w-auto p-0" align="end">
-            <Calendar
-              mode="range"
-              defaultMonth={date?.from}
-              selected={date}
-              onSelect={(range) => {
-                setDate(range);
+              size="sm"
+              onClick={() => {
+                setDate(undefined);
                 setPage(1);
               }}
-              numberOfMonths={2}
-            />
-          </PopoverContent>
-        </Popover>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setDate(undefined);
-            setPage(1);
-          }}
-        >
-          Clear
-        </Button>
+            >
+              Clear
+            </Button>
+          </div>
+
+          {/* EXPORT BUTTON */}
+          <Button
+            onClick={handleExportProof}
+            disabled={exporting}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+          >
+            {exporting ? "Exporting..." : "Export Documents"}
+          </Button>
+        </div>
       </div>
-
-      <Button
-        onClick={handleExportProof}
-        disabled={exporting}
-        className="gap-2"
-      >
-        {exporting ? "Exporting..." : "Export documents"}
-      </Button>
-
       {/* STATUS TABS */}
-      <div className="flex overflow-x-auto pb-2 gap-1 no-scrollbar border-b border-slate-200">
+      <div className="flex overflow-x-auto gap-2 pb-2 border-b border-slate-200">
         {TABS.map((tab) => (
           <button
             key={tab.value}
@@ -228,10 +237,10 @@ export default function WithdrawHistoryTable() {
               setStatus(tab.value);
               setPage(1);
             }}
-            className={`px-5 py-3 text-sm font-medium transition-all whitespace-nowrap border-b-2 ${
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
               status === tab.value
-                ? "border-primary text-primary"
-                : "border-transparent text-slate-500 hover:text-slate-700"
+                ? "bg-primary text-white"
+                : "text-slate-500 hover:bg-slate-100"
             }`}
           >
             {tab.label}
@@ -253,7 +262,7 @@ export default function WithdrawHistoryTable() {
           list.map((w) => (
             <div
               key={w._id}
-              className="group bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md transition-shadow relative overflow-hidden"
+              className="group bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg transition-all duration-200 relative overflow-hidden"
             >
               {/* BADGE STATUS */}
               <div className="flex justify-between items-start mb-4">

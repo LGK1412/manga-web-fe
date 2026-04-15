@@ -67,7 +67,13 @@ interface PayoutSettlement {
   ];
   totalNet: number;
   withdrawCount: number;
-  status: "draft" | "exported" | "processing" | "paid" | "failed" | "cancelled";
+  status:
+    | "pending"
+    | "exported"
+    | "processing"
+    | "paid"
+    | "failed"
+    | "cancelled";
   fileName: string;
   bankBatchRef?: string[];
   paidAt?: string;
@@ -82,6 +88,8 @@ export default function PayoutCard({ onWithdrawUpdated }: PayoutCardProps) {
   const { toast } = useToast();
   const [fromDate, setFromDate] = useState<Date | undefined>();
   const [toDate, setToDate] = useState<Date | undefined>();
+  const [fromMonth, setFromMonth] = useState<Date>(new Date());
+  const [toMonth, setToMonth] = useState<Date>(new Date());
   const [loadingPayout, setLoadingPayout] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [payouts, setPayouts] = useState<PayoutSettlement[]>([]);
@@ -94,10 +102,10 @@ export default function PayoutCard({ onWithdrawUpdated }: PayoutCardProps) {
   const getStatusBadge = (status: string, note?: string) => {
     const styles: Record<string, { color: string; icon: any; label: string }> =
       {
-        draft: {
+        pending: {
           color: "bg-amber-50 text-amber-600 border-amber-200",
           icon: Clock,
-          label: "Draft",
+          label: "Pending",
         },
         exported: {
           color: "bg-blue-50 text-blue-600 border-blue-200",
@@ -325,7 +333,16 @@ export default function PayoutCard({ onWithdrawUpdated }: PayoutCardProps) {
                 <Calendar
                   mode="single"
                   selected={fromDate}
-                  onSelect={setFromDate}
+                  onSelect={(date) => {
+                    setFromDate(date);
+                    if (date) setFromMonth(date);
+                  }}
+                  month={fromMonth}
+                  onMonthChange={setFromMonth}
+                  captionLayout="dropdown"
+                  fromYear={2020}
+                  toYear={new Date().getFullYear()}
+                  fixedWeeks
                 />
               </PopoverContent>
             </Popover>
@@ -352,7 +369,17 @@ export default function PayoutCard({ onWithdrawUpdated }: PayoutCardProps) {
                 <Calendar
                   mode="single"
                   selected={toDate}
-                  onSelect={setToDate}
+                  onSelect={(date) => {
+                    setToDate(date);
+                    if (date) setToMonth(date);
+                  }}
+                  month={toMonth}
+                  onMonthChange={setToMonth}
+                  captionLayout="dropdown"
+                  fromYear={2020}
+                  toYear={new Date().getFullYear()}
+                  fixedWeeks
+                  disabled={(date) => (fromDate ? date < fromDate : false)}
                 />
               </PopoverContent>
             </Popover>

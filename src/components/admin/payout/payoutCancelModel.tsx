@@ -73,7 +73,7 @@ export default function CancelPayoutModal({
           <Ban className="w-4 h-4 mr-1" /> Cancel
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="w-[640px] max-w-[90vw] p-4">
         <DialogHeader>
           <DialogTitle>Cancel Payout Settlement</DialogTitle>
         </DialogHeader>

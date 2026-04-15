@@ -12,6 +12,8 @@ import {
   User,
   Landmark,
   Image as ImageIcon,
+  ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,6 +90,8 @@ interface WithdrawDetail extends WithdrawListItem {
 
 export default function WithdrawCard({ refreshKey }: { refreshKey: number }) {
   const { toast } = useToast();
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [withdraws, setWithdraws] = useState<WithdrawListItem[]>([]);
   const [selectedWithdrawId, setSelectedWithdrawId] = useState<string | null>(
     null,
@@ -137,10 +141,15 @@ export default function WithdrawCard({ refreshKey }: { refreshKey: number }) {
         `${process.env.NEXT_PUBLIC_API_URL}/api/withdraw`,
         {
           withCredentials: true,
-          params,
+          params: {
+            ...params,
+            page,
+            limit: 10,
+          },
         },
       );
-      setWithdraws(res.data);
+      setWithdraws(res.data.data);
+      setTotalPages(res.data.pagination.totalPages);
     } catch (error) {
       console.error(error);
     }
@@ -164,7 +173,7 @@ export default function WithdrawCard({ refreshKey }: { refreshKey: number }) {
 
   useEffect(() => {
     fetchWithdraws();
-  }, [filterStatus, filterMonth, filterYear, searchTerm, refreshKey]);
+  }, [filterStatus, filterMonth, filterYear, searchTerm, refreshKey, page]);
 
   const handleApprove = async () => {
     if (!selectedWithdrawId) return;
@@ -487,17 +496,6 @@ export default function WithdrawCard({ refreshKey }: { refreshKey: number }) {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
-                              onClick={() => {
-                                setSelectedWithdrawId(w._id);
-                                setDialogType("approve");
-                              }}
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
                               className="h-8 w-8 text-rose-600 hover:bg-rose-50"
                               onClick={() => {
                                 setSelectedWithdrawId(w._id);
@@ -505,6 +503,17 @@ export default function WithdrawCard({ refreshKey }: { refreshKey: number }) {
                               }}
                             >
                               <XCircle className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                              onClick={() => {
+                                setSelectedWithdrawId(w._id);
+                                setDialogType("approve");
+                              }}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
                             </Button>
                           </>
                         ) : (
@@ -525,6 +534,28 @@ export default function WithdrawCard({ refreshKey }: { refreshKey: number }) {
               ))}
             </TableBody>
           </Table>
+          <div className="px-6 py-5 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center">
+            <p className="text-xs font-medium text-slate-500">
+              Showing page <span className="text-slate-900">{page}</span> of{" "}
+              <span className="text-slate-900">{totalPages}</span>
+            </p>
+            <div className="flex gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage((p) => p - 1)}
+                className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 transition-all shadow-sm"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 transition-all shadow-sm"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -533,170 +564,176 @@ export default function WithdrawCard({ refreshKey }: { refreshKey: number }) {
         open={dialogType !== null}
         onOpenChange={() => setDialogType(null)}
       >
-        <DialogContent className="max-w-3xl overflow-hidden p-0 gap-0">
-          {dialogType === "view" && selectedWithdrawDetail ? (
-            <>
-              <div className="bg-slate-900 p-6 text-white">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-                      <CreditCard className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div>
-                      <DialogTitle>Withdrawal Detail</DialogTitle>
-                      <p className="text-slate-400 text-[10px] font-mono">
-                        ID: {selectedWithdrawDetail._id}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-black text-emerald-400">
-                      {formatCurrency(selectedWithdrawDetail.netAmount)}
-                    </div>
-                    <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
-                      Net Payout
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="max-h-[70vh] overflow-y-auto p-6 space-y-6 bg-white">
-                <div className="grid grid-cols-2 gap-8">
-                  {/* Personal */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-tight">
-                      <User className="w-3.5 h-3.5 text-blue-600" /> Personal
-                      Info
-                    </div>
-                    <div className="space-y-2 bg-slate-50 p-4 rounded-lg border border-slate-100">
-                      <DetailItem
-                        label="Full Name"
-                        value={selectedWithdrawDetail.fullName}
-                        isBold
-                      />
-                      <DetailItem
-                        label="Citizen ID"
-                        value={selectedWithdrawDetail.citizenId}
-                      />
-                      <DetailItem
-                        label="Address"
-                        value={selectedWithdrawDetail.address}
-                        isItalic
-                      />
-                      <DetailItem
-                        label="Tax Code"
-                        value={selectedWithdrawDetail.taxCode}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Bank */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-tight">
-                      <Landmark className="w-3.5 h-3.5 text-blue-600" /> Banking
-                      info
-                    </div>
-                    <div className="space-y-2 bg-blue-50/30 p-4 rounded-lg border border-blue-100/50">
-                      <DetailItem
-                        label="Bank Name"
-                        value={selectedWithdrawDetail.bankName}
-                      />
-                      <DetailItem
-                        label="Account No"
-                        value={selectedWithdrawDetail.bankAccount}
-                        isBold
-                      />
-                      <DetailItem
-                        label="Beneficiary"
-                        value={selectedWithdrawDetail.bankAccountName}
-                        uppercase
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Identity Images Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-tight">
-                    <ImageIcon className="w-3.5 h-3.5 text-blue-600" /> Identity
-                    Verification
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    {selectedWithdrawDetail.identityImages?.length > 0 ? (
-                      selectedWithdrawDetail.identityImages.map((img, idx) => (
-                        <div
-                          key={idx}
-                          className="group relative rounded-lg border border-slate-200 overflow-hidden bg-slate-100 aspect-[3/2]"
-                        >
-                          <img
-                            src={`${process.env.NEXT_PUBLIC_API_URL}/payout-identity/${selectedWithdrawDetail.authorId?._id}/${img}`}
-                            alt={`Identity ${idx + 1}`}
-                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="col-span-2 py-8 text-center border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-sm italic">
-                        No identity images provided.
+        {dialogType && (
+          <DialogContent className="max-w-3xl overflow-hidden p-0 gap-0">
+            {dialogType === "view" && selectedWithdrawDetail ? (
+              <>
+                <div className="bg-slate-900 p-6 text-white">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                        <CreditCard className="w-5 h-5 text-blue-400" />
                       </div>
-                    )}
+                      <div>
+                        <DialogTitle>Withdrawal Detail</DialogTitle>
+                        <p className="text-slate-400 text-[10px] font-mono">
+                          ID: {selectedWithdrawDetail._id}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-black text-emerald-400">
+                        {formatCurrency(selectedWithdrawDetail.netAmount)}
+                      </div>
+                      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+                        Net Payout
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <DialogFooter className="p-4 bg-slate-50 border-t flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDialogType(null)}
-                  className="px-6"
-                >
-                  Close
-                </Button>
-              </DialogFooter>
-            </>
-          ) : (
-            <div className="p-6">
-              <DialogHeader>
-                <DialogTitle>
-                  {dialogType === "approve"
-                    ? "Confirm Approval"
-                    : "Reject Request"}
-                </DialogTitle>
-              </DialogHeader>
-              {dialogType === "reject" && (
-                <div className="py-4 space-y-2">
-                  <Label>Reason for rejection</Label>
-                  <Input
-                    placeholder="Enter reason..."
-                    value={rejectNote}
-                    onChange={(e) => setRejectNote(e.target.value)}
-                  />
+                <div className="max-h-[70vh] overflow-y-auto p-6 space-y-6 bg-white">
+                  <div className="grid grid-cols-2 gap-8">
+                    {/* Personal */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-tight">
+                        <User className="w-3.5 h-3.5 text-blue-600" /> Personal
+                        Info
+                      </div>
+                      <div className="space-y-2 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                        <DetailItem
+                          label="Full Name"
+                          value={selectedWithdrawDetail.fullName}
+                          isBold
+                        />
+                        <DetailItem
+                          label="Citizen ID"
+                          value={selectedWithdrawDetail.citizenId}
+                        />
+                        <DetailItem
+                          label="Address"
+                          value={selectedWithdrawDetail.address}
+                          isItalic
+                        />
+                        <DetailItem
+                          label="Tax Code"
+                          value={selectedWithdrawDetail.taxCode}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bank */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-tight">
+                        <Landmark className="w-3.5 h-3.5 text-blue-600" />{" "}
+                        Banking info
+                      </div>
+                      <div className="space-y-2 bg-blue-50/30 p-4 rounded-lg border border-blue-100/50">
+                        <DetailItem
+                          label="Bank Name"
+                          value={selectedWithdrawDetail.bankName}
+                        />
+                        <DetailItem
+                          label="Account No"
+                          value={selectedWithdrawDetail.bankAccount}
+                          isBold
+                        />
+                        <DetailItem
+                          label="Beneficiary"
+                          value={selectedWithdrawDetail.bankAccountName}
+                          uppercase
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Identity Images Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-tight">
+                      <ImageIcon className="w-3.5 h-3.5 text-blue-600" />{" "}
+                      Identity Verification
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {selectedWithdrawDetail.identityImages?.length > 0 ? (
+                        selectedWithdrawDetail.identityImages.map(
+                          (img, idx) => (
+                            <div
+                              key={idx}
+                              className="group relative rounded-lg border border-slate-200 overflow-hidden bg-slate-100 aspect-[3/2]"
+                            >
+                              <img
+                                src={`${process.env.NEXT_PUBLIC_API_URL}/payout-identity/${selectedWithdrawDetail.authorId?._id}/${img}`}
+                                alt={`Identity ${idx + 1}`}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                            </div>
+                          ),
+                        )
+                      ) : (
+                        <div className="col-span-2 py-8 text-center border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-sm italic">
+                          No identity images provided.
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              )}
-              <DialogFooter className="mt-4 gap-2">
-                <Button variant="outline" onClick={() => setDialogType(null)}>
-                  Cancel
-                </Button>
-                <Button
-                  variant={dialogType === "approve" ? "default" : "destructive"}
-                  onClick={
-                    dialogType === "approve" ? handleApprove : handleReject
-                  }
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting
-                    ? "Processing..."
-                    : dialogType === "approve"
-                      ? "Approve & Process"
+
+                <DialogFooter className="p-4 bg-slate-50 border-t flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDialogType(null)}
+                    className="px-6"
+                  >
+                    Close
+                  </Button>
+                </DialogFooter>
+              </>
+            ) : (
+              <div className="p-6">
+                <DialogHeader>
+                  <DialogTitle>
+                    {dialogType === "approve"
+                      ? "Confirm Approval"
                       : "Reject Request"}
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
+                  </DialogTitle>
+                </DialogHeader>
+                {dialogType === "reject" && (
+                  <div className="py-4 space-y-2">
+                    <Label>Reason for rejection</Label>
+                    <Input
+                      placeholder="Enter reason..."
+                      value={rejectNote}
+                      onChange={(e) => setRejectNote(e.target.value)}
+                    />
+                  </div>
+                )}
+                <DialogFooter className="mt-4 gap-2">
+                  <Button variant="outline" onClick={() => setDialogType(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant={
+                      dialogType === "approve" ? "default" : "destructive"
+                    }
+                    onClick={
+                      dialogType === "approve" ? handleApprove : handleReject
+                    }
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting
+                      ? "Processing..."
+                      : dialogType === "approve"
+                        ? "Approve & Process"
+                        : "Reject Request"}
+                  </Button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        )}
       </Dialog>
     </div>
   );
