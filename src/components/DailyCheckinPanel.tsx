@@ -75,6 +75,7 @@ export default function DailyCheckinPanel({
     try {
       const { data } = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/checkin/today`,
+        {},
         { withCredentials: true },
       );
       setStatus((prev) => ({
