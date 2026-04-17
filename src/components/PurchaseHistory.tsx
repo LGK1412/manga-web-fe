@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, BookOpen } from "lucide-react";
 
 interface PurchaseItem {
   _id: string;
@@ -52,59 +52,62 @@ export default function PurchaseHistory() {
     fetchHistory();
   }, [toast]);
 
-  if (loading)
-    return (
-      <div className="flex justify-center items-center py-10 text-gray-500">
-        <Loader2 className="animate-spin w-5 h-5 mr-2" />
-        Loading purchase history...
-      </div>
-    );
-
-  if (history.length === 0)
-    return (
-      <div className="text-center py-10 text-gray-500">
-        You haven&apos;t purchased any chapters yet.
-      </div>
-    );
-
   return (
-    <div className="max-w-3xl mx-auto space-y-3">
-      <h3>Chapter Purchase History</h3>
-      {history.map((item) => {
-        const chapter = item.chapterId;
-        const manga = chapter?.manga_id;
-        const author = manga?.authorId;
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BookOpen className="w-5 h-5" />
+          Chapter Purchase History
+        </CardTitle>
+      </CardHeader>
 
-        return (
-          <Card
-            key={item._id}
-            className="hover:shadow-md transition-shadow duration-200"
-          >
-            <CardContent className="p-4 flex justify-between items-center">
-              <div>
-                <h3 className="font-semibold text-lg">
-                  {manga?.title || "Unknown story"}
-                </h3>
-                <p className="text-sm text-gray-600">
-                  {chapter?.title
-                    ? `Chapter ${chapter.order}: ${chapter.title}`
-                    : "Unknown chapter"}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Author: {author?.username || "Unknown"}
-                </p>
-              </div>
-              <div className="text-sm text-gray-500">
-                {new Date(item.createdAt).toLocaleDateString("vi-VN", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
+      <CardContent className="p-0">
+        {loading ? (
+          <div className="flex justify-center items-center py-6 text-muted-foreground">
+            <Loader2 className="animate-spin w-4 h-4 mr-2" />
+            Loading purchase history...
+          </div>
+        ) : history.length === 0 ? (
+          <div className="text-center py-6 text-muted-foreground">
+            You haven&apos;t purchased any chapters yet
+          </div>
+        ) : (
+          <div className="max-h-96 overflow-y-auto">
+            {history.map((item) => {
+              const chapter = item.chapterId;
+              const manga = chapter?.manga_id;
+              const author = manga?.authorId;
+
+              return (
+                <div
+                  key={item._id}
+                  className="flex justify-between items-center p-4 border-b last:border-b-0 hover:bg-muted/50 transition-colors"
+                >
+                  <div>
+                    <p className="font-semibold text-sm">
+                      {manga?.title || "Unknown story"}
+                    </p>
+
+                    <p className="text-xs text-muted-foreground">
+                      {chapter?.title
+                        ? `Chapter ${chapter.order}: ${chapter.title}`
+                        : "Unknown chapter"}
+                    </p>
+
+                    <p className="text-xs text-muted-foreground">
+                      Author: {author?.username || "Unknown"}
+                    </p>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground text-right">
+                    {new Date(item.createdAt).toLocaleString("en-US")}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

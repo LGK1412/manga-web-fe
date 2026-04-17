@@ -15,7 +15,7 @@ export default function DonationSentList() {
       try {
         const res = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/api/donation/sent`,
-          { withCredentials: true }
+          { withCredentials: true },
         );
         setSentGifts(res.data || []);
       } catch (err) {
@@ -41,7 +41,7 @@ export default function DonationSentList() {
           </div>
         ) : sentGifts.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground">
-            You haven't sent any gifts
+            You haven&apos;t sent any gifts
           </div>
         ) : (
           <div className="max-h-96 overflow-y-auto">
