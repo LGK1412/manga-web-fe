@@ -938,28 +938,66 @@ function mergeRanges(ranges: TextRange[]) {
   return merged;
 }
 
+function findExactRanges(fullText: string, query: string) {
+  const ranges: TextRange[] = [];
+  const haystack = fullText.toLowerCase();
+  const needle = query.toLowerCase();
+
+  if (!needle) return ranges;
+
+  let startIndex = 0;
+  while (startIndex < haystack.length) {
+    const matchIndex = haystack.indexOf(needle, startIndex);
+    if (matchIndex < 0) break;
+
+    ranges.push({
+      start: matchIndex,
+      end: matchIndex + query.length,
+    });
+
+    startIndex = matchIndex + Math.max(1, needle.length);
+  }
+
+  return ranges;
+}
+
+function findNormalizedRanges(fullText: string, query: string) {
+  const source = normalizeWithMap(fullText);
+  const target = normalizeWithMap(query).normalized;
+  const ranges: TextRange[] = [];
+
+  if (!target) return ranges;
+
+  let startIndex = 0;
+  while (startIndex < source.normalized.length) {
+    const normalizedIndex = source.normalized.indexOf(target, startIndex);
+    if (normalizedIndex < 0) break;
+
+    ranges.push({
+      start: source.map[normalizedIndex],
+      end: source.map[normalizedIndex + target.length - 1] + 1,
+    });
+
+    startIndex = normalizedIndex + Math.max(1, target.length);
+  }
+
+  return ranges;
+}
+
 function findSingleRange(fullText: string, query: string): TextRange | null {
   const cleanedQuery = stripWrappingQuotes(query);
   if (!cleanedQuery || cleanedQuery.length < 4) return null;
 
-  const exactIndex = fullText.toLowerCase().indexOf(cleanedQuery.toLowerCase());
-  if (exactIndex >= 0) {
-    return {
-      start: exactIndex,
-      end: exactIndex + cleanedQuery.length,
-    };
+  const exactRanges = mergeRanges(findExactRanges(fullText, cleanedQuery));
+  if (exactRanges.length === 1) {
+    return exactRanges[0];
   }
 
-  const source = normalizeWithMap(fullText);
-  const target = normalizeWithMap(cleanedQuery).normalized;
-  if (!target) return null;
-
-  const normalizedIndex = source.normalized.indexOf(target);
-  if (normalizedIndex >= 0) {
-    return {
-      start: source.map[normalizedIndex],
-      end: source.map[normalizedIndex + target.length - 1] + 1,
-    };
+  const normalizedRanges = mergeRanges(
+    findNormalizedRanges(fullText, cleanedQuery)
+  );
+  if (normalizedRanges.length === 1) {
+    return normalizedRanges[0];
   }
 
   return null;
@@ -996,7 +1034,7 @@ function buildEvidenceFragments(evidenceText: string) {
     unique.push(candidate);
   }
 
-  return unique.slice(0, 6);
+  return unique.sort((left, right) => right.length - left.length).slice(0, 6);
 }
 
 function findEvidenceRanges(fullText: string, evidenceText: string) {
@@ -1030,16 +1068,6 @@ function findEvidenceRanges(fullText: string, evidenceText: string) {
     };
   }
 
-  if (evidenceText.length > 48) {
-    const fallback = findSingleRange(fullText, evidenceText.slice(0, 56));
-    if (fallback) {
-      return {
-        ranges: [fallback],
-        strategy: "fragment" as FindingMatchStrategy,
-      };
-    }
-  }
-
   return {
     ranges: [],
     strategy: "general" as FindingMatchStrategy,
@@ -1066,6 +1094,12 @@ function collectTextNodes(root: HTMLElement) {
   }
 
   return textNodes;
+}
+
+function getHighlightableText(root: HTMLElement) {
+  return collectTextNodes(root)
+    .map((node) => node.nodeValue || "")
+    .join("");
 }
 
 function applyHighlightRange(
@@ -1204,6 +1238,30 @@ export function buildHighlightedHtml(
         ? "rounded bg-yellow-200/90 px-1 py-0.5 ring-1 ring-yellow-300"
         : "rounded bg-emerald-200/90 px-1 py-0.5 ring-1 ring-emerald-300";
 
+    if (finding.evidenceText) {
+      const textContent = getHighlightableText(root);
+      const result = findEvidenceRanges(textContent, finding.evidenceText);
+
+      if (result.ranges.length > 0) {
+        const matchedCount = applyHighlightRanges(
+          root,
+          result.ranges,
+          highlightClass,
+          anchorId
+        );
+
+        if (matchedCount > 0) {
+          return {
+            html: root.innerHTML,
+            matched: true,
+            matchedCount,
+            strategy: result.strategy,
+            anchorId,
+          };
+        }
+      }
+    }
+
     const validSpans =
       finding.spans?.filter(
         (span) =>
@@ -1228,30 +1286,6 @@ export function buildHighlightedHtml(
           strategy: "span" as FindingMatchStrategy,
           anchorId,
         };
-      }
-    }
-
-    if (finding.evidenceText) {
-      const textContent = root.textContent || "";
-      const result = findEvidenceRanges(textContent, finding.evidenceText);
-
-      if (result.ranges.length > 0) {
-        const matchedCount = applyHighlightRanges(
-          root,
-          result.ranges,
-          highlightClass,
-          anchorId
-        );
-
-        if (matchedCount > 0) {
-          return {
-            html: root.innerHTML,
-            matched: true,
-            matchedCount,
-            strategy: result.strategy,
-            anchorId,
-          };
-        }
       }
     }
 

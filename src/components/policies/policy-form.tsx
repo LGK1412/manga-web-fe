@@ -166,16 +166,16 @@ export default function PolicyForm({
                   </p>
                   <ul className="list-inside list-disc space-y-1">
                     <li>
-                      <strong>Save Draft</strong> = lưu nội bộ, chưa có hiệu lực
+                      <strong>Save Draft</strong> = save internally, not yet in effect
                     </li>
                     <li>
-                      <strong>Publish</strong> = chuyển policy sang trạng thái Active
+                      <strong>Publish</strong> = move the policy to Active status
                     </li>
                     <li>
-                      <strong>Public</strong> = hiển thị cho end users
+                      <strong>Public</strong> = visible to end users
                     </li>
                     <li>
-                      Policy có thể <strong>Active</strong> nhưng vẫn{" "}
+                      A policy can be <strong>Active</strong> but still{" "}
                       <strong>Internal only</strong>
                     </li>
                   </ul>
@@ -386,7 +386,7 @@ export default function PolicyForm({
                     content: e.target.value,
                   }))
                 }
-                placeholder={`Ví dụ:
+                placeholder={`Example:
 # Introduction
 Policy overview...
 
