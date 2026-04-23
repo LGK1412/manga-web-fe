@@ -102,7 +102,7 @@ function isAbsoluteUrl(path: string) {
 
 function getAssetCandidates(
   filePath?: string,
-  fallbackFolder = "assets/coverImages"
+  fallbackFolder = "assets/coverImages",
 ) {
   const cleaned = normalizePath(filePath);
   if (!cleaned) return [];
@@ -125,9 +125,7 @@ function getAssetCandidates(
   const withoutAssetsPrefix = cleaned.replace(/^assets\//, "");
   candidates.add(`${apiBase}/${fallbackFolder}/${withoutAssetsPrefix}`);
 
-  return Array.from(candidates).map((x) =>
-    x.replace(/([^:]\/)\/+/g, "$1")
-  );
+  return Array.from(candidates).map((x) => x.replace(/([^:]\/)\/+/g, "$1"));
 }
 
 function SafeImage({
@@ -203,7 +201,10 @@ export default function MangaDetailPage() {
 
   const [donationOpen, setDonationOpen] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-
+  const firstAvailableChapter = manga?.chapters.find((ch) => !ch.locked);
+  const lastReadChapterInfo = manga?.chapters.find(
+    (ch) => ch._id === lastRead?.last_read_chapter?._id,
+  );
   const showLoginRequiredToast = (action: string) => {
     toast({
       title: "Login required",
@@ -216,7 +217,7 @@ export default function MangaDetailPage() {
     try {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
-        { withCredentials: true }
+        { withCredentials: true },
       );
       const nextUserId = res.data?.user_id ?? null;
       setUserId(nextUserId);
@@ -239,7 +240,7 @@ export default function MangaDetailPage() {
 
     axios
       .get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/Chapter/history/${userId}/${mangaId}`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Chapter/history/${userId}/${mangaId}`,
       )
       .then((res) => {
         if (res.data?.last_read_chapter) {
@@ -260,7 +261,7 @@ export default function MangaDetailPage() {
     axios
       .get<MangaDetail>(
         `${process.env.NEXT_PUBLIC_API_URL}/api/manga/detail/${mangaId}`,
-        { withCredentials: true }
+        { withCredentials: true },
       )
       .then(async (res) => {
         const data = res.data;
@@ -273,11 +274,11 @@ export default function MangaDetailPage() {
         try {
           const favRes = await axios.get(
             `${process.env.NEXT_PUBLIC_API_URL}/api/user/favourites`,
-            { withCredentials: true }
+            { withCredentials: true },
           );
           const favourites = favRes.data.favourites || [];
           const isFav = favourites.some(
-            (fav: any) => fav._id === mangaId || fav === mangaId
+            (fav: any) => fav._id === mangaId || fav === mangaId,
           );
           setIsFavourite(isFav);
         } catch {
@@ -287,10 +288,12 @@ export default function MangaDetailPage() {
         try {
           const followRes = await axios.get(
             `${process.env.NEXT_PUBLIC_API_URL}/api/user/following`,
-            { withCredentials: true }
+            { withCredentials: true },
           );
           const following = followRes.data.following || [];
-          const isFollowed = following.some((a: any) => a._id === data.author._id);
+          const isFollowed = following.some(
+            (a: any) => a._id === data.author._id,
+          );
           setIsFollowing(isFollowed);
         } catch {
           setIsFollowing(false);
@@ -326,12 +329,12 @@ export default function MangaDetailPage() {
             const [countRes, mineRes] = await Promise.all([
               axios.get(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/rating-like/count`,
-                { params: { ratingId: r._id } }
+                { params: { ratingId: r._id } },
               ),
               axios
                 .get(
                   `${process.env.NEXT_PUBLIC_API_URL}/api/rating-like/mine`,
-                  { params: { ratingId: r._id }, withCredentials: true }
+                  { params: { ratingId: r._id }, withCredentials: true },
                 )
                 .catch(() => ({ data: { liked: false } })),
             ]);
@@ -343,7 +346,7 @@ export default function MangaDetailPage() {
                 liked: !!mineRes.data?.liked,
               },
             ] as const;
-          })
+          }),
         );
 
         const next: Record<string, { count: number; liked: boolean }> = {};
@@ -362,7 +365,7 @@ export default function MangaDetailPage() {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/rating-like/toggle`,
         { ratingId },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       setLikesById((prev) => ({
@@ -388,7 +391,7 @@ export default function MangaDetailPage() {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/user/toggle-favourite`,
         { mangaId },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       const { isFavourite } = res.data;
@@ -403,10 +406,9 @@ export default function MangaDetailPage() {
       console.error("Error adding/removing from favorites:", err);
       toast({
         title: "Unable to update favorites",
-        description:
-          axios.isAxiosError(err)
-            ? err.response?.data?.message || "Please try again."
-            : "Please try again.",
+        description: axios.isAxiosError(err)
+          ? err.response?.data?.message || "Please try again."
+          : "Please try again.",
         variant: "destructive",
       });
     }
@@ -417,7 +419,7 @@ export default function MangaDetailPage() {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/user/toggle-follow`,
         { authorId: manga?.author?._id },
-        { withCredentials: true }
+        { withCredentials: true },
       );
       setIsFollowing(res.data.isFollowing);
     } catch (err: any) {
@@ -435,7 +437,7 @@ export default function MangaDetailPage() {
     try {
       const mineRes = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/rating/mine`,
-        { params: { mangaId }, withCredentials: true }
+        { params: { mangaId }, withCredentials: true },
       );
       const mine = (mineRes.data?.rating || null) as RatingItem | null;
       setMyRating(mine);
@@ -459,7 +461,7 @@ export default function MangaDetailPage() {
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/rating/upsert`,
         { mangaId, rating: ratingInput, comment: ratingComment.trim() },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       setMyRating({ _id: "temp", rating: ratingInput, comment: ratingComment });
@@ -482,7 +484,7 @@ export default function MangaDetailPage() {
       try {
         const summaryRes = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/api/rating/summary`,
-          { params: { mangaId } }
+          { params: { mangaId } },
         );
         setRatingSummary(summaryRes.data || null);
       } catch {
@@ -500,12 +502,13 @@ export default function MangaDetailPage() {
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/chapter-purchase/${chapterId}`,
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       toast({
-        title: "Success 🎉",
+        title: "Purchase Success",
         description: `You purchased the chapter for ${price} points!`,
+        variant: "success",
       });
 
       setManga((prev) =>
@@ -513,10 +516,10 @@ export default function MangaDetailPage() {
           ? {
               ...prev,
               chapters: prev.chapters.map((ch) =>
-                ch._id === chapterId ? { ...ch, locked: false } : ch
+                ch._id === chapterId ? { ...ch, locked: false } : ch,
               ),
             }
-          : prev
+          : prev,
       );
     } catch (err: any) {
       toast({
@@ -531,7 +534,9 @@ export default function MangaDetailPage() {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const isOwnStory =
-    !!userId && !!manga?.author?._id && String(userId) === String(manga.author._id);
+    !!userId &&
+    !!manga?.author?._id &&
+    String(userId) === String(manga.author._id);
 
   const handleOpenReportDialog = async () => {
     const currentUserId = userId ?? (await fetchCurrentUser());
@@ -577,7 +582,7 @@ export default function MangaDetailPage() {
           reason,
           description,
         },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       toast({
@@ -679,7 +684,7 @@ export default function MangaDetailPage() {
                             manga.author.avatar
                               ? getAssetCandidates(
                                   manga.author.avatar,
-                                  "assets/avatars"
+                                  "assets/avatars",
                                 )[0] || "/placeholder.svg"
                               : "/placeholder.svg"
                           }
@@ -768,22 +773,54 @@ export default function MangaDetailPage() {
                     <div className="flex flex-wrap gap-3">
                       {manga.chapters.length > 0 && (
                         <>
-                          <Button size="lg" asChild>
-                            <Link href={`/chapter/${manga.chapters[0]._id}`}>
+                          {firstAvailableChapter ? (
+                            <Button size="lg" asChild>
+                              <Link
+                                href={`/chapter/${firstAvailableChapter._id}`}
+                              >
+                                <BookOpen className="w-4 h-4 mr-2" />
+                                Read now
+                              </Link>
+                            </Button>
+                          ) : (
+                            <Button size="lg" disabled>
                               <BookOpen className="w-4 h-4 mr-2" />
-                              Read now
-                            </Link>
-                          </Button>
+                              No free chapters
+                            </Button>
+                          )}
 
                           {lastRead?.last_read_chapter && (
-                            <Button size="lg" variant="secondary" asChild>
-                              <Link
-                                href={`/chapter/${lastRead.last_read_chapter._id}`}
-                              >
-                                <ArrowRight className="w-4 h-4 mr-2" />
-                                Continue reading chapter{" "}
-                                {lastRead.last_read_chapter.order}
-                              </Link>
+                            <Button
+                              size="lg"
+                              variant="secondary"
+                              asChild={!lastReadChapterInfo?.locked} // Chỉ dùng Link nếu không bị khóa
+                              onClick={() => {
+                                if (lastReadChapterInfo?.locked) {
+                                  toast({
+                                    title: "Chapter Locked",
+                                    description:
+                                      "You need to purchase this chapter to continue reading.",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              {lastReadChapterInfo?.locked ? (
+                                // Nếu bị khóa thì render div/span thay vì Link để tránh chuyển trang
+                                <span className="flex items-center cursor-not-allowed opacity-70">
+                                  <ArrowRight className="w-4 h-4 mr-2" />
+                                  Continue chapter{" "}
+                                  {lastRead.last_read_chapter.order} (Locked)
+                                </span>
+                              ) : (
+                                <Link
+                                  href={`/chapter/${lastRead.last_read_chapter._id}`}
+                                >
+                                  <ArrowRight className="w-4 h-4 mr-2" />
+                                  Continue reading chapter{" "}
+                                  {lastRead.last_read_chapter.order}
+                                </Link>
+                              )}
                             </Button>
                           )}
                         </>
@@ -1030,7 +1067,7 @@ export default function MangaDetailPage() {
                             r.user?.avatar
                               ? getAssetCandidates(
                                   r.user.avatar,
-                                  "assets/avatars"
+                                  "assets/avatars",
                                 )[0] || "/placeholder.svg"
                               : "/placeholder.svg"
                           }

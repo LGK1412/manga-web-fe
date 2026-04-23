@@ -38,23 +38,22 @@ export default function PayoutProfilePage() {
   const apiBase = process.env.NEXT_PUBLIC_API_URL;
 
   const banks = [
-    { label: "Vietcombank", value: "vietcombank" },
-    { label: "Techcombank", value: "techcombank" },
-    { label: "BIDV", value: "bidv" },
-    { label: "VietinBank", value: "vietinbank" },
-    { label: "MB Bank", value: "mbbank" },
-    { label: "ACB", value: "acb" },
-    { label: "VPBank", value: "vpbank" },
-    { label: "TPBank", value: "tpbank" },
-    { label: "Sacombank", value: "sacombank" },
-    { label: "HDBank", value: "hdbank" },
-    { label: "OCB", value: "ocb" },
-    { label: "SHB", value: "shb" },
-    { label: "VIB", value: "vib" },
+    { label: "Vietcombank", value: "Vietcombank" },
+    { label: "Techcombank", value: "Techcombank" },
+    { label: "BIDV", value: "BIDV" },
+    { label: "VietinBank", value: "Vietinbank" },
+    { label: "MB Bank", value: "MBBank" },
+    { label: "ACB", value: "ACB" },
+    { label: "VPBank", value: "VPBank" },
+    { label: "TPBank", value: "TPBank" },
+    { label: "Sacombank", value: "Sacombank" },
+    { label: "HDBank", value: "HDBank" },
+    { label: "OCB", value: "OCB" },
+    { label: "SHB", value: "SHB" },
+    { label: "VIB", value: "VIB" },
   ];
 
-  // --- States ---
-  const [profile, setProfile] = useState<any>({
+  const defaultProfile = {
     fullName: "",
     citizenId: "",
     dateOfBirth: "",
@@ -63,7 +62,9 @@ export default function PayoutProfilePage() {
     bankName: "",
     bankAccount: "",
     bankAccountName: "",
-  });
+  };
+
+  const [profile, setProfile] = useState<any>(defaultProfile);
 
   const [openBank, setOpenBank] = useState(false);
   const [kycStatus, setKycStatus] = useState<KycStatus>("not_found");
@@ -76,8 +77,7 @@ export default function PayoutProfilePage() {
   const [withdrawAmount, setWithdrawAmount] = useState<string>("");
   const [preview, setPreview] = useState<any>(null);
 
-  // Files state
-  const [identityFiles, setIdentityFiles] = useState<(File | null)[]>([
+  const [identityFiles, setIdentityFiles] = useState<(File | string | null)[]>([
     null,
     null,
   ]);
@@ -85,7 +85,6 @@ export default function PayoutProfilePage() {
   const isReadOnly =
     kycStatus === "pending" || (kycStatus === "verified" && !editing);
 
-  // --- Fetch Data ---
   const fetchProfile = async () => {
     try {
       const res = await axios.get(`${apiBase}/api/payout-profile/me`, {
@@ -96,26 +95,23 @@ export default function PayoutProfilePage() {
       setKycStatus(data.kycStatus);
 
       if (data.kycStatus === "not_found") {
-        setProfile({
-          fullName: "",
-          citizenId: "",
-          dateOfBirth: "",
-          address: "",
-          taxCode: "",
-          bankName: "",
-          bankAccount: "",
-          bankAccountName: "",
-        });
+        setProfile(defaultProfile);
         return;
       }
 
       if (data.profile) {
         setProfile({
+          ...defaultProfile,
           ...data.profile,
           dateOfBirth: data.profile.dateOfBirth
             ? new Date(data.profile.dateOfBirth).toISOString().split("T")[0]
             : "",
         });
+
+        setIdentityFiles([
+          data.profile.identityImages?.[0] || null,
+          data.profile.identityImages?.[1] || null,
+        ]);
       }
     } catch (error) {
       console.error("Fetch profile error", error);
@@ -157,20 +153,21 @@ export default function PayoutProfilePage() {
     return () => clearTimeout(timer);
   }, [withdrawAmount]);
 
-  // --- Actions ---
   const submitProfile = async () => {
     setLoadingAction(true);
     const form = new FormData();
 
-    // Append text fields
     Object.entries(profile).forEach(([k, v]) => {
       if (v && k !== "identityImages") {
         form.append(k, String(v));
       }
     });
 
-    // Append files
-    identityFiles.forEach((f) => f && form.append("identityImages", f));
+    identityFiles.forEach((f) => {
+      if (f instanceof File) {
+        form.append("identityImages", f);
+      }
+    });
 
     try {
       await axios.post(`${apiBase}/api/payout-profile/submit`, form, {
@@ -205,17 +202,23 @@ export default function PayoutProfilePage() {
       identityImages,
       ...restProfile
     } = profile;
-
     Object.entries(restProfile).forEach(([k, v]) => {
       if (v !== null && v !== undefined) {
         form.append(k, String(v));
       }
     });
 
-    // Chỉ append files nếu người dùng thực sự chọn file mới
-    identityFiles.forEach((f) => {
-      if (f) form.append("identityImages", f);
+    const existingImages: string[] = [];
+
+    identityFiles.forEach((f, index) => {
+      if (f instanceof File) {
+        form.append("identityImages", f);
+      } else {
+        const old = typeof f === "string" ? f : profile.identityImages?.[index];
+        if (old) existingImages.push(old);
+      }
     });
+    form.append("existingImages", JSON.stringify(existingImages));
 
     try {
       await axios.patch(`${apiBase}/api/payout-profile/resubmit`, form, {
@@ -225,6 +228,7 @@ export default function PayoutProfilePage() {
       toast({
         title: "Update successfully",
         description: "Your profile has been resubmitted",
+        variant: "success",
       });
 
       setEditing(false);
@@ -318,7 +322,7 @@ export default function PayoutProfilePage() {
 
         <div className="relative space-y-4">
           <div className="flex justify-between items-start">
-            <h3 className="font-bold text-gray-800">Withdrawal</h3>
+            <h3 className="font-bold text-gray-800">Withdraw</h3>
             <div className="text-right">
               <p className="text-[15px] font-bold text-gray-400 uppercase">
                 Available Balance
@@ -537,8 +541,8 @@ export default function PayoutProfilePage() {
                   </label>
 
                   <Input
-                    value={profile.bankAccount
-                      ?.replace(/\s/g, "")
+                    value={(profile.bankAccount || "")
+                      .replace(/\s/g, "")
                       .replace(/(.{4})/g, "$1 ")
                       .trim()}
                     onChange={(e) => {
