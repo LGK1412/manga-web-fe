@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Star, Eye, BookOpen, Pencil } from "lucide-react";
+import { BookOpen, Eye, Pencil, Star } from "lucide-react";
+
+import { LicenseVerifiedBadge } from "@/components/LicenseVerifiedBadge";
+import { hasApprovedLicenseStatus } from "@/lib/license-status";
 
 type Card = {
   key: string;
@@ -17,6 +20,7 @@ type Card = {
   chapters: number;
   rating: number;
   updatedAtMs?: number;
+  licenseStatus?: string;
 };
 
 function normalizePath(path?: string) {
@@ -32,7 +36,10 @@ function isAbsoluteUrl(path: string) {
   return /^https?:\/\//i.test(path);
 }
 
-function getImageCandidates(filePath?: string, fallbackFolder = "assets/coverImages") {
+function getImageCandidates(
+  filePath?: string,
+  fallbackFolder = "assets/coverImages",
+) {
   const cleaned = normalizePath(filePath);
   if (!cleaned) return [];
 
@@ -54,7 +61,9 @@ function getImageCandidates(filePath?: string, fallbackFolder = "assets/coverIma
   const withoutAssetsPrefix = cleaned.replace(/^assets\//, "");
   candidates.add(`${apiBase}/${fallbackFolder}/${withoutAssetsPrefix}`);
 
-  return Array.from(candidates).map((x) => x.replace(/([^:]\/)\/+/g, "$1"));
+  return Array.from(candidates).map((url) =>
+    url.replace(/([^:]\/)\/+/g, "$1"),
+  );
 }
 
 function CoverImage({
@@ -75,7 +84,7 @@ function CoverImage({
 
   if (!urls.length) {
     return (
-      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-100 dark:from-muted to-slate-200 dark:to-muted text-slate-500 dark:text-muted-foreground">
+      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-500 dark:from-muted dark:to-muted dark:text-muted-foreground">
         No image
       </div>
     );
@@ -100,9 +109,12 @@ function CoverImage({
 
 function fmtViews(n?: number) {
   const v = n ?? 0;
-  if (v >= 1_000_000)
+  if (v >= 1_000_000) {
     return `${(v / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  }
+  if (v >= 1_000) {
+    return `${(v / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  }
   return `${v}`;
 }
 
@@ -113,7 +125,8 @@ export function MangaCard({
   item: Card;
   compact?: boolean;
 }) {
-  const isFull = /full|hoàn|complete|completed/i.test(item.status ?? "");
+  const isFull = /full|complete|completed|ho\u00e0n/i.test(item.status ?? "");
+  const showVerifiedBadge = hasApprovedLicenseStatus(item.licenseStatus);
 
   return (
     <Link
@@ -121,7 +134,7 @@ export function MangaCard({
       aria-label={item.title}
       className={[
         "group block overflow-hidden rounded-xl bg-white dark:bg-card",
-        "ring-1 ring-black/5 dark:ring-border transition-all duration-200",
+        "ring-1 ring-black/5 transition-all duration-200 dark:ring-border",
         "hover:-translate-y-0.5 hover:shadow-lg hover:ring-black/10 dark:hover:ring-border",
         compact ? "" : "shadow-sm",
       ].join(" ")}
@@ -135,7 +148,7 @@ export function MangaCard({
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-100 dark:from-muted to-slate-200 dark:to-muted text-slate-500 dark:text-muted-foreground">
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-500 dark:from-muted dark:to-muted dark:text-muted-foreground">
             No image
           </div>
         )}
@@ -144,7 +157,7 @@ export function MangaCard({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
 
         <div className="absolute left-2 top-2 flex flex-wrap gap-2">
-          {item.status && (
+          {item.status ? (
             <span
               className={[
                 "rounded px-2 py-0.5 text-[11px] font-medium text-white shadow",
@@ -153,22 +166,23 @@ export function MangaCard({
             >
               {item.status}
             </span>
-          )}
-          {!item.published && (
+          ) : null}
+          {!item.published ? (
             <span className="inline-flex items-center gap-1 rounded bg-amber-600 px-2 py-0.5 text-[11px] font-medium text-white shadow">
               <Pencil className="h-3 w-3" />
               Draft
             </span>
-          )}
+          ) : null}
         </div>
 
-        {item.styles?.length ? (
-          <div className="absolute right-2 top-2">
+        <div className="absolute right-2 top-2 flex flex-col items-end gap-2">
+          {showVerifiedBadge ? <LicenseVerifiedBadge /> : null}
+          {item.styles?.length ? (
             <span className="rounded bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur">
               {item.styles[0]}
             </span>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
           <div className="line-clamp-2 text-[13px] font-semibold leading-snug drop-shadow">
@@ -183,15 +197,15 @@ export function MangaCard({
         </div>
       </div>
 
-      <div className="bg-white dark:bg-card p-2">
+      <div className="bg-white p-2 dark:bg-card">
         <div className="mb-1 flex min-h-[20px] flex-wrap gap-1">
-          {item.genres.slice(0, 2).map((g) => (
+          {item.genres.slice(0, 2).map((genre) => (
             <span
-              key={g}
-              className="rounded-full border border-slate-200 dark:border-input bg-slate-50 dark:bg-muted px-2 py-0.5 text-[10px] text-slate-700 dark:text-muted-foreground"
-              title={g}
+              key={genre}
+              className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-700 dark:border-input dark:bg-muted dark:text-muted-foreground"
+              title={genre}
             >
-              {g}
+              {genre}
             </span>
           ))}
         </div>
@@ -212,14 +226,14 @@ export function MangaCard({
 
 export function MangaCardSkeleton() {
   return (
-    <div className="overflow-hidden rounded-xl bg-white dark:bg-card ring-1 ring-black/5 dark:ring-border">
+    <div className="overflow-hidden rounded-xl bg-white ring-1 ring-black/5 dark:bg-card dark:ring-border">
       <div
         className="relative w-full animate-pulse"
         style={{ paddingBottom: "150%" }}
       >
         <div className="absolute inset-0 bg-slate-200 dark:bg-muted" />
       </div>
-      <div className="space-y-2 bg-white dark:bg-card p-2">
+      <div className="space-y-2 bg-white p-2 dark:bg-card">
         <div className="h-4 w-5/6 rounded bg-slate-200" />
         <div className="flex gap-1">
           <div className="h-4 w-12 rounded-full bg-slate-200" />

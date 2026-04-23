@@ -49,6 +49,7 @@ type MangaRaw = {
   chapters_count?: number;
   rating_avg?: number;
   isPublish?: boolean;
+  licenseStatus?: string;
 };
 
 type CardItem = {
@@ -64,6 +65,7 @@ type CardItem = {
   chapters: number;
   rating: number;
   updatedAtMs?: number;
+  licenseStatus?: string;
 
   _genreIds?: string[];
   _styleIds?: string[];
@@ -194,6 +196,7 @@ function mapToCard(x: MangaRaw): CardItem {
     chapters: x.chapters_count ?? 0,
     rating: x.rating_avg ?? 0,
     updatedAtMs,
+    licenseStatus: x.licenseStatus,
 
     _genreIds: extractIds(x.genres),
     _styleIds: extractIds(x.styles),

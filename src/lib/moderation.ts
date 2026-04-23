@@ -7,8 +7,18 @@ import type {
   QueueItem,
 } from "@/lib/typesLogs";
 
+function resolveModerationBaseUrl() {
+  const rawBaseUrl = (
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333"
+  ).trim();
+
+  // Moderation routes are exposed at `/moderation/*`, so tolerate env values
+  // configured either as `http://host` or `http://host/api`.
+  return rawBaseUrl.replace(/\/+$/, "").replace(/\/api$/i, "");
+}
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
+  baseURL: resolveModerationBaseUrl(),
   withCredentials: true,
 });
 

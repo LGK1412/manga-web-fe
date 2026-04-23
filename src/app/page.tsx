@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import axios from "axios";
 import { Navbar } from "@/components/navbar";
-import { Star, Eye, BookOpen, ChevronLeft, ChevronRight, TrendingUp, Clock, Award } from "lucide-react";
+import { Eye, BookOpen, ChevronLeft, ChevronRight, TrendingUp, Clock, Award } from "lucide-react";
+import { LicenseVerifiedBadge } from "@/components/LicenseVerifiedBadge";
 import { MangaCard } from "@/components/MangaCard";
 import { Footer } from "@/components/footer";
+import { hasApprovedLicenseStatus } from "@/lib/license-status";
 import { useTheme } from "next-themes";
 import StoryRecomment from "@/components/StoryRecomment";
 // ================= Types
@@ -28,6 +30,7 @@ type MangaRaw = {
   updatedAt?: string;
   chapters_count?: number;
   rating_avg?: number;
+  licenseStatus?: string;
 };
 
 type Card = {
@@ -43,6 +46,7 @@ type Card = {
   chapters: number;
   rating: number;
   updatedAtMs?: number;
+  licenseStatus?: string;
 };
 
 // ================= Helpers
@@ -146,6 +150,7 @@ function mapToCard(x: MangaRaw): Card {
     chapters: x.chapters_count ?? 0,
     rating: x.rating_avg ?? 0,
     updatedAtMs,
+    licenseStatus: x.licenseStatus,
   };
 }
 
@@ -714,6 +719,11 @@ export default function HomePage() {
                           No cover
                         </div>
                       )}
+                      {hasApprovedLicenseStatus(m.licenseStatus) ? (
+                        <div className="absolute right-1 top-1">
+                          <LicenseVerifiedBadge size="sm" />
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="min-w-0 flex-1">

@@ -5,8 +5,11 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
-import { Star, BookOpen, Eye, Clock, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { BookOpen, Eye, Clock, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+
+import { LicenseVerifiedBadge } from "@/components/LicenseVerifiedBadge";
+import { hasApprovedLicenseStatus } from "@/lib/license-status";
 
 interface Genre {
   _id: string;
@@ -36,6 +39,7 @@ interface Manga {
   rating_avg: number;
   chapters_count: number;
   latest_chapter?: LatestChapter;
+  licenseStatus?: string;
 }
 
 function normalizePath(path?: string) {
@@ -308,6 +312,11 @@ export default function StoryRecomment() {
                       alt={manga.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
+                    {hasApprovedLicenseStatus(manga.licenseStatus) ? (
+                      <div className="absolute right-3 top-3">
+                        <LicenseVerifiedBadge />
+                      </div>
+                    ) : null}
                     {/* badge Ongoing + Rating */}
                   </div>
                 </div>
