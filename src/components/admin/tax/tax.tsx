@@ -497,11 +497,11 @@ export default function TaxCard() {
                         <div className="flex gap-1 justify-end">
                           {t.status !== "paid" && t.status !== "cancelled" && (
                             <>
-                              <PayTaxModal tax={t} onSuccess={fetchTaxs} />
                               <CancelTaxModal
                                 taxId={t._id}
                                 onSuccess={fetchTaxs}
                               />
+                              <PayTaxModal tax={t} onSuccess={fetchTaxs} />
                             </>
                           )}
                           {t.status === "paid" && (

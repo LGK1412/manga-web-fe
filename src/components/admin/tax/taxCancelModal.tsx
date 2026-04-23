@@ -46,8 +46,8 @@ export default function CancelTaxModal({
 
       toast({
         title: "Cancelled",
-        description:
-          "The settlement has been moved to Cancelled status",
+        description: "The settlement has been moved to Cancelled status",
+        variant: "success",
       });
       setOpen(false);
       onSuccess();

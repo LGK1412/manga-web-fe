@@ -1,5 +1,5 @@
 "use client";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 export default function ImageBox({
@@ -8,9 +8,9 @@ export default function ImageBox({
   disabled,
   label,
   onChange,
-  className, // 1. Receive the prop
+  className,
 }: {
-  file: File | null;
+  file: string | File | null;
   imageUrl?: string;
   disabled?: boolean;
   label: string;
@@ -18,8 +18,18 @@ export default function ImageBox({
   className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
-  const preview = file ? URL.createObjectURL(file) : imageUrl || null;
+  useEffect(() => {
+    if (file instanceof File) {
+      const url = URL.createObjectURL(file);
+      setPreview(url);
+
+      return () => URL.revokeObjectURL(url);
+    }
+
+    setPreview(imageUrl || null);
+  }, [file, imageUrl]);
 
   return (
     <div className="space-y-1 w-full h-full">

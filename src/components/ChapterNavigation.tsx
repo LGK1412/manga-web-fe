@@ -46,9 +46,12 @@ export default function ChapterNavigation() {
 
     setLoading(true);
     axios
-      .get<ChapterDetail>(`${process.env.NEXT_PUBLIC_API_URL}/api/Chapter/content/${id}`, {
-        withCredentials: true,
-      })
+      .get<ChapterDetail>(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Chapter/content/${id}`,
+        {
+          withCredentials: true,
+        },
+      )
       .then((res) => {
         // Lấy mangaId từ chapter data
         const chapterData = res.data;
@@ -60,14 +63,16 @@ export default function ChapterNavigation() {
           // Fetch full manga detail với chapter list
           return axios.get<MangaDetail>(
             `${process.env.NEXT_PUBLIC_API_URL}/api/manga/detail/${extractedMangaId}`,
-            { withCredentials: true }
+            { withCredentials: true },
           );
         } else {
           throw new Error("Cannot find mangaId in chapter data");
         }
       })
       .then((res) => {
-        const sorted = [...(res.data.chapters || [])].sort((a, b) => a.order - b.order);
+        const sorted = [...(res.data.chapters || [])].sort(
+          (a, b) => a.order - b.order,
+        );
         setChapterList(sorted);
       })
       .catch((err) => {
@@ -82,13 +87,16 @@ export default function ChapterNavigation() {
   }, [id, toast]);
 
   // Tìm vị trí chapter hiện tại
-  const currentIndex = useMemo(() =>
-    chapterList.findIndex((ch) => ch._id === id),
-    [chapterList, id]
+  const currentIndex = useMemo(
+    () => chapterList.findIndex((ch) => ch._id === id),
+    [chapterList, id],
   );
 
   const prevChapter = currentIndex > 0 ? chapterList[currentIndex - 1] : null;
-  const nextChapter = currentIndex < chapterList.length - 1 ? chapterList[currentIndex + 1] : null;
+  const nextChapter =
+    currentIndex < chapterList.length - 1
+      ? chapterList[currentIndex + 1]
+      : null;
 
   // Hàm mua chapter (copy từ Story page)
   const handleBuyChapter = async (chapterId: string, price: number) => {
@@ -96,7 +104,7 @@ export default function ChapterNavigation() {
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/chapter-purchase/${chapterId}`,
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       toast({
@@ -107,8 +115,8 @@ export default function ChapterNavigation() {
       // Cập nhật lại list (bỏ lock cho chapter vừa mua)
       setChapterList((prev) =>
         prev.map((ch) =>
-          ch._id === chapterId ? { ...ch, locked: false } : ch
-        )
+          ch._id === chapterId ? { ...ch, locked: false } : ch,
+        ),
       );
     } catch (err: any) {
       toast({
@@ -119,6 +127,21 @@ export default function ChapterNavigation() {
     }
   };
 
+  const handleNavigate = (targetChapter: Chapter | null) => {
+    if (!targetChapter) return;
+
+    if (targetChapter.locked) {
+      toast({
+        title: "Chapter Locked",
+        description: `Chapter ${targetChapter.order} requires ${targetChapter.price} points. Please buy it in the list below.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    router.push(`/chapter/${targetChapter._id}`);
+  };
+
   return (
     <div className="mt-10 flex flex-col items-center gap-8">
       {/* Prev / Next Buttons */}
@@ -127,7 +150,7 @@ export default function ChapterNavigation() {
           variant="outline"
           size="lg"
           disabled={!prevChapter}
-          onClick={() => prevChapter && router.push(`/chapter/${prevChapter._id}`)}
+          onClick={() => handleNavigate(prevChapter)}
           className="flex-1"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -138,7 +161,7 @@ export default function ChapterNavigation() {
           variant="outline"
           size="lg"
           disabled={!nextChapter}
-          onClick={() => nextChapter && router.push(`/chapter/${nextChapter._id}`)}
+          onClick={() => handleNavigate(nextChapter)}
           className="flex-1"
         >
           Next
@@ -170,8 +193,8 @@ export default function ChapterNavigation() {
                     isCurrent
                       ? "bg-primary/10 border-primary cursor-default"
                       : chapter.locked
-                      ? "bg-amber-50/50 border-amber-200 hover:bg-amber-100/50 cursor-not-allowed"
-                      : "hover:bg-muted cursor-pointer"
+                        ? "bg-amber-50/50 border-amber-200 hover:bg-amber-100/50 cursor-not-allowed"
+                        : "hover:bg-muted cursor-pointer"
                   }`}
                   onClick={() => {
                     if (!isCurrent && !chapter.locked) {
@@ -182,10 +205,15 @@ export default function ChapterNavigation() {
                   {/* Left: Chapter info */}
                   <div className="flex items-center gap-3 flex-1">
                     <span className="font-medium">Chapter {chapter.order}</span>
-                    <span className="text-sm line-clamp-1">{chapter.title}</span>
+                    <span className="text-sm line-clamp-1">
+                      {chapter.title}
+                    </span>
 
                     {isCurrent && (
-                      <Badge variant="secondary" className="text-xs font-medium">
+                      <Badge
+                        variant="secondary"
+                        className="text-xs font-medium"
+                      >
                         Now reading
                       </Badge>
                     )}
@@ -199,7 +227,10 @@ export default function ChapterNavigation() {
                   <div className="flex items-center gap-3">
                     {chapter.locked ? (
                       <>
-                        <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200">
+                        <Badge
+                          variant="secondary"
+                          className="bg-amber-50 text-amber-700 border-amber-200"
+                        >
                           {chapter.price} points
                         </Badge>
                         <Button
@@ -224,7 +255,9 @@ export default function ChapterNavigation() {
         </div>
       )}
 
-      {loading && <p className="text-sm text-muted-foreground">Loading chapter list...</p>}
+      {loading && (
+        <p className="text-sm text-muted-foreground">Loading chapter list...</p>
+      )}
     </div>
   );
 }

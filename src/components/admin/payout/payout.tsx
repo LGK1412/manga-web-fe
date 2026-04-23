@@ -485,12 +485,12 @@ export default function PayoutCard({ onWithdrawUpdated }: PayoutCardProps) {
                         <div className="flex gap-1 justify-end">
                           {p.status !== "paid" && p.status !== "cancelled" && (
                             <>
-                              <PayPayoutModal
-                                payout={p}
-                                onSuccess={handleSuccess}
-                              />
                               <CancelPayoutModal
                                 payoutId={p._id}
+                                onSuccess={handleSuccess}
+                              />
+                              <PayPayoutModal
+                                payout={p}
                                 onSuccess={handleSuccess}
                               />
                             </>
